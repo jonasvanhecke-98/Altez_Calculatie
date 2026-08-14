@@ -161,6 +161,17 @@
     .selection-search-value { margin-top: 4px; color: var(--blue-dark); font-size: 12px; overflow-wrap: anywhere; }
     .selection-search-meta { margin-top: 4px; color: var(--muted); font-size: 11px; }
     .selection-search-row button { margin-top: 7px; }
+    .reliable-filter-list { display: grid; gap: 8px; margin: 10px 0; }
+    .reliable-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 7px; align-items: center; }
+    .reliable-filter-row button { width: auto; min-width: 38px; }
+    .search-result-card { margin-top: 10px; padding: 11px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
+    .search-result-card strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .search-result-card span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .search-result-card button { margin-top: 8px; }
+    @media (max-width: 520px) {
+      .reliable-filter-row { grid-template-columns: 1fr; }
+      .reliable-filter-row button { width: 100%; }
+    }
 
     @media (max-width: 420px) {
       .button-row.three { grid-template-columns: 1fr; }
@@ -223,39 +234,38 @@
   <section id="selection-search-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>Betrouwbare parameters</h2>
-        <p class="subtitle">Zoek objecten op twee manieren: rechtstreeks via een betrouwbare parameter of vertrekkend vanuit een geselecteerd object.</p>
+        <h2>Zoeken vanuit selectie</h2>
+        <p class="subtitle">Selecteer één element. De plugin bepaalt automatisch het meest waarschijnlijke elementtype en zoekt dezelfde types in het geanalyseerde model.</p>
       </div>
-      <span class="badge">Zoeken</span>
+      <span class="badge">Selectie</span>
     </div>
 
-    <div class="grouping-workspace" style="margin-bottom:12px;">
-      <span class="workspace-label">Functie 1</span>
-      <h2>Zoeken op betrouwbare parameter</h2>
-      <p class="subtitle">Kies eerst een betrouwbare parameter en daarna de gewenste waarde. De plugin zoekt alle objecten met die combinatie.</p>
-      <div style="display:grid; gap:8px;">
-        <select id="reliable-search-parameter">
-          <option value="">Kies een betrouwbare parameter...</option>
-        </select>
-        <select id="reliable-search-value" disabled>
-          <option value="">Kies eerst een parameter...</option>
-        </select>
-        <button id="run-reliable-search" type="button" disabled>Zoek objecten</button>
-      </div>
-      <div id="reliable-search-status" class="scope-box hidden" style="margin-bottom:0;"></div>
+    <div id="selection-search-status" class="scope-box">
+      <strong>Nog geen object ingelezen</strong>
+      <span>Selecteer precies één object in Trimble Connect en klik op onderstaande knop.</span>
     </div>
 
-    <div class="grouping-workspace">
-      <span class="workspace-label">Functie 2</span>
-      <h2>Zoeken vanuit selectie</h2>
-      <p class="subtitle">Selecteer één object in het model. Kies daarna een eigenschap om alle andere objecten met dezelfde waarde te vinden.</p>
-      <div id="selection-search-status" class="scope-box">
-        <strong>Nog geen object ingelezen</strong>
-        <span>Selecteer één object in Trimble Connect en klik op onderstaande knop.</span>
+    <button id="read-selection" type="button">Herken geselecteerd type</button>
+    <div id="selection-search-list" class="selection-search-list"></div>
+  </section>
+
+  <section id="reliable-search-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Zoeken op betrouwbare parameter</h2>
+        <p class="subtitle">Bouw een zoekopdracht met één of meerdere betrouwbare parameters. Extra filters worden standaard met EN gecombineerd.</p>
       </div>
-      <button id="read-selection" type="button">Lees geselecteerd object</button>
-      <div id="selection-search-list" class="selection-search-list"></div>
+      <span class="badge">Filters</span>
     </div>
+
+    <div id="reliable-filter-list" class="reliable-filter-list"></div>
+
+    <div class="button-row">
+      <button id="add-reliable-filter" class="secondary" type="button">+ Filter toevoegen</button>
+      <button id="run-reliable-search" type="button" disabled>Zoek objecten</button>
+    </div>
+
+    <div id="reliable-search-status" class="scope-box hidden" style="margin-bottom:0;"></div>
   </section>
 
   <section id="work-panel" class="panel hidden">
@@ -311,6 +321,7 @@
     let modelRefreshTimer = null;
     let coloredSelectors = [];
     let selectedSearchElement = null;
+    let reliableSearchFilters = [];
 
     const PROPERTY_BATCH_SIZE = 150;
     const PROPERTY_RETRIES = 1;
@@ -340,8 +351,9 @@
       summaryPanel: document.getElementById("summary-panel"),
       workPanel: document.getElementById("work-panel"),
       selectionSearchPanel: document.getElementById("selection-search-panel"),
-      reliableSearchParameter: document.getElementById("reliable-search-parameter"),
-      reliableSearchValue: document.getElementById("reliable-search-value"),
+      reliableSearchPanel: document.getElementById("reliable-search-panel"),
+      reliableFilterList: document.getElementById("reliable-filter-list"),
+      addReliableFilter: document.getElementById("add-reliable-filter"),
       runReliableSearch: document.getElementById("run-reliable-search"),
       reliableSearchStatus: document.getElementById("reliable-search-status"),
       selectionSearchStatus: document.getElementById("selection-search-status"),
@@ -774,11 +786,12 @@
       ui.summaryPanel.classList.remove("hidden");
       ui.workPanel.classList.remove("hidden");
       ui.selectionSearchPanel.classList.remove("hidden");
+      ui.reliableSearchPanel.classList.remove("hidden");
       ui.activeGrouping.classList.add("hidden");
       ui.recommendationSection.classList.remove("hidden");
       renderRecommendations();
       renderParameterList();
-      populateReliableSearchParameters();
+      resetReliableSearch();
     }
 
     function recommendedParameters() {
@@ -979,86 +992,154 @@
       }
     }
 
-    function populateReliableSearchParameters() {
-      const reliable = recommendedParameters();
-      ui.reliableSearchParameter.innerHTML = '<option value="">Kies een betrouwbare parameter...</option>';
-      reliable.forEach(function(parameter) {
-        const option = document.createElement("option");
-        option.value = parameter.key;
-        option.textContent = parameter.key;
-        ui.reliableSearchParameter.appendChild(option);
+    function reliableParametersForSearch() {
+      return recommendedParameters().filter(function(parameter) {
+        return parameter.filled > 0 && parameter.role !== "Identificatie";
       });
-      ui.reliableSearchValue.innerHTML = '<option value="">Kies eerst een parameter...</option>';
-      ui.reliableSearchValue.disabled = true;
-      ui.runReliableSearch.disabled = true;
-      ui.reliableSearchStatus.classList.add("hidden");
     }
 
-    function updateReliableSearchValues() {
-      const key = ui.reliableSearchParameter.value;
-      const parameter = parameterResults.find(function(item) { return item.key === key; });
-      ui.reliableSearchValue.innerHTML = "";
-      ui.runReliableSearch.disabled = true;
+    function resetReliableSearch() {
+      reliableSearchFilters = [{ key: "", value: "" }];
       ui.reliableSearchStatus.classList.add("hidden");
+      renderReliableFilters();
+    }
 
-      if (!parameter) {
-        ui.reliableSearchValue.innerHTML = '<option value="">Kies eerst een parameter...</option>';
-        ui.reliableSearchValue.disabled = true;
-        return;
-      }
+    function elementsMatchingFilters(filters, ignoredIndex) {
+      const complete = filters.filter(function(filter, index) {
+        return index !== ignoredIndex && filter.key && filter.value;
+      });
 
+      return analyzedElements.filter(function(element) {
+        return complete.every(function(filter) {
+          const item = element.values.get(filter.key);
+          return item && normalizeText(item.value) === normalizeText(filter.value);
+        });
+      });
+    }
+
+    function valuesForReliableFilter(filterIndex, key) {
+      if (!key) return [];
+      const scope = elementsMatchingFilters(reliableSearchFilters, filterIndex);
       const counts = new Map();
-      analyzedElements.forEach(function(element) {
-        const item = element.values.get(parameter.key);
+
+      scope.forEach(function(element) {
+        const item = element.values.get(key);
         const value = item && String(item.value || "").trim();
         if (!value || isSuspiciousValue(value)) return;
         counts.set(value, (counts.get(value) || 0) + 1);
       });
 
-      const values = Array.from(counts.entries()).sort(function(a, b) {
+      return Array.from(counts.entries()).sort(function(a, b) {
         return b[1] - a[1] || a[0].localeCompare(b[0], "nl", { numeric: true });
       });
-
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "Kies een waarde...";
-      ui.reliableSearchValue.appendChild(placeholder);
-
-      values.forEach(function(entry) {
-        const option = document.createElement("option");
-        option.value = entry[0];
-        option.textContent = entry[0] + " (" + entry[1] + ")";
-        ui.reliableSearchValue.appendChild(option);
-      });
-
-      ui.reliableSearchValue.disabled = values.length === 0;
     }
 
-    function updateReliableSearchButton() {
-      ui.runReliableSearch.disabled = !ui.reliableSearchParameter.value || !ui.reliableSearchValue.value;
+    function renderReliableFilters() {
+      const parameters = reliableParametersForSearch();
+      ui.reliableFilterList.innerHTML = "";
+
+      reliableSearchFilters.forEach(function(filter, index) {
+        const row = document.createElement("div");
+        row.className = "reliable-filter-row";
+
+        const parameterSelect = document.createElement("select");
+        const parameterPlaceholder = document.createElement("option");
+        parameterPlaceholder.value = "";
+        parameterPlaceholder.textContent = "Kies parameter...";
+        parameterSelect.appendChild(parameterPlaceholder);
+
+        parameters.forEach(function(parameter) {
+          const option = document.createElement("option");
+          option.value = parameter.key;
+          option.textContent = parameter.key + " · " + formatPercent(parameter.reliability);
+          option.selected = parameter.key === filter.key;
+          parameterSelect.appendChild(option);
+        });
+
+        parameterSelect.addEventListener("change", function() {
+          reliableSearchFilters[index].key = parameterSelect.value;
+          reliableSearchFilters[index].value = "";
+          ui.reliableSearchStatus.classList.add("hidden");
+          renderReliableFilters();
+        });
+
+        const valueSelect = document.createElement("select");
+        valueSelect.disabled = !filter.key;
+
+        const valuePlaceholder = document.createElement("option");
+        valuePlaceholder.value = "";
+        valuePlaceholder.textContent = filter.key ? "Kies waarde..." : "Kies eerst parameter...";
+        valueSelect.appendChild(valuePlaceholder);
+
+        if (filter.key) {
+          const values = valuesForReliableFilter(index, filter.key);
+          values.forEach(function(entry) {
+            const option = document.createElement("option");
+            option.value = entry[0];
+            option.textContent = entry[0] + " (" + entry[1] + ")";
+            option.selected = entry[0] === filter.value;
+            valueSelect.appendChild(option);
+          });
+        }
+
+        valueSelect.addEventListener("change", function() {
+          reliableSearchFilters[index].value = valueSelect.value;
+          ui.reliableSearchStatus.classList.add("hidden");
+          renderReliableFilters();
+        });
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary small";
+        remove.textContent = "×";
+        remove.title = "Filter verwijderen";
+        remove.disabled = reliableSearchFilters.length === 1;
+        remove.addEventListener("click", function() {
+          reliableSearchFilters.splice(index, 1);
+          ui.reliableSearchStatus.classList.add("hidden");
+          renderReliableFilters();
+        });
+
+        row.appendChild(parameterSelect);
+        row.appendChild(valueSelect);
+        row.appendChild(remove);
+        ui.reliableFilterList.appendChild(row);
+      });
+
+      const completeCount = reliableSearchFilters.filter(function(filter) {
+        return filter.key && filter.value;
+      }).length;
+
+      ui.runReliableSearch.disabled = completeCount === 0;
+      ui.addReliableFilter.disabled = reliableSearchFilters.length >= 6;
+    }
+
+    function addReliableFilter() {
+      if (reliableSearchFilters.length >= 6) return;
+      reliableSearchFilters.push({ key: "", value: "" });
+      renderReliableFilters();
     }
 
     async function runReliableParameterSearch() {
-      const key = ui.reliableSearchParameter.value;
-      const value = ui.reliableSearchValue.value;
-      if (!key || !value) return;
-
-      const parameter = parameterResults.find(function(item) { return item.key === key; });
-      if (!parameter) return;
-
-      const matches = analyzedElements.filter(function(element) {
-        const item = element.values.get(key);
-        return item && normalizeText(item.value) === normalizeText(value);
+      const complete = reliableSearchFilters.filter(function(filter) {
+        return filter.key && filter.value;
       });
+      if (!complete.length) return;
+
+      const matches = elementsMatchingFilters(complete, -1);
+      const description = complete.map(function(filter) {
+        return filter.key + " = " + filter.value;
+      }).join(" EN ");
 
       ui.reliableSearchStatus.classList.remove("hidden");
+
       if (!matches.length) {
-        ui.reliableSearchStatus.innerHTML = "<strong>Geen objecten gevonden</strong><span>" + key + " = " + value + "</span>";
+        ui.reliableSearchStatus.innerHTML = "<strong>Geen objecten gevonden</strong><span>" + description + "</span>";
         return;
       }
 
       await focusDetails(matches);
-      ui.reliableSearchStatus.innerHTML = "<strong>" + matches.length + " object" + (matches.length === 1 ? "" : "en") + " gevonden</strong><span>" + key + " = " + value + ". De resultaten zijn geselecteerd en gefocust; de rest blijft transparant zichtbaar.</span>";
+      ui.reliableSearchStatus.innerHTML = "<strong>" + matches.length + " object" + (matches.length === 1 ? "" : "en") + " gevonden</strong><span>" + description + ". De resultaten zijn geselecteerd en gefocust; de rest blijft transparant zichtbaar.</span>";
     }
 
     function getSelectedRuntimeIds(selection) {
@@ -1073,14 +1154,135 @@
       return result;
     }
 
+    function cleanTypeValue(value) {
+      const text = String(value || "").trim();
+      return text && !isSuspiciousValue(text) ? text : "";
+    }
+
+    function getSelectedValue(element, setName, name) {
+      const item = element.values.get(setName + " → " + name);
+      return item ? cleanTypeValue(item.value) : "";
+    }
+
+    function classToken(ifcClass) {
+      return normalizeText(ifcClass)
+        .replace(/^ifc/, "")
+        .replace(/standardcase$/, "")
+        .replace(/elementedcase$/, "");
+    }
+
+    function scoreTypeCandidate(item, parameter, ifcClass) {
+      const keyText = normalizeText(item.key);
+      const nameText = normalizeText(item.name);
+      const setText = normalizeText(item.setName);
+      const token = classToken(ifcClass);
+      let score = 0;
+
+      if (/(producttype|product type|objecttype|object type)/.test(nameText)) score += 130;
+      if (/^(type|reference|referentie|type name|typename)$/.test(nameText)) score += 115;
+      if (/(walltype|roof type|rooftype|slabtype|floor type|floortype|membertype|beamtype|columntype|doortype|windowtype)/.test(nameText)) score += 125;
+      if (/(constructiontype|elementtype|family and type|familytype|type mark|typemark)/.test(nameText)) score += 100;
+      if (/pset_/.test(setText)) score += 18;
+      if (/common/.test(setText)) score += 12;
+      if (token && (setText.includes(token) || nameText.includes(token))) score += 42;
+      if (parameter && parameter.role === "Groepering") score += 28;
+      if (parameter) score += clamp(parameter.recommendationScore, 0, 100) * 0.22;
+      if (parameter && parameter.unique > 1 && parameter.unique <= 50) score += 16;
+
+      if (/(guid|globalid|objectid|uuid|entity id|runtime)/.test(keyText)) score -= 250;
+      if (/(quantity|quantities|basequantities|length|width|height|area|volume|weight|mass)/.test(keyText)) score -= 120;
+      if (/(fire|brand|loadbearing|isexternal|external|thermal|acoustic|status|phase|storey|level)/.test(nameText)) score -= 45;
+      if (parameter && parameter.role === "Identificatie") score -= 200;
+      if (parameter && parameter.filled > 3 && parameter.unique / parameter.filled > 0.9) score -= 90;
+
+      return score;
+    }
+
+    function determineSelectedType(element) {
+      const ifcClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
+      const productType = getSelectedValue(element, "Objectinformatie", "Producttype");
+      const productName = getSelectedValue(element, "Objectinformatie", "Productnaam");
+
+      if (productType) {
+        return {
+          ifcClass: ifcClass,
+          key: "Objectinformatie → Producttype",
+          value: productType,
+          source: "Product Type",
+          confidence: "hoog"
+        };
+      }
+
+      if (productName) {
+        return {
+          ifcClass: ifcClass,
+          key: "Objectinformatie → Productnaam",
+          value: productName,
+          source: "Product Name",
+          confidence: "hoog"
+        };
+      }
+
+      const candidates = [];
+      element.values.forEach(function(item, key) {
+        const value = cleanTypeValue(item.value);
+        if (!value || key === "Objectinformatie → IFC-klasse") return;
+
+        const parameter = parameterResults.find(function(p) { return p.key === key; });
+        const score = scoreTypeCandidate(item, parameter, ifcClass);
+        if (score <= 0) return;
+
+        candidates.push({
+          ifcClass: ifcClass,
+          key: key,
+          value: value,
+          source: item.setName + " → " + item.name,
+          confidence: score >= 110 ? "hoog" : score >= 70 ? "middel" : "fallback",
+          score: score
+        });
+      });
+
+      candidates.sort(function(a, b) { return b.score - a.score; });
+      if (candidates.length) return candidates[0];
+
+      if (ifcClass) {
+        return {
+          ifcClass: ifcClass,
+          key: "Objectinformatie → IFC-klasse",
+          value: ifcClass,
+          source: "Alleen IFC-klasse",
+          confidence: "laag"
+        };
+      }
+
+      return null;
+    }
+
+    function findSameTypeElements(typeInfo) {
+      if (!typeInfo) return [];
+      return analyzedElements.filter(function(element) {
+        const item = element.values.get(typeInfo.key);
+        if (!item || normalizeText(item.value) !== normalizeText(typeInfo.value)) return false;
+
+        if (typeInfo.key !== "Objectinformatie → IFC-klasse" && typeInfo.ifcClass) {
+          const elementClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
+          if (elementClass && normalizeText(elementClass) !== normalizeText(typeInfo.ifcClass)) return false;
+        }
+
+        return true;
+      });
+    }
+
     async function readCurrentSelectionForSearch() {
       if (!API) return;
+
       ui.selectionSearchList.innerHTML = "";
-      ui.selectionSearchStatus.innerHTML = "<strong>Selectie inlezen...</strong><span>Eigenschappen van het geselecteerde object worden opgehaald.</span>";
+      ui.selectionSearchStatus.innerHTML = "<strong>Selectie inlezen...</strong><span>IFC-klasse, Product Type/Product Name en geschikte Pset-/type-eigenschappen worden gecontroleerd.</span>";
 
       try {
         const selection = await API.viewer.getSelection();
         const selected = getSelectedRuntimeIds(selection);
+
         if (selected.length !== 1) {
           selectedSearchElement = null;
           ui.selectionSearchStatus.innerHTML = "<strong>Selecteer precies één object</strong><span>Momenteel zijn " + selected.length + " objecten geselecteerd.</span>";
@@ -1104,98 +1306,53 @@
         }
 
         selectedSearchElement = element;
-        renderSelectionSearchOptions();
+        renderSelectionTypeResult();
       } catch (error) {
         console.error("Selectie inlezen mislukt:", error);
         ui.selectionSearchStatus.innerHTML = "<strong>Selectie kon niet worden ingelezen</strong><span>" + (error.message || "Onbekende fout") + "</span>";
       }
     }
 
-    function selectionSearchCandidates() {
-      if (!selectedSearchElement) return [];
-      const candidates = [];
-      selectedSearchElement.values.forEach(function(item, key) {
-        const value = String(item.value || "").trim();
-        if (!value || isSuspiciousValue(value)) return;
-        const parameter = parameterResults.find(function(p) { return p.key === key; });
-        if (!parameter || parameter.role === "Identificatie") return;
-
-        const matches = analyzedElements.filter(function(element) {
-          const other = element.values.get(key);
-          return other && normalizeText(other.value) === normalizeText(value);
-        });
-
-        if (!matches.length) return;
-        candidates.push({
-          key: key,
-          value: value,
-          parameter: parameter,
-          matches: matches
-        });
-      });
-
-      return candidates.sort(function(a, b) {
-        const roleA = a.parameter.role === "Groepering" ? 1 : 0;
-        const roleB = b.parameter.role === "Groepering" ? 1 : 0;
-        return roleB - roleA
-          || b.parameter.recommendationScore - a.parameter.recommendationScore
-          || b.matches.length - a.matches.length;
-      });
-    }
-
-    function renderSelectionSearchOptions() {
-      const candidates = selectionSearchCandidates();
-      ui.selectionSearchStatus.innerHTML = "<strong>1 object ingelezen</strong><span>" + candidates.length + " bruikbare eigenschappen gevonden. Eigenschappen die geschikt zijn om te groeperen staan bovenaan.</span>";
+    function renderSelectionTypeResult() {
       ui.selectionSearchList.innerHTML = "";
+      const typeInfo = determineSelectedType(selectedSearchElement);
 
-      if (!candidates.length) {
-        ui.selectionSearchList.innerHTML = '<div class="empty">Geen bruikbare eigenschappen gevonden waarmee in de geanalyseerde modelmomentopname kan worden gezocht.</div>';
+      if (!typeInfo) {
+        ui.selectionSearchStatus.innerHTML = "<strong>Geen bruikbaar type herkend</strong><span>Er werd geen geldige IFC-klasse, Product Name/Product Type of geschikte type-eigenschap gevonden.</span>";
         return;
       }
 
-      candidates.forEach(function(candidate) {
-        const row = document.createElement("div");
-        row.className = "selection-search-row";
+      const matches = findSameTypeElements(typeInfo);
+      ui.selectionSearchStatus.innerHTML =
+        "<strong>Type herkend: " + typeInfo.value + "</strong>" +
+        "<span>IFC-klasse: " + (typeInfo.ifcClass || "niet ingevuld") +
+        " · gebruikt veld: " + typeInfo.source +
+        " · herkenning: " + typeInfo.confidence + ".</span>";
 
-        const top = document.createElement("div");
-        top.className = "selection-search-top";
-        const name = document.createElement("div");
-        name.className = "selection-search-name";
-        name.textContent = candidate.key;
-        const score = document.createElement("span");
-        score.className = "score " + scoreClass(candidate.parameter.reliability);
-        score.textContent = formatPercent(candidate.parameter.reliability);
-        top.appendChild(name);
-        top.appendChild(score);
+      const card = document.createElement("div");
+      card.className = "search-result-card";
 
-        const value = document.createElement("div");
-        value.className = "selection-search-value";
-        value.textContent = candidate.value;
+      const strong = document.createElement("strong");
+      strong.textContent = matches.length + " element" + (matches.length === 1 ? "" : "en") + " van hetzelfde type";
 
-        const meta = document.createElement("div");
-        meta.className = "selection-search-meta";
-        meta.textContent = candidate.parameter.role + " · " + candidate.matches.length + " overeenkomstige object" + (candidate.matches.length === 1 ? "" : "en");
+      const detail = document.createElement("span");
+      detail.textContent = (typeInfo.ifcClass ? typeInfo.ifcClass + " · " : "") + typeInfo.source + " = " + typeInfo.value;
 
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "small";
-        button.textContent = "Zoek alle met deze eigenschap";
-        button.addEventListener("click", function() {
-          findMatchingDetails(candidate);
-        });
-
-        row.appendChild(top);
-        row.appendChild(value);
-        row.appendChild(meta);
-        row.appendChild(button);
-        ui.selectionSearchList.appendChild(row);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Zoek " + matches.length + " gelijke element" + (matches.length === 1 ? "" : "en");
+      button.disabled = matches.length === 0;
+      button.addEventListener("click", async function() {
+        await focusDetails(matches);
+        ui.selectionSearchStatus.innerHTML =
+          "<strong>" + matches.length + " gelijke element" + (matches.length === 1 ? "" : "en") + " geselecteerd</strong>" +
+          "<span>" + typeInfo.source + " = " + typeInfo.value + ". De rest blijft transparant zichtbaar.</span>";
       });
-    }
 
-    async function findMatchingDetails(candidate) {
-      if (!candidate || !candidate.matches.length) return;
-      await focusDetails(candidate.matches);
-      ui.selectionSearchStatus.innerHTML = "<strong>" + candidate.matches.length + " object" + (candidate.matches.length === 1 ? "" : "en") + " gevonden</strong><span>" + candidate.key + " = " + candidate.value + ". De gevonden objecten zijn geselecteerd en gefocust; de rest blijft transparant zichtbaar.</span>";
+      card.appendChild(strong);
+      card.appendChild(detail);
+      card.appendChild(button);
+      ui.selectionSearchList.appendChild(card);
     }
 
     function renderParameterList() {
@@ -1283,8 +1440,7 @@
 
     ui.refreshModel.addEventListener("click", refreshModelScope);
     ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
-    ui.reliableSearchParameter.addEventListener("change", updateReliableSearchValues);
-    ui.reliableSearchValue.addEventListener("change", updateReliableSearchButton);
+    ui.addReliableFilter.addEventListener("click", addReliableFilter);
     ui.runReliableSearch.addEventListener("click", runReliableParameterSearch);
     ui.runAnalysis.addEventListener("click", runAnalysis);
     ui.parameterFilter.addEventListener("input", renderParameterList);
