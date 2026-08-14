@@ -598,7 +598,7 @@
     <div class="panel-head">
       <div>
         <h2>Data Table samenstellen</h2>
-        <p class="subtitle">Analyseer de beschikbare Trimble Data Table-kolommen voor je huidige selectie en vink zelf aan welke kolommen je wilt gebruiken.</p>
+        <p class="subtitle">Analyseer de ingevulde originele IFC-properties van je huidige selectie en vink zelf aan welke kolommen naar de Trimble Data Table moeten.</p>
       </div>
       <span class="badge">Data Table</span>
     </div>
@@ -608,7 +608,7 @@
       <span>Maak eerst een selectie via Snel selecteren, Zoeken vanuit selectie of Zoeken op parameter.</span>
     </div>
 
-    <button id="analyze-datatable-columns" type="button">Laad beschikbare Data Table-kolommen</button>
+    <button id="analyze-datatable-columns" type="button">Analyseer beschikbare IFC-kolommen</button>
 
     <div id="datatable-builder" class="datatable-builder hidden">
       <div class="datatable-builder-head">
@@ -1796,13 +1796,15 @@
         const content = document.createElement("div");
         const title = document.createElement("div");
         title.className = "datatable-column-label";
-        title.textContent = column.field;
+        title.textContent = column.label || column.field;
 
         const meta = document.createElement("span");
         meta.className = "datatable-column-meta";
-        meta.textContent = column.label && column.label !== column.field
-          ? "Trimble-label: " + column.label
-          : "Originele Data Table-kolom";
+        meta.textContent =
+          "Data Table field: " + column.field +
+          (typeof column.filled === "number"
+            ? " · " + column.filled + "/" + currentResultDetails.length + " gevuld"
+            : "");
 
         content.appendChild(title);
         content.appendChild(meta);
@@ -1813,96 +1815,118 @@
       });
     }
 
-    async function analyzeDataTableColumns() {
-      if (!API || !API.dataTable) {
-        ui.datatableStatus.textContent = "Data Table API is niet beschikbaar in deze Trimble Connect-context.";
-        ui.datatableBuilder.classList.remove("hidden");
-        return;
-      }
+    function collectDataTableColumnsFromSelection() {
+      const catalog = new Map();
 
+      currentResultDetails.forEach(function(element) {
+        if (!element || !element.values) return;
+
+        element.values.forEach(function(item) {
+          const setName = String(item.setName || "").trim();
+          const name = String(item.name || "").trim();
+          const value = String(item.value ?? "").trim();
+
+          // Alleen echte model-/IFC-properties gebruiken.
+          // Objectinformatie is door de extensie zelf samengesteld en heeft
+          // niet noodzakelijk een 1-op-1 Data Table field.
+          if (!setName || !name || !value) return;
+          if (item.source !== "IFC-property") return;
+
+          // Exacte originele propertynamen gebruiken.
+          // Trimble property filters gebruiken hetzelfde formaat Set.Property.
+          const field = setName + "." + name;
+
+          if (!catalog.has(field)) {
+            catalog.set(field, {
+              field: field,
+              label: setName + " → " + name,
+              setName: setName,
+              name: name,
+              filled: 0
+            });
+          }
+
+          catalog.get(field).filled += 1;
+        });
+      });
+
+      return Array.from(catalog.values()).filter(function(column) {
+        return column.filled > 0 && !isBlockedDataTableColumn(column);
+      });
+    }
+
+    async function analyzeDataTableColumns() {
       if (!currentResultDetails.length) {
         ui.datatableStatus.textContent = "Maak eerst een selectie.";
         return;
       }
 
       ui.analyzeDatatableColumns.disabled = true;
-      ui.datatableStatus.textContent = "Beschikbare Data Table-kolommen ophalen...";
+      ui.datatableStatus.textContent = "Ingevulde IFC-properties van de selectie analyseren...";
 
       try {
-        // Alleen de actuele Trimble-selectie instellen.
-        // De Data Table zelf blijft gesloten tijdens de kolomanalyse.
-        const selector = selectorFromDetails(currentResultDetails);
-        await API.viewer.setSelection(selector, "set");
-
-        let columns = [];
-        for (let attempt = 0; attempt < 4; attempt++) {
-          try {
-            const response = await API.dataTable.getAllColumns();
-            columns = Array.isArray(response) ? response : [];
-          } catch (columnError) {
-            console.warn("Data Table kolommen poging " + (attempt + 1) + " mislukt:", columnError);
-          }
-
-          if (columns.length) break;
-          await wait(350 * (attempt + 1));
-        }
-
-        dataTableColumns = columns;
+        // Geen getAllColumns() meer en de Data Table wordt hier NIET geopend.
+        // We bouwen de keuzelijst rechtstreeks uit de originele properties
+        // die al tijdens de modelanalyse zijn ingelezen.
+        dataTableColumns = collectDataTableColumnsFromSelection();
 
         if (!dataTableColumns.length) {
           ui.datatableBuilder.classList.remove("hidden");
           ui.datatablePropertyColumns.innerHTML =
-            '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
+            '<div class="empty">Geen ingevulde IFC-properties gevonden voor deze selectie.</div>';
           ui.datatableQuantityColumns.innerHTML =
-            '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
+            '<div class="empty">Geen ingevulde IFC-properties gevonden voor deze selectie.</div>';
           ui.datatableOtherColumns.innerHTML =
-            '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
+            '<div class="empty">Geen ingevulde IFC-properties gevonden voor deze selectie.</div>';
           ui.datatableStatus.textContent =
-            "Trimble gaf voor deze selectie nog geen beschikbare Data Table-kolommen terug. " +
-            "De Data Table is niet geopend. Klik eventueel nogmaals op Laad beschikbare Data Table-kolommen.";
+            "Voor deze selectie werden geen bruikbare originele IFC-properties gevonden.";
           return;
         }
 
         const classified = classifyDataTableColumns(dataTableColumns);
 
-        // Advies, maar gebruiker behoudt volledige controle:
-        // standaard max. 5 nuttige eigenschappen + max. 6 sterke quantity-kolommen.
         selectedDataTableFields = new Set();
 
         classified.properties.slice(0, 5).forEach(function(column) {
           selectedDataTableFields.add(column.field);
         });
 
-        classified.quantities
-          .filter(function(column) {
-            return dataTableQuantityPriority(column) <= 3;
-          })
-          .slice(0, 6)
-          .forEach(function(column) {
-            selectedDataTableFields.add(column.field);
-          });
+        // Quantity-properties worden wel aangeboden, maar niet automatisch
+        // geïnterpreteerd of berekend. De gebruiker kiest zelf.
+        classified.quantities.slice(0, 6).forEach(function(column) {
+          selectedDataTableFields.add(column.field);
+        });
 
-        renderDataTableColumnRows(ui.datatablePropertyColumns, classified.properties);
-        renderDataTableColumnRows(ui.datatableQuantityColumns, classified.quantities);
-        renderDataTableColumnRows(ui.datatableOtherColumns, classified.others);
+        renderDataTableColumnRows(
+          ui.datatablePropertyColumns,
+          classified.properties
+        );
+        renderDataTableColumnRows(
+          ui.datatableQuantityColumns,
+          classified.quantities
+        );
+        renderDataTableColumnRows(
+          ui.datatableOtherColumns,
+          classified.others
+        );
 
         ui.datatableBuilder.classList.remove("hidden");
         ui.openDatatable.disabled = selectedDataTableFields.size === 0;
 
-        const usableCount =
-          classified.properties.length +
-          classified.quantities.length +
-          classified.others.length;
-
         ui.datatableStatus.textContent =
-          dataTableColumns.length + " Trimble-kolommen gevonden · " +
-          usableCount + " hebben effectief een ingevulde waarde in deze selectie · " +
-          selectedDataTableFields.size + " voorgeselecteerd.";
+          dataTableColumns.length +
+          " ingevulde originele IFC-properties gevonden voor " +
+          currentResultDetails.length +
+          " geselecteerde object" +
+          (currentResultDetails.length === 1 ? "" : "en") +
+          " · " +
+          selectedDataTableFields.size +
+          " voorgeselecteerd.";
       } catch (error) {
-        console.error("Data Table-kolommen ophalen mislukt:", error);
+        console.error("IFC-properties analyseren mislukt:", error);
         ui.datatableBuilder.classList.remove("hidden");
         ui.datatableStatus.textContent =
-          "Data Table-kolommen konden niet worden opgehaald: " +
+          "De beschikbare IFC-properties konden niet worden geanalyseerd: " +
           (error.message || "onbekende fout");
       } finally {
         ui.analyzeDatatableColumns.disabled = false;
@@ -1918,9 +1942,6 @@
           return selectedDataTableFields.has(column.field);
         })
         .map(function(column) {
-          // Gebruik uitsluitend het exacte originele Trimble field.
-          // Geen eigen label, aggregation, grouping of custom metadata meesturen.
-          // Zo voorkomt Trimble dat er aangepaste (*)-kolommen ontstaan.
           return {
             field: column.field
           };
