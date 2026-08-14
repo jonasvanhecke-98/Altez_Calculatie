@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Altez Calculatie – Modelanalyse</title>
+  <style>
+    :root {
+      --blue: #0063a3;
+      --blue-dark: #004f83;
+      --ink: #252525;
+      --muted: #667078;
+      --line: #d8dadd;
+      --bg: #f3f4f5;
+      --panel: #ffffff;
+      --good: #19733b;
+      --warn: #a35b00;
+      --bad: #b42318;
+      --soft-blue: #eaf3f8;
+      --soft-good: #eaf6ee;
+      --soft-warn: #fff4dd;
+      --soft-bad: #fdecea;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 4px; font-size: 21px; }
+    h2 { margin-bottom: 10px; font-size: 17px; }
+    h3 { margin-bottom: 8px; font-size: 14px; }
+
+    button, input, select { width: 100%; font: inherit; }
+
+    button {
+      min-height: 39px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 5px;
+      color: white;
+      background: var(--blue);
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--blue-dark); }
+    button:disabled { cursor: not-allowed; background: #9ba3a8; }
+    button.secondary { color: var(--ink); background: #e7e9eb; }
+    button.secondary:hover { background: #d8dcdf; }
+    button.ghost { color: var(--blue); background: white; border: 1px solid var(--blue); }
+    button.small { min-height: 30px; padding: 6px 8px; font-size: 12px; }
+
+    input, select {
+      min-height: 39px;
+      padding: 8px 10px;
+      border: 1px solid #aeb2b7;
+      border-radius: 5px;
+      color: var(--ink);
+      background: white;
+    }
+
+    .app-header { margin-bottom: 14px; }
+    .eyebrow { display: block; margin-bottom: 4px; color: var(--blue); font-size: 11px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
+    .subtitle { margin-bottom: 9px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .connection { font-size: 12px; color: var(--muted); }
+    .connection.good { color: var(--good); }
+    .connection.bad { color: var(--bad); }
+
+    .panel {
+      margin-bottom: 13px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+    }
+
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .panel-head > div:first-child { min-width: 0; }
+    .badge { display: inline-flex; flex: 0 0 auto; align-items: center; padding: 4px 7px; border-radius: 99px; background: var(--soft-blue); color: var(--blue-dark); font-size: 11px; font-weight: bold; }
+    .scope-box { margin: 10px 0; padding: 10px; border-left: 4px solid var(--blue); background: var(--soft-blue); font-size: 13px; line-height: 1.45; }
+    .scope-box strong { display: block; margin-bottom: 2px; }
+
+    .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .button-row.three { grid-template-columns: repeat(3, 1fr); }
+    .single-button { margin-top: 8px; }
+
+    .progress { display: none; margin-top: 10px; }
+    .progress.visible { display: block; }
+    .progress-text { margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+    .progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #e3e6e8; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--blue); transition: width .2s ease; }
+
+    .empty { padding: 14px; border: 1px dashed #b8bec3; border-radius: 6px; color: var(--muted); font-size: 13px; text-align: center; }
+    .hidden { display: none !important; }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+    .metric { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
+    .metric-value { display: block; margin-bottom: 2px; font-size: 21px; font-weight: bold; }
+    .metric-label { color: var(--muted); font-size: 11px; }
+
+    .quality-summary { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 13px; line-height: 1.45; }
+    .quality-summary.good { background: var(--soft-good); color: var(--good); }
+    .quality-summary.warn { background: var(--soft-warn); color: var(--warn); }
+    .quality-summary.bad { background: var(--soft-bad); color: var(--bad); }
+
+    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+    .tab { color: var(--muted); background: #e7e9eb; }
+    .tab.active { color: white; background: var(--blue); }
+
+    .recommendations { display: grid; gap: 8px; }
+    .recommendation { padding: 11px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
+    .recommendation-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .recommendation-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: bold; }
+    .recommendation-meta { color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .recommendation button { margin-top: 8px; }
+
+    .score { min-width: 42px; padding: 4px 6px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: bold; }
+    .score.good { color: var(--good); background: var(--soft-good); }
+    .score.warn { color: var(--warn); background: var(--soft-warn); }
+    .score.bad { color: var(--bad); background: var(--soft-bad); }
+
+    .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 9px; }
+    .toolbar button { width: auto; }
+    .parameter-list { display: grid; gap: 7px; max-height: 520px; overflow-y: auto; }
+    .parameter-row { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; }
+    .parameter-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .parameter-name { overflow-wrap: anywhere; font-size: 12px; font-weight: bold; line-height: 1.35; }
+    .parameter-meta { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .parameter-row button { margin-top: 7px; }
+
+    .group-head { margin-bottom: 10px; padding: 10px; border-radius: 6px; background: var(--soft-blue); }
+    .group-head strong { display: block; margin-bottom: 3px; overflow-wrap: anywhere; font-size: 13px; }
+    .group-head span { color: var(--muted); font-size: 11px; }
+    .group-list { display: grid; gap: 8px; }
+    .group-row { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
+    .group-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .group-value { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: bold; }
+    .group-count { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+    .group-bar { height: 5px; margin: 7px 0; overflow: hidden; border-radius: 99px; background: #e3e6e8; }
+    .group-bar > div { height: 100%; background: var(--blue); }
+    .group-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+    .group-actions button { min-height: 29px; padding: 5px 4px; font-size: 10px; }
+
+    .issue-list { display: grid; gap: 8px; }
+    .issue { padding: 10px; border-left: 4px solid var(--warn); border-radius: 4px; background: var(--soft-warn); font-size: 12px; line-height: 1.45; }
+    .issue.bad { border-color: var(--bad); background: var(--soft-bad); }
+    .issue strong { display: block; margin-bottom: 2px; overflow-wrap: anywhere; }
+
+    .footer-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+
+    @media (max-width: 420px) {
+      .button-row.three { grid-template-columns: 1fr; }
+      .group-actions { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <span class="eyebrow">Altez Calculatie</span>
+    <h1>Modelanalyse</h1>
+    <p class="subtitle">Controleer een volledig geladen IFC-model op bruikbare parameters en werk daarna snel verder met slimme groeperingen en gerichte selecties.</p>
+    <div id="connection-status" class="connection">Verbinding met Trimble Connect controleren...</div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>1. Volledig model analyseren</h2>
+        <p class="subtitle">Open het inkomende IFC-model in de 3D-viewer. De analyse leest automatisch alle objecten uit het geladen model.</p>
+      </div>
+      <span class="badge">Model eerst</span>
+    </div>
+
+    <div id="scope-box" class="scope-box">
+      <strong id="scope-title">Nog geen geladen model ingelezen</strong>
+      <span id="scope-detail">Open eerst het IFC-model dat je wilt beoordelen.</span>
+    </div>
+
+    <div class="button-row">
+      <button id="refresh-model" class="secondary" type="button" disabled>Model vernieuwen</button>
+      <button id="run-analysis" type="button" disabled>Analyseer volledig model</button>
+    </div>
+
+    <div id="progress" class="progress" aria-live="polite">
+      <div id="progress-text" class="progress-text">Analyse voorbereiden...</div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </section>
+
+  <section id="summary-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Analyseoverzicht</h2>
+        <p id="analysis-context" class="subtitle"></p>
+      </div>
+      <span id="analysis-score" class="score warn">0%</span>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric"><span id="metric-elements" class="metric-value">0</span><span class="metric-label">elementen</span></div>
+      <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">parameters</span></div>
+      <div class="metric"><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbaar</span></div>
+      <div class="metric"><span id="metric-issues" class="metric-value">0</span><span class="metric-label">aandachtspunten</span></div>
+    </div>
+
+    <div id="quality-summary" class="quality-summary warn"></div>
+
+    <div class="button-row three single-button">
+      <button id="focus-scope" class="ghost" type="button">Focus analysemodel</button>
+      <button id="reset-view" class="secondary" type="button">Weergave herstellen</button>
+      <button id="export-audit" class="secondary" type="button">Audit naar CSV</button>
+    </div>
+  </section>
+
+  <section id="work-panel" class="panel hidden">
+    <div class="tabs">
+      <button class="tab active" data-tab="smart" type="button">Slim groeperen</button>
+      <button class="tab" data-tab="parameters" type="button">Parameters</button>
+      <button class="tab" data-tab="issues" type="button">Controle</button>
+    </div>
+
+    <div id="tab-smart" class="tab-content">
+      <h2>Aanbevolen groeperingen</h2>
+      <p class="subtitle">Gerangschikt op dekking, consistente waarden en bruikbaarheid voor calculatie.</p>
+      <div id="recommendations" class="recommendations"></div>
+      <div id="active-grouping" class="hidden" style="margin-top:12px">
+        <div id="group-head" class="group-head"></div>
+        <div class="button-row three" style="margin-bottom:9px">
+          <button id="color-groups" type="button">Kleur groepen</button>
+          <button id="isolate-scope" class="ghost" type="button">Isoleer analyse</button>
+          <button id="export-groups" class="secondary" type="button">Groepen naar CSV</button>
+        </div>
+        <div id="group-list" class="group-list"></div>
+      </div>
+    </div>
+
+    <div id="tab-parameters" class="tab-content hidden">
+      <h2>Alle parameters</h2>
+      <div class="toolbar">
+        <input id="parameter-filter" type="search" placeholder="Zoek parameter of property set...">
+        <button id="sort-parameters" class="secondary small" type="button">Score ↓</button>
+      </div>
+      <div id="parameter-list" class="parameter-list"></div>
+    </div>
+
+    <div id="tab-issues" class="tab-content hidden">
+      <h2>Betrouwbaarheid en aandachtspunten</h2>
+      <p class="subtitle">Parameters met beperkte dekking, wisselende datatypes, lege of verdachte waarden.</p>
+      <div id="issue-list" class="issue-list"></div>
+    </div>
+
+    <p class="footer-note">Betrouwbaarheid is een beslissingshulp, geen inhoudelijke goedkeuring. Controleer hoeveelheidsparameters steeds tegen de IFC-exportinstellingen en de meetregels van je calculatie.</p>
+  </section>
+
+  <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+  <script>
+    "use strict";
+
+    let API = null;
+    let projectName = "";
+    let currentModelScope = [];
+    let analyzedElements = [];
+    let parameterResults = [];
+    let activeParameter = null;
+    let activeGroups = [];
+    let parameterSortDescending = true;
+    let modelRefreshTimer = null;
+    let coloredSelectors = [];
+
+    const PROPERTY_BATCH_SIZE = 150;
+    const PROPERTY_RETRIES = 1;
+    const EMPTY_VALUE = "(Geen waarde)";
+    const GROUP_COLORS = [
+      { r: 0, g: 99, b: 163, a: 255 },
+      { r: 22, g: 163, b: 74, a: 255 },
+      { r: 245, g: 158, b: 11, a: 255 },
+      { r: 220, g: 38, b: 38, a: 255 },
+      { r: 124, g: 58, b: 237, a: 255 },
+      { r: 8, g: 145, b: 178, a: 255 },
+      { r: 234, g: 88, b: 12, a: 255 },
+      { r: 190, g: 24, b: 93, a: 255 },
+      { r: 77, g: 124, b: 15, a: 255 },
+      { r: 75, g: 85, b: 99, a: 255 }
+    ];
+
+    const ui = {
+      connection: document.getElementById("connection-status"),
+      scopeTitle: document.getElementById("scope-title"),
+      scopeDetail: document.getElementById("scope-detail"),
+      refreshModel: document.getElementById("refresh-model"),
+      runAnalysis: document.getElementById("run-analysis"),
+      progress: document.getElementById("progress"),
+      progressText: document.getElementById("progress-text"),
+      progressBar: document.getElementById("progress-bar"),
+      summaryPanel: document.getElementById("summary-panel"),
+      workPanel: document.getElementById("work-panel"),
+      analysisContext: document.getElementById("analysis-context"),
+      analysisScore: document.getElementById("analysis-score"),
+      metricElements: document.getElementById("metric-elements"),
+      metricParameters: document.getElementById("metric-parameters"),
+      metricReliable: document.getElementById("metric-reliable"),
+      metricIssues: document.getElementById("metric-issues"),
+      qualitySummary: document.getElementById("quality-summary"),
+      recommendations: document.getElementById("recommendations"),
+      activeGrouping: document.getElementById("active-grouping"),
+      groupHead: document.getElementById("group-head"),
+      groupList: document.getElementById("group-list"),
+      parameterFilter: document.getElementById("parameter-filter"),
+      parameterList: document.getElementById("parameter-list"),
+      sortParameters: document.getElementById("sort-parameters"),
+      issueList: document.getElementById("issue-list"),
+      focusScope: document.getElementById("focus-scope"),
+      resetView: document.getElementById("reset-view"),
+      exportAudit: document.getElementById("export-audit"),
+      colorGroups: document.getElementById("color-groups"),
+      isolateScope: document.getElementById("isolate-scope"),
+      exportGroups: document.getElementById("export-groups")
+    };
+
+    function normalizeText(value) {
+      return String(value ?? "").trim().toLocaleLowerCase("nl-BE");
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, Number(value) || 0));
+    }
+
+    function round(value, digits = 0) {
+      const factor = Math.pow(10, digits);
+      return Math.round((Number(value) || 0) * factor) / factor;
+    }
+
+    function formatPercent(value) {
+      return round(value, 0) + "%";
+    }
+
+    function scoreClass(score) {
+      if (score >= 80) return "good";
+      if (score >= 55) return "warn";
+      return "bad";
+    }
+
+    function reliabilityLabel(score) {
+      if (score >= 85) return "Sterk";
+      if (score >= 70) return "Bruikbaar";
+      if (score >= 50) return "Met controle";
+      return "Onbetrouwbaar";
+    }
+
+    function setProgress(percent, message) {
+      ui.progress.classList.add("visible");
+      ui.progressBar.style.width = clamp(percent, 0, 100) + "%";
+      ui.progressText.textContent = message;
+    }
+
+    function hideProgress() {
+      ui.progress.classList.remove("visible");
+    }
+
+    function getObjects(model) {
+      return Array.isArray(model && model.objects) ? model.objects : [];
+    }
+
+    function getRuntimeId(object) {
+      if (typeof object === "number") return object;
+      return object && (object.id ?? object.runtimeId ?? object.objectRuntimeId ?? null);
+    }
+
+    function normalizeModelObjects(result) {
+      const source = Array.isArray(result)
+        ? result
+        : Array.isArray(result && result.modelObjectIds)
+          ? result.modelObjectIds
+          : [];
+
+      return source.map(function(model) {
+        const rawIds = Array.isArray(model.objectRuntimeIds)
+          ? model.objectRuntimeIds
+          : getObjects(model).map(getRuntimeId);
+        return {
+          modelId: model.modelId,
+          objects: rawIds.filter(function(id) { return id !== null && id !== undefined; }).map(function(id) { return { id: id }; })
+        };
+      }).filter(function(model) { return model.modelId && model.objects.length > 0; });
+    }
+
+    function countModelObjects(models) {
+      return models.reduce(function(total, model) { return total + getObjects(model).length; }, 0);
+    }
+
+    function selectorFromDetails(details) {
+      const byModel = new Map();
+      details.forEach(function(detail) {
+        if (!detail || !detail.modelId || detail.runtimeId === null || detail.runtimeId === undefined) return;
+        if (!byModel.has(detail.modelId)) byModel.set(detail.modelId, []);
+        byModel.get(detail.modelId).push(detail.runtimeId);
+      });
+
+      return {
+        modelObjectIds: Array.from(byModel.entries()).map(function(entry) {
+          return { modelId: entry[0], objectRuntimeIds: Array.from(new Set(entry[1])) };
+        }).filter(function(item) { return item.objectRuntimeIds.length > 0; })
+      };
+    }
+
+    function isolateInputFromDetails(details) {
+      const selector = selectorFromDetails(details);
+      return selector.modelObjectIds.map(function(model) {
+        return { modelId: model.modelId, entityIds: model.objectRuntimeIds };
+      });
+    }
+
+    async function connectToTrimble() {
+      try {
+        API = await TrimbleConnectWorkspace.connect(window.parent, function(event) {
+          const eventName = String(event || "").toLocaleLowerCase("nl-BE");
+          if (eventName.includes("model") || eventName.includes("loaded")) {
+            clearTimeout(modelRefreshTimer);
+            modelRefreshTimer = setTimeout(refreshModelScope, 250);
+          }
+        });
+
+        const project = await API.project.getProject();
+        projectName = project.name || project.id || "onbekend project";
+        ui.connection.textContent = "Verbonden met project: " + projectName;
+        ui.connection.classList.add("good");
+        ui.refreshModel.disabled = false;
+        await refreshModelScope();
+      } catch (error) {
+        console.error("Trimble Connect-verbinding mislukt:", error);
+        ui.connection.textContent = "Verbinding met Trimble Connect mislukt. Open dit bestand als geregistreerde Workspace-extensie.";
+        ui.connection.classList.add("bad");
+      }
+    }
+
+    async function readLoadedModelObjects() {
+      try {
+        const loadedObjects = await API.viewer.getObjects();
+        return normalizeModelObjects(loadedObjects);
+      } catch (error) {
+        console.warn("Objecten uit het geladen model ophalen is niet gelukt:", error);
+        return [];
+      }
+    }
+
+    async function refreshModelScope() {
+      if (!API) return;
+      ui.refreshModel.disabled = true;
+      try {
+        currentModelScope = await readLoadedModelObjects();
+        const count = countModelObjects(currentModelScope);
+        const modelCount = currentModelScope.length;
+        ui.scopeTitle.textContent = count > 0 ? count + " objecten klaar voor analyse" : "Geen geladen modelobjecten gevonden";
+        ui.scopeDetail.textContent = count > 0
+          ? "Gevonden in " + modelCount + " geladen model" + (modelCount === 1 ? "" : "len") + ". De analyse maakt hiervan een vaste momentopname."
+          : "Open of laad eerst het IFC-model dat je voor de calculatie wilt beoordelen.";
+        ui.runAnalysis.disabled = count === 0;
+      } finally {
+        ui.refreshModel.disabled = false;
+      }
+    }
+
+    function splitIntoBatches(items, size) {
+      const result = [];
+      for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+      return result;
+    }
+
+    function wait(ms) {
+      return new Promise(function(resolve) { setTimeout(resolve, ms); });
+    }
+
+    async function getPropertyBatch(modelId, ids, retry = 0) {
+      try {
+        const response = await API.viewer.getObjectProperties(modelId, ids);
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        if (retry < PROPERTY_RETRIES) {
+          await wait(250 * (retry + 1));
+          return getPropertyBatch(modelId, ids, retry + 1);
+        }
+        throw error;
+      }
+    }
+
+    function addValue(target, setName, name, value, source) {
+      const cleanName = String(name || "").trim();
+      if (!cleanName) return;
+      const cleanSet = String(setName || "Algemeen").trim();
+      const key = cleanSet + " → " + cleanName;
+      const existing = target.get(key);
+      const textValue = value === null || value === undefined ? "" : String(value).trim();
+      if (!existing) {
+        target.set(key, { key: key, setName: cleanSet, name: cleanName, value: textValue, source: source || "IFC-property" });
+      } else if (!existing.value && textValue) {
+        existing.value = textValue;
+      } else if (textValue && existing.value !== textValue) {
+        existing.value += " | " + textValue;
+      }
+    }
+
+    function flattenObjectProperties(objectProperties) {
+      const values = new Map();
+      addValue(values, "Objectinformatie", "IFC-klasse", objectProperties.class, "Object");
+      if (objectProperties.product) {
+        addValue(values, "Objectinformatie", "Productnaam", objectProperties.product.name, "Object");
+        addValue(values, "Objectinformatie", "Producttype", objectProperties.product.type, "Object");
+      }
+
+      const sets = Array.isArray(objectProperties.properties) ? objectProperties.properties : [];
+      sets.forEach(function(propertySet) {
+        const setName = String(propertySet.set || propertySet.name || propertySet.displayName || "Algemeen").trim();
+        const properties = Array.isArray(propertySet.properties) ? propertySet.properties : [];
+        properties.forEach(function(property) {
+          addValue(values, setName, property.name, property.value, "IFC-property");
+        });
+      });
+      return values;
+    }
+
+    function detectValueType(value) {
+      const text = String(value ?? "").trim();
+      if (!text) return "leeg";
+      if (/^(true|false|yes|no|ja|nee)$/i.test(text)) return "boolean";
+      if (/^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)\s*(?:mm|cm|m|m2|m²|m3|m³|kg|t|ton|kn|pa|mpa|°|deg|%)?$/i.test(text.replace(/\s+/g, ""))) return "getal";
+      if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(text)) return "datum";
+      return "tekst";
+    }
+
+    function isSuspiciousValue(value) {
+      const normalized = normalizeText(value).replace(/[.\s_-]+/g, "");
+      return !normalized || ["n/a", "na", "none", "null", "undefined", "onbekend", "unknown", "tbd", "-", "0"].includes(normalized);
+    }
+
+    function parameterRole(setName, name) {
+      const text = normalizeText(setName + " " + name);
+      if (/(volume|inhoud|area|oppervlak|length|lengte|height|hoogte|width|breedte|thickness|dikte|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(text)) return "Hoeveelheid";
+      if (/(material|materiaal|type|class|klasse|category|categorie|profile|profiel|finish|afwerking|status|phase|fase|storey|verdieping|level|laag|system|systeem|assembly|cast unit|merk)/.test(text)) return "Groepering";
+      if (/(guid|globalid|objectid|object id|uuid|entity id|runtime id)/.test(text)) return "Identificatie";
+      if (/(description|omschrijving|comment|opmerking|note|tekst)/.test(text)) return "Informatie";
+      return "Algemeen";
+    }
+
+    function calculateGroupability(uniqueCount, filledCount, role) {
+      if (filledCount <= 1 || uniqueCount <= 1) return 20;
+      const ratio = uniqueCount / filledCount;
+      let score;
+      if (uniqueCount <= 12 && ratio <= 0.5) score = 100;
+      else if (uniqueCount <= 30 && ratio <= 0.7) score = 82;
+      else if (ratio <= 0.85) score = 60;
+      else score = 22;
+      if (role === "Groepering") score += 8;
+      if (role === "Identificatie") score -= 45;
+      return clamp(score, 0, 100);
+    }
+
+    function buildParameterAnalysis(elements) {
+      const total = elements.length;
+      const catalog = new Map();
+
+      elements.forEach(function(element) {
+        element.values.forEach(function(item, key) {
+          if (!catalog.has(key)) {
+            catalog.set(key, {
+              key: key,
+              setName: item.setName,
+              name: item.name,
+              source: item.source,
+              valuesByElement: new Map(),
+              typeCounts: new Map(),
+              filled: 0,
+              suspicious: 0
+            });
+          }
+          const parameter = catalog.get(key);
+          const value = String(item.value ?? "").trim();
+          parameter.valuesByElement.set(element.uid, value);
+          if (value) {
+            parameter.filled += 1;
+            const type = detectValueType(value);
+            parameter.typeCounts.set(type, (parameter.typeCounts.get(type) || 0) + 1);
+            if (isSuspiciousValue(value)) parameter.suspicious += 1;
+          }
+        });
+      });
+
+      return Array.from(catalog.values()).map(function(parameter) {
+        const valueCounts = new Map();
+        parameter.valuesByElement.forEach(function(value) {
+          const clean = String(value || "").trim();
+          if (clean) valueCounts.set(clean, (valueCounts.get(clean) || 0) + 1);
+        });
+        const unique = valueCounts.size;
+        const coverage = total ? parameter.filled / total * 100 : 0;
+        const dominantTypeCount = Math.max(0, ...Array.from(parameter.typeCounts.values()));
+        const consistency = parameter.filled ? dominantTypeCount / parameter.filled * 100 : 0;
+        const validity = parameter.filled ? (parameter.filled - parameter.suspicious) / parameter.filled * 100 : 0;
+        const role = parameterRole(parameter.setName, parameter.name);
+        const groupability = calculateGroupability(unique, parameter.filled, role);
+        const reliability = clamp(coverage * 0.52 + consistency * 0.20 + validity * 0.18 + groupability * 0.10, 0, 100);
+        const recommendationScore = clamp(reliability * 0.68 + groupability * 0.32 + (role === "Groepering" ? 5 : 0), 0, 100);
+        const issues = [];
+        if (coverage < 95) issues.push(formatPercent(100 - coverage) + " ontbreekt");
+        if (consistency < 90) issues.push("wisselend datatype");
+        if (parameter.suspicious > 0) issues.push(parameter.suspicious + " verdachte waarde" + (parameter.suspicious === 1 ? "" : "n"));
+        if (unique === 1 && parameter.filled > 1) issues.push("één constante waarde");
+        if (parameter.filled > 3 && unique / parameter.filled > 0.9) issues.push("bijna elke waarde is uniek");
+
+        return Object.assign(parameter, {
+          total: total,
+          missing: total - parameter.filled,
+          unique: unique,
+          coverage: coverage,
+          consistency: consistency,
+          validity: validity,
+          role: role,
+          groupability: groupability,
+          reliability: reliability,
+          recommendationScore: recommendationScore,
+          issues: issues
+        });
+      }).sort(function(a, b) { return b.reliability - a.reliability || a.key.localeCompare(b.key, "nl"); });
+    }
+
+    async function runAnalysis() {
+      const modelSnapshot = await readLoadedModelObjects();
+      const modelObjectCount = countModelObjects(modelSnapshot);
+      if (!modelObjectCount) {
+        currentModelScope = [];
+        await refreshModelScope();
+        return;
+      }
+
+      currentModelScope = modelSnapshot;
+      ui.runAnalysis.disabled = true;
+      ui.refreshModel.disabled = true;
+      ui.summaryPanel.classList.add("hidden");
+      ui.workPanel.classList.add("hidden");
+      ui.activeGrouping.classList.add("hidden");
+      analyzedElements = [];
+      parameterResults = [];
+      activeGroups = [];
+      activeParameter = null;
+
+      const totalBatches = modelSnapshot.reduce(function(total, model) {
+        return total + Math.ceil(getObjects(model).length / PROPERTY_BATCH_SIZE);
+      }, 0);
+      let completedBatches = 0;
+      let failedBatches = 0;
+
+      try {
+        setProgress(2, "Volledig model vastleggen: " + modelObjectCount + " objecten...");
+        for (let modelIndex = 0; modelIndex < modelSnapshot.length; modelIndex++) {
+          const model = modelSnapshot[modelIndex];
+          const ids = getObjects(model).map(getRuntimeId).filter(function(id) { return id !== null && id !== undefined; });
+          const batches = splitIntoBatches(ids, PROPERTY_BATCH_SIZE);
+          for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            setProgress(5 + completedBatches / Math.max(1, totalBatches) * 82, "Properties inlezen – model " + (modelIndex + 1) + "/" + modelSnapshot.length + ", blok " + (batchIndex + 1) + "/" + batches.length);
+            try {
+              const properties = await getPropertyBatch(model.modelId, batches[batchIndex]);
+              properties.forEach(function(objectProperties) {
+                const runtimeId = objectProperties.id ?? objectProperties.runtimeId ?? objectProperties.objectRuntimeId;
+                if (runtimeId === null || runtimeId === undefined) return;
+                analyzedElements.push({
+                  uid: String(model.modelId) + "|" + String(runtimeId),
+                  modelId: model.modelId,
+                  runtimeId: runtimeId,
+                  values: flattenObjectProperties(objectProperties)
+                });
+              });
+            } catch (error) {
+              failedBatches += 1;
+              console.warn("Propertyblok overgeslagen:", error);
+            }
+            completedBatches += 1;
+          }
+        }
+
+        setProgress(92, "Dekking, consistentie en groepeerbaarheid berekenen...");
+        parameterResults = buildParameterAnalysis(analyzedElements);
+        setProgress(100, "Analyse gereed.");
+        renderAnalysis(failedBatches, modelObjectCount);
+      } catch (error) {
+        console.error("Modelanalyse mislukt:", error);
+        ui.connection.textContent = "Analyse mislukt: " + (error.message || "onbekende fout");
+        ui.connection.className = "connection bad";
+      } finally {
+        setTimeout(hideProgress, 450);
+        ui.runAnalysis.disabled = false;
+        ui.refreshModel.disabled = false;
+      }
+    }
+
+    function renderAnalysis(failedBatches, requestedCount) {
+      const reliable = parameterResults.filter(function(item) { return item.reliability >= 80 && item.coverage >= 80; });
+      const issues = parameterResults.filter(function(item) { return item.issues.length > 0 && item.reliability < 80; });
+      const meaningful = parameterResults.filter(function(item) { return item.role !== "Identificatie"; });
+      const overall = meaningful.length
+        ? meaningful.slice(0, Math.min(30, meaningful.length)).reduce(function(sum, item) { return sum + item.reliability; }, 0) / Math.min(30, meaningful.length)
+        : 0;
+
+      ui.analysisContext.textContent = "Volledige modelmomentopname uit " + projectName + ": " + analyzedElements.length + " van " + requestedCount + " modelobjecten ingelezen" + (failedBatches ? "; " + failedBatches + " blok(ken) mislukt" : "") + ".";
+      ui.analysisScore.textContent = formatPercent(overall);
+      ui.analysisScore.className = "score " + scoreClass(overall);
+      ui.metricElements.textContent = analyzedElements.length;
+      ui.metricParameters.textContent = parameterResults.length;
+      ui.metricReliable.textContent = reliable.length;
+      ui.metricIssues.textContent = issues.length;
+
+      const summaryClass = scoreClass(overall);
+      ui.qualitySummary.className = "quality-summary " + summaryClass;
+      ui.qualitySummary.textContent = overall >= 80
+        ? "Sterke basis voor calculatie. Gebruik de aanbevolen parameters om het model snel in meet- of kostengroepen op te delen."
+        : overall >= 55
+          ? "Bruikbare basis, maar controleer ontbrekende en inconsistente waarden vóór je hoeveelheden of kosten vastlegt."
+          : "De geladen IFC bevat te weinig betrouwbare parameterdata. Gebruik het tabblad Controle om de grootste risico’s te vinden.";
+
+      ui.summaryPanel.classList.remove("hidden");
+      ui.workPanel.classList.remove("hidden");
+      renderRecommendations();
+      renderParameterList();
+      renderIssues();
+    }
+
+    function recommendedParameters() {
+      return parameterResults.filter(function(item) {
+        return item.filled > 1 && item.unique > 1 && item.groupability >= 45 && item.role !== "Identificatie";
+      }).sort(function(a, b) { return b.recommendationScore - a.recommendationScore; }).slice(0, 6);
+    }
+
+    function renderRecommendations() {
+      ui.recommendations.innerHTML = "";
+      const recommendations = recommendedParameters();
+      if (!recommendations.length) {
+        ui.recommendations.innerHTML = '<div class="empty">Geen sterke groepeerparameter gevonden. Bekijk alle parameters en controleer de IFC-exportinstellingen.</div>';
+        return;
+      }
+
+      recommendations.forEach(function(parameter) {
+        const card = document.createElement("div");
+        card.className = "recommendation";
+        const title = document.createElement("div");
+        title.className = "recommendation-title";
+        const name = document.createElement("div");
+        name.className = "recommendation-name";
+        name.textContent = parameter.key;
+        const score = document.createElement("span");
+        score.className = "score " + scoreClass(parameter.reliability);
+        score.textContent = formatPercent(parameter.reliability);
+        title.appendChild(name);
+        title.appendChild(score);
+
+        const meta = document.createElement("div");
+        meta.className = "recommendation-meta";
+        meta.textContent = parameter.role + " · " + formatPercent(parameter.coverage) + " gevuld · " + parameter.unique + " unieke waarden · " + reliabilityLabel(parameter.reliability);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "small";
+        button.textContent = "Groepeer hiermee";
+        button.addEventListener("click", function() { groupByParameter(parameter); });
+
+        card.appendChild(title);
+        card.appendChild(meta);
+        card.appendChild(button);
+        ui.recommendations.appendChild(card);
+      });
+    }
+
+    function groupByParameter(parameter) {
+      activeParameter = parameter;
+      const groups = new Map();
+      analyzedElements.forEach(function(element) {
+        const raw = parameter.valuesByElement.get(element.uid);
+        const value = raw && String(raw).trim() ? String(raw).trim() : EMPTY_VALUE;
+        if (!groups.has(value)) groups.set(value, []);
+        groups.get(value).push(element);
+      });
+
+      activeGroups = Array.from(groups.entries()).map(function(entry) {
+        return { value: entry[0], elements: entry[1] };
+      }).sort(function(a, b) {
+        if (a.value === EMPTY_VALUE) return 1;
+        if (b.value === EMPTY_VALUE) return -1;
+        return b.elements.length - a.elements.length || a.value.localeCompare(b.value, "nl", { numeric: true });
+      });
+
+      ui.groupHead.innerHTML = "";
+      const strong = document.createElement("strong");
+      strong.textContent = parameter.key;
+      const meta = document.createElement("span");
+      meta.textContent = activeGroups.length + " groepen · " + formatPercent(parameter.coverage) + " dekking · betrouwbaarheid " + formatPercent(parameter.reliability);
+      ui.groupHead.appendChild(strong);
+      ui.groupHead.appendChild(meta);
+      ui.activeGrouping.classList.remove("hidden");
+      renderGroups();
+      ui.activeGrouping.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function renderGroups() {
+      ui.groupList.innerHTML = "";
+      const largest = Math.max(1, ...activeGroups.map(function(group) { return group.elements.length; }));
+      activeGroups.forEach(function(group, index) {
+        const row = document.createElement("div");
+        row.className = "group-row";
+        const title = document.createElement("div");
+        title.className = "group-title";
+        const value = document.createElement("div");
+        value.className = "group-value";
+        value.textContent = group.value;
+        const count = document.createElement("div");
+        count.className = "group-count";
+        count.textContent = group.elements.length + " elem.";
+        title.appendChild(value);
+        title.appendChild(count);
+
+        const bar = document.createElement("div");
+        bar.className = "group-bar";
+        const fill = document.createElement("div");
+        fill.style.width = group.elements.length / largest * 100 + "%";
+        bar.appendChild(fill);
+
+        const actions = document.createElement("div");
+        actions.className = "group-actions";
+        [
+          ["Selecteer", function() { selectDetails(group.elements, false); }],
+          ["Focus", function() { selectDetails(group.elements, true); }],
+          ["Isoleer", function() { isolateDetails(group.elements, true); }],
+          ["Kleur", function() { colorOneGroup(group, index); }]
+        ].forEach(function(definition) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = definition[0] === "Selecteer" ? "secondary" : "";
+          button.textContent = definition[0];
+          button.addEventListener("click", definition[1]);
+          actions.appendChild(button);
+        });
+
+        row.appendChild(title);
+        row.appendChild(bar);
+        row.appendChild(actions);
+        ui.groupList.appendChild(row);
+      });
+    }
+
+    async function selectDetails(details, zoom) {
+      const selector = selectorFromDetails(details);
+      if (!selector.modelObjectIds.length) return;
+      await API.viewer.setSelection(selector, "set");
+      if (zoom) {
+        try { await API.viewer.setCamera(selector, { animationTime: 450 }); } catch (error) { console.warn("Focus mislukt:", error); }
+      }
+    }
+
+    async function isolateDetails(details, zoom) {
+      const entities = isolateInputFromDetails(details);
+      if (!entities.length) return;
+      try {
+        await API.viewer.isolateEntities(entities);
+      } catch (error) {
+        console.warn("isolateEntities mislukt; zichtbaarheid wordt via object state ingesteld:", error);
+        await API.viewer.setObjectState(undefined, { visible: false });
+        await API.viewer.setObjectState(selectorFromDetails(details), { visible: true });
+      }
+      if (zoom) await selectDetails(details, true);
+    }
+
+    async function resetAnalysisColors() {
+      for (const selector of coloredSelectors) {
+        try { await API.viewer.setObjectState(selector, { color: "reset", opacity: 1, visible: true }); } catch (error) { console.warn("Kleur herstellen mislukt:", error); }
+      }
+      coloredSelectors = [];
+    }
+
+    async function colorOneGroup(group, index) {
+      const selector = selectorFromDetails(group.elements);
+      const color = GROUP_COLORS[index % GROUP_COLORS.length];
+      await API.viewer.setObjectState(selector, { color: color, opacity: 1, visible: true });
+      coloredSelectors.push(selector);
+      await API.viewer.setSelection(selector, "set");
+    }
+
+    async function colorAllGroups() {
+      await resetAnalysisColors();
+      for (let index = 0; index < activeGroups.length; index++) {
+        const selector = selectorFromDetails(activeGroups[index].elements);
+        await API.viewer.setObjectState(selector, { color: GROUP_COLORS[index % GROUP_COLORS.length], opacity: 1, visible: true });
+        coloredSelectors.push(selector);
+      }
+    }
+
+    function renderParameterList() {
+      const query = normalizeText(ui.parameterFilter.value);
+      const parameters = parameterResults.filter(function(parameter) {
+        return !query || normalizeText(parameter.key + " " + parameter.role).includes(query);
+      }).slice().sort(function(a, b) {
+        const difference = a.reliability - b.reliability;
+        return parameterSortDescending ? -difference : difference;
+      });
+
+      ui.parameterList.innerHTML = "";
+      if (!parameters.length) {
+        ui.parameterList.innerHTML = '<div class="empty">Geen parameters gevonden.</div>';
+        return;
+      }
+
+      parameters.forEach(function(parameter) {
+        const row = document.createElement("div");
+        row.className = "parameter-row";
+        const top = document.createElement("div");
+        top.className = "parameter-top";
+        const name = document.createElement("div");
+        name.className = "parameter-name";
+        name.textContent = parameter.key;
+        const score = document.createElement("span");
+        score.className = "score " + scoreClass(parameter.reliability);
+        score.textContent = formatPercent(parameter.reliability);
+        top.appendChild(name);
+        top.appendChild(score);
+
+        const meta = document.createElement("div");
+        meta.className = "parameter-meta";
+        meta.textContent = parameter.role + " · " + parameter.filled + "/" + parameter.total + " gevuld · " + parameter.unique + " unieke waarden · " + formatPercent(parameter.consistency) + " typeconsistent";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "small ghost";
+        button.textContent = "Groeperen op deze parameter";
+        button.disabled = parameter.filled === 0;
+        button.addEventListener("click", function() {
+          switchTab("smart");
+          groupByParameter(parameter);
+        });
+
+        row.appendChild(top);
+        row.appendChild(meta);
+        row.appendChild(button);
+        ui.parameterList.appendChild(row);
+      });
+    }
+
+    function renderIssues() {
+      ui.issueList.innerHTML = "";
+      const issues = parameterResults.filter(function(parameter) {
+        return parameter.issues.length > 0 && (parameter.reliability < 80 || parameter.role === "Hoeveelheid");
+      }).sort(function(a, b) { return a.reliability - b.reliability; }).slice(0, 40);
+
+      if (!issues.length) {
+        ui.issueList.innerHTML = '<div class="empty">Geen belangrijke parameterproblemen gevonden binnen het geanalyseerde model.</div>';
+        return;
+      }
+
+      issues.forEach(function(parameter) {
+        const item = document.createElement("div");
+        item.className = "issue " + (parameter.reliability < 50 ? "bad" : "");
+        const title = document.createElement("strong");
+        title.textContent = parameter.key + " – " + formatPercent(parameter.reliability);
+        const detail = document.createElement("span");
+        detail.textContent = parameter.issues.join(" · ") + ". Rol: " + parameter.role + ".";
+        item.appendChild(title);
+        item.appendChild(detail);
+        ui.issueList.appendChild(item);
+      });
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab").forEach(function(button) {
+        button.classList.toggle("active", button.dataset.tab === tabName);
+      });
+      document.querySelectorAll(".tab-content").forEach(function(content) {
+        content.classList.toggle("hidden", content.id !== "tab-" + tabName);
+      });
+    }
+
+    function csvCell(value) {
+      return '"' + String(value ?? "").replace(/"/g, '""') + '"';
+    }
+
+    function downloadCsv(filename, rows) {
+      const content = "\ufeff" + rows.map(function(row) { return row.map(csvCell).join(";"); }).join("\r\n");
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function exportAudit() {
+      const rows = [["Property set", "Parameter", "Rol", "Betrouwbaarheid %", "Dekking %", "Gevuld", "Ontbrekend", "Unieke waarden", "Datatypeconsistentie %", "Verdachte waarden", "Aandachtspunten"]];
+      parameterResults.forEach(function(parameter) {
+        rows.push([parameter.setName, parameter.name, parameter.role, round(parameter.reliability), round(parameter.coverage), parameter.filled, parameter.missing, parameter.unique, round(parameter.consistency), parameter.suspicious, parameter.issues.join(" | ")]);
+      });
+      downloadCsv("altez-ifc-parameter-audit.csv", rows);
+    }
+
+    function exportGroups() {
+      if (!activeParameter) return;
+      const rows = [["Property set", "Parameter", "Groepswaarde", "Aantal elementen"]];
+      activeGroups.forEach(function(group) { rows.push([activeParameter.setName, activeParameter.name, group.value, group.elements.length]); });
+      downloadCsv("altez-ifc-groepering.csv", rows);
+    }
+
+    ui.refreshModel.addEventListener("click", refreshModelScope);
+    ui.runAnalysis.addEventListener("click", runAnalysis);
+    ui.parameterFilter.addEventListener("input", renderParameterList);
+    ui.sortParameters.addEventListener("click", function() {
+      parameterSortDescending = !parameterSortDescending;
+      ui.sortParameters.textContent = parameterSortDescending ? "Score ↓" : "Score ↑";
+      renderParameterList();
+    });
+    ui.focusScope.addEventListener("click", function() { selectDetails(analyzedElements, true); });
+    ui.isolateScope.addEventListener("click", function() { isolateDetails(analyzedElements, true); });
+    ui.colorGroups.addEventListener("click", colorAllGroups);
+    ui.exportAudit.addEventListener("click", exportAudit);
+    ui.exportGroups.addEventListener("click", exportGroups);
+    ui.resetView.addEventListener("click", async function() {
+      await resetAnalysisColors();
+      try { await API.viewer.setObjectState(undefined, { visible: true, opacity: 1 }); } catch (error) { console.warn("Weergave herstellen mislukt:", error); }
+      await selectDetails(analyzedElements, false);
+    });
+    document.querySelectorAll(".tab").forEach(function(button) {
+      button.addEventListener("click", function() { switchTab(button.dataset.tab); });
+    });
+
+    connectToTrimble();
+  </script>
+</body>
+</html>
