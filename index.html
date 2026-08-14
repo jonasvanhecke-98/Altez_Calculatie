@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Altez Calculatie – Modelanalyse</title>
+  <title>Altez Calculatie – Gerichte selecties</title>
   <style>
     :root {
       --blue: #0063a3;
@@ -34,8 +34,8 @@
 
     h1, h2, h3, p { margin-top: 0; }
     h1 { margin-bottom: 4px; font-size: 21px; }
-    h2 { margin-bottom: 10px; font-size: 17px; }
-    h3 { margin-bottom: 8px; font-size: 14px; }
+    h2 { margin-bottom: 9px; font-size: 17px; }
+    h3 { margin-bottom: 7px; font-size: 14px; }
 
     button, input, select { width: 100%; font: inherit; }
 
@@ -80,15 +80,43 @@
       background: var(--panel);
     }
 
-    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
     .panel-head > div:first-child { min-width: 0; }
-    .badge { display: inline-flex; flex: 0 0 auto; align-items: center; padding: 4px 7px; border-radius: 99px; background: var(--soft-blue); color: var(--blue-dark); font-size: 11px; font-weight: bold; }
-    .scope-box { margin: 10px 0; padding: 10px; border-left: 4px solid var(--blue); background: var(--soft-blue); font-size: 13px; line-height: 1.45; }
+
+    .badge {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      padding: 4px 7px;
+      border-radius: 99px;
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .scope-box {
+      margin: 10px 0;
+      padding: 10px;
+      border-left: 4px solid var(--blue);
+      background: var(--soft-blue);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
     .scope-box strong { display: block; margin-bottom: 2px; }
 
-    .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .button-row.three { grid-template-columns: repeat(3, 1fr); }
-    .single-button { margin-top: 8px; }
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
 
     .progress { display: none; margin-top: 10px; }
     .progress.visible { display: block; }
@@ -96,139 +124,219 @@
     .progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #e3e6e8; }
     .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--blue); transition: width .2s ease; }
 
-    .empty { padding: 14px; border: 1px dashed #b8bec3; border-radius: 6px; color: var(--muted); font-size: 13px; text-align: center; }
     .hidden { display: none !important; }
+    .empty {
+      padding: 14px;
+      border: 1px dashed #b8bec3;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
 
-    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-    .metric { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .metric {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
     .metric-value { display: block; margin-bottom: 2px; font-size: 21px; font-weight: bold; }
     .metric-label { color: var(--muted); font-size: 11px; }
 
-    .quality-summary { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 13px; line-height: 1.45; }
-    .quality-summary.good { background: var(--soft-good); color: var(--good); }
-    .quality-summary.warn { background: var(--soft-warn); color: var(--warn); }
-    .quality-summary.bad { background: var(--soft-bad); color: var(--bad); }
+    .score {
+      min-width: 42px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+    }
 
-    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
-    .tab { color: var(--muted); background: #e7e9eb; }
-    .tab.active { color: white; background: var(--blue); }
-
-    .recommendations { display: grid; gap: 8px; }
-    .recommendation { padding: 11px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
-    .recommendation-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
-    .recommendation-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: bold; }
-    .recommendation-meta { color: var(--muted); font-size: 11px; line-height: 1.4; }
-    .recommendation button { margin-top: 8px; }
-
-    .grouping-workspace { margin-top: 4px; padding: 13px; border: 2px solid var(--blue); border-radius: 8px; background: #f5fbfe; }
-    .grouping-workspace .workspace-label { display: block; margin: 11px 0 4px; color: var(--blue-dark); font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
-    .grouping-workspace h2 { margin-bottom: 9px; }
-    .back-button { width: auto; }
-
-    .score { min-width: 42px; padding: 4px 6px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: bold; }
     .score.good { color: var(--good); background: var(--soft-good); }
     .score.warn { color: var(--warn); background: var(--soft-warn); }
     .score.bad { color: var(--bad); background: var(--soft-bad); }
 
-    .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 9px; }
-    .toolbar button { width: auto; }
-    .parameter-list { display: grid; gap: 7px; max-height: 520px; overflow-y: auto; }
-    .parameter-row { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; }
-    .parameter-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-    .parameter-name { overflow-wrap: anywhere; font-size: 12px; font-weight: bold; line-height: 1.35; }
-    .parameter-meta { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.45; }
-    .parameter-row button { margin-top: 7px; }
-
-    .group-head { margin-bottom: 10px; padding: 10px; border-radius: 6px; background: var(--soft-blue); }
-    .group-head strong { display: block; margin-bottom: 3px; overflow-wrap: anywhere; font-size: 13px; }
-    .group-head span { color: var(--muted); font-size: 11px; }
-    .group-list { display: grid; gap: 8px; }
-    .group-row { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
-    .group-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-    .group-value { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: bold; }
-    .group-count { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
-    .group-bar { height: 5px; margin: 7px 0; overflow: hidden; border-radius: 99px; background: #e3e6e8; }
-    .group-bar > div { height: 100%; background: var(--blue); }
-    .group-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-    .group-actions button { min-height: 29px; padding: 5px 4px; font-size: 10px; }
-
-    .footer-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
-    .selection-search { margin-top: 10px; }
-    .selection-search-list { display: grid; gap: 8px; margin-top: 10px; }
-    .selection-search-row { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
-    .selection-search-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-    .selection-search-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
-    .selection-search-value { margin-top: 4px; color: var(--blue-dark); font-size: 12px; overflow-wrap: anywhere; }
-    .selection-search-meta { margin-top: 4px; color: var(--muted); font-size: 11px; }
-    .selection-search-row button { margin-top: 7px; }
-    .reliable-filter-list { display: grid; gap: 8px; margin: 10px 0; }
-    .reliable-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 7px; align-items: center; }
-    .reliable-filter-row button { width: auto; min-width: 38px; }
-    .search-result-card { margin-top: 10px; padding: 11px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
-    .search-result-card strong { display: block; margin-bottom: 4px; font-size: 13px; }
-    .search-result-card span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
-    .search-result-card button { margin-top: 8px; }
-    .useful-parameter-list { display: grid; gap: 8px; margin: 10px 0 12px; }
-    .useful-parameter-card { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; cursor: pointer; }
-    .useful-parameter-card:hover { border-color: var(--blue); background: #f5fbfe; }
-    .useful-parameter-card.active { border: 2px solid var(--blue); background: #f5fbfe; }
-    .useful-parameter-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
-    .useful-parameter-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
-    .useful-parameter-meta { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
-    .grouping-parameter-list { display: grid; gap: 8px; margin-top: 10px; }
-    .grouping-parameter-card { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; cursor: pointer; }
-    .grouping-parameter-card:hover { border-color: var(--blue); background: #f5fbfe; }
-    .grouping-parameter-card.selected { border: 2px solid var(--blue); background: #f5fbfe; }
-    .grouping-parameter-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
-    .grouping-parameter-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
-    .grouping-parameter-order { min-width: 28px; padding: 4px 6px; border-radius: 99px; background: var(--blue); color: white; font-size: 10px; font-weight: bold; text-align: center; }
-    .grouping-selection-summary { margin: 10px 0; padding: 10px; border-left: 4px solid var(--blue); background: var(--soft-blue); font-size: 12px; line-height: 1.45; }
-    .hierarchy-list { display: grid; gap: 8px; margin-top: 10px; }
-    .hierarchy-node { border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; overflow: hidden; }
-    .hierarchy-node-button { width: 100%; border: 0; border-radius: 0; background: white; color: var(--ink); text-align: left; padding: 9px 10px; min-height: 34px; }
-    .hierarchy-node-button:hover { background: #f5fbfe; }
-    .hierarchy-node-button strong { display: block; font-size: 12px; }
-    .hierarchy-node-button span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
-    .hierarchy-children { display: grid; gap: 6px; padding: 0 8px 8px 16px; }
-    @media (max-width: 520px) {
-      .reliable-filter-row { grid-template-columns: 1fr; }
-      .reliable-filter-row button { width: 100%; }
+    .parameter-cards {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
     }
 
-    @media (max-width: 420px) {
-      .button-row.three { grid-template-columns: 1fr; }
-      .group-actions { grid-template-columns: repeat(2, 1fr); }
+    .parameter-card {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+      cursor: pointer;
+    }
+
+    .parameter-card:hover,
+    .parameter-card.active {
+      border-color: var(--blue);
+      background: #f5fbfe;
+    }
+
+    .parameter-card.active { border-width: 2px; }
+
+    .parameter-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .parameter-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .parameter-meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .value-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .value-list {
+      display: grid;
+      gap: 7px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .value-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
+    .value-text {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .value-count {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .value-actions {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .refine-box {
+      margin-top: 12px;
+      padding: 12px;
+      border: 2px solid var(--blue);
+      border-radius: 7px;
+      background: #f5fbfe;
+    }
+
+    .filter-list { display: grid; gap: 8px; margin: 9px 0; }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .filter-row button { width: auto; min-width: 38px; }
+
+    .result-count {
+      margin: 8px 0;
+      color: var(--blue-dark);
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .selection-result {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
+    .selection-result strong { display: block; margin-bottom: 3px; font-size: 13px; }
+    .selection-result span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+    .manual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .footer-note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 520px) {
+      .filter-row,
+      .manual-grid,
+      .button-row { grid-template-columns: 1fr; }
+
+      .filter-row button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <header class="app-header">
     <span class="eyebrow">Altez Calculatie</span>
-    <h1>Modelanalyse</h1>
-    <p class="subtitle">Controleer een volledig geladen IFC-model op bruikbare parameters en werk daarna snel verder met slimme groeperingen en gerichte selecties.</p>
+    <h1>Gerichte modelselecties</h1>
+    <p class="subtitle">Analyseer alleen inhoudelijke IFC-eigenschappen en maak snel gerichte selecties op type, materiaal, classificatie, verdieping en andere bruikbare parameters.</p>
     <div id="connection-status" class="connection">Verbinding met Trimble Connect controleren...</div>
   </header>
 
   <section class="panel">
     <div class="panel-head">
       <div>
-        <h2>1. Volledig model analyseren</h2>
-        <p class="subtitle">Open het inkomende IFC-model in de 3D-viewer. De analyse leest automatisch alle objecten uit het geladen model.</p>
+        <h2>1. Modelanalyse</h2>
+        <p class="subtitle">Geometrie, hoeveelheden, technische IDs en importplugin-data worden uitgesloten uit de groepeeranalyse.</p>
       </div>
-      <span class="badge">Model eerst</span>
+      <span class="badge">Start</span>
     </div>
 
-    <div id="scope-box" class="scope-box">
+    <div class="scope-box">
       <strong id="scope-title">Nog geen geladen model ingelezen</strong>
-      <span id="scope-detail">Open eerst het IFC-model dat je wilt beoordelen.</span>
+      <span id="scope-detail">Open eerst het IFC-model dat je wilt analyseren.</span>
     </div>
 
     <div class="button-row">
       <button id="refresh-model" class="secondary" type="button" disabled>Model vernieuwen</button>
-      <button id="run-analysis" type="button" disabled>Analyseer volledig model</button>
+      <button id="run-analysis" type="button" disabled>Analyseer model</button>
     </div>
 
-    <div id="progress" class="progress" aria-live="polite">
+    <div id="progress" class="progress">
       <div id="progress-text" class="progress-text">Analyse voorbereiden...</div>
       <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
     </div>
@@ -245,97 +353,78 @@
 
     <div class="metric-grid">
       <div class="metric"><span id="metric-elements" class="metric-value">0</span><span class="metric-label">elementen</span></div>
-      <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">parameters</span></div>
-      <div class="metric" title="Minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden."><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbare parameters</span></div>
-      <div class="metric" title="Parameters met te weinig dekking, wisselend datatype, verdachte, constante of bijna unieke waarden."><span id="metric-issues" class="metric-value">0</span><span class="metric-label">parameters te controleren</span></div>
+      <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">bruikbare parameters</span></div>
+      <div class="metric"><span id="metric-top" class="metric-value">0</span><span class="metric-label">nuttigste parameters</span></div>
+      <div class="metric"><span id="metric-filtered" class="metric-value">0</span><span class="metric-label">technische/geometrische velden uitgesloten</span></div>
     </div>
-
-    <div id="quality-summary" class="quality-summary warn"></div>
   </section>
 
-  <section id="selection-search-panel" class="panel hidden">
+  <section id="useful-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>Zoeken vanuit selectie</h2>
-        <p class="subtitle">Selecteer één element. De plugin bepaalt automatisch het meest waarschijnlijke elementtype en zoekt dezelfde types in het geanalyseerde model.</p>
-      </div>
-      <span class="badge">Selectie</span>
-    </div>
-
-    <div id="selection-search-status" class="scope-box">
-      <strong>Nog geen object ingelezen</strong>
-      <span>Selecteer precies één object in Trimble Connect en klik op onderstaande knop.</span>
-    </div>
-
-    <button id="read-selection" type="button">Herken geselecteerd type</button>
-    <div id="selection-search-list" class="selection-search-list"></div>
-  </section>
-
-  <section id="reliable-search-panel" class="panel hidden">
-    <div class="panel-head">
-      <div>
-        <h2>Beste groepeerparameters</h2>
-        <p class="subtitle">De plugin rangschikt de 10 nuttigste parameters voor calculatie. Geometrie, hoeveelheden, GUID's en technische importdata worden uitgesloten.</p>
+        <h2>2. Nuttigste parameters</h2>
+        <p class="subtitle">Top 10 van de inhoudelijke parameters die het meest geschikt zijn om snel te groeperen. Klik op een parameter om zijn waarden te bekijken.</p>
       </div>
       <span class="badge">Top 10</span>
     </div>
 
-    <div id="grouping-parameter-list" class="grouping-parameter-list"></div>
+    <div id="parameter-cards" class="parameter-cards"></div>
 
-    <div id="grouping-selection-summary" class="grouping-selection-summary">
-      Kies 1 tot 3 parameters. De volgorde waarin je ze selecteert bepaalt de hiërarchie.
+    <div id="value-section" class="value-section hidden">
+      <h3 id="value-title">Waarden</h3>
+      <div id="value-list" class="value-list"></div>
     </div>
 
-    <button id="run-combined-grouping" type="button" disabled>Groepeer op geselecteerde parameters</button>
-
-    <div id="combined-grouping-result" class="hidden" style="margin-top:12px;">
-      <div class="panel-head">
-        <div>
-          <h3>Gecombineerde groepering</h3>
-          <p id="combined-grouping-meta" class="subtitle"></p>
-        </div>
-      </div>
-      <div id="combined-grouping-list" class="hierarchy-list"></div>
+    <div id="refine-box" class="refine-box hidden">
+      <h3>Verfijn selectie</h3>
+      <p class="subtitle">Combineer maximaal 3 parameters. Elke extra regel werkt als EN-filter.</p>
+      <div id="filter-list" class="filter-list"></div>
+      <button id="add-filter" class="secondary small" type="button">+ Parameter toevoegen</button>
+      <div id="refine-result-count" class="result-count"></div>
+      <button id="focus-refined" type="button" disabled>Focus selectie</button>
     </div>
   </section>
 
-  <section id="work-panel" class="panel hidden">
-    <div class="tabs">
-      <button class="tab active" data-tab="smart" type="button">Slim groeperen</button>
-      <button class="tab" data-tab="parameters" type="button">Parameters</button>
+  <section id="selection-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>3. Zoeken vanuit selectie</h2>
+        <p class="subtitle">Selecteer één object. De plugin vergelijkt Product Type, Product Name zonder unieke code en relevante Pset-/type-eigenschappen om hetzelfde bouwtype te vinden.</p>
+      </div>
+      <span class="badge">Selectie</span>
     </div>
 
-    <div id="tab-smart" class="tab-content">
-      <div id="recommendation-section">
-        <h2>Betrouwbare parameters</h2>
-        <p class="subtitle">Dezelfde parameters als in het analyseoverzicht, gerangschikt op bruikbaarheid voor calculatie.</p>
-        <div id="recommendations" class="recommendations"></div>
-      </div>
-      <div id="active-grouping" class="grouping-workspace hidden">
-        <button id="back-to-recommendations" class="secondary small back-button" type="button">← Andere parameter kiezen</button>
-        <span class="workspace-label">Actieve groepering</span>
-        <h2>Groepen en modelacties</h2>
-        <div id="group-head" class="group-head"></div>
-        <div class="button-row three" style="margin-bottom:9px">
-          <button id="color-groups" type="button">Kleur groepen</button>
-          <button id="restore-groups" class="ghost" type="button">Herstel weergave</button>
-          <button id="export-groups" class="secondary" type="button">Groepen naar CSV</button>
-        </div>
-        <div id="group-list" class="group-list"></div>
-      </div>
+    <div id="selection-status" class="scope-box">
+      <strong>Nog geen object ingelezen</strong>
+      <span>Selecteer precies één object in Trimble Connect.</span>
     </div>
 
-    <div id="tab-parameters" class="tab-content hidden">
-      <h2>Alle parameters</h2>
-      <div class="toolbar">
-        <input id="parameter-filter" type="search" placeholder="Zoek parameter of property set...">
-        <button id="sort-parameters" class="secondary small" type="button">Score ↓</button>
-      </div>
-      <div id="parameter-list" class="parameter-list"></div>
-    </div>
-
-    <p class="footer-note">Betrouwbaarheid is een beslissingshulp, geen inhoudelijke goedkeuring. Controleer hoeveelheidsparameters steeds tegen de IFC-exportinstellingen en de meetregels van je calculatie.</p>
+    <button id="read-selection" type="button">Herken geselecteerd type</button>
+    <div id="selection-result"></div>
   </section>
+
+  <section id="manual-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>4. Zoeken op parameter</h2>
+        <p class="subtitle">Handmatige zoekactie over alle toegestane niet-geometrische parameters, ook wanneer ze niet in de top 10 staan.</p>
+      </div>
+      <span class="badge">Handmatig</span>
+    </div>
+
+    <div class="manual-grid">
+      <select id="manual-parameter">
+        <option value="">Kies parameter...</option>
+      </select>
+      <select id="manual-value" disabled>
+        <option value="">Kies eerst parameter...</option>
+      </select>
+    </div>
+    <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en focus</button>
+    <div id="manual-status" class="scope-box hidden"></div>
+  </section>
+
+  <p class="footer-note">Focus gebruikt overal dezelfde logica: de doelobjecten blijven zichtbaar en geselecteerd; alle overige geanalyseerde objecten worden verborgen zodat Trimble Connect Ghost Mode ze als ghostcontext kan tonen.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script>
@@ -346,30 +435,14 @@
     let currentModelScope = [];
     let analyzedElements = [];
     let parameterResults = [];
-    let activeParameter = null;
-    let activeGroups = [];
-    let parameterSortDescending = true;
+    let excludedParameterCount = 0;
+    let activeTopParameter = null;
+    let refineFilters = [];
     let modelRefreshTimer = null;
-    let coloredSelectors = [];
-    let selectedSearchElement = null;
-    let selectedGroupingParameters = [];
-    let combinedGroupingTree = null;
 
     const PROPERTY_BATCH_SIZE = 150;
     const PROPERTY_RETRIES = 1;
     const EMPTY_VALUE = "(Geen waarde)";
-    const GROUP_COLORS = [
-      { r: 0, g: 99, b: 163, a: 255 },
-      { r: 22, g: 163, b: 74, a: 255 },
-      { r: 245, g: 158, b: 11, a: 255 },
-      { r: 220, g: 38, b: 38, a: 255 },
-      { r: 124, g: 58, b: 237, a: 255 },
-      { r: 8, g: 145, b: 178, a: 255 },
-      { r: 234, g: 88, b: 12, a: 255 },
-      { r: 190, g: 24, b: 93, a: 255 },
-      { r: 77, g: 124, b: 15, a: 255 },
-      { r: 75, g: 85, b: 99, a: 255 }
-    ];
 
     const ui = {
       connection: document.getElementById("connection-status"),
@@ -380,38 +453,36 @@
       progress: document.getElementById("progress"),
       progressText: document.getElementById("progress-text"),
       progressBar: document.getElementById("progress-bar"),
+
       summaryPanel: document.getElementById("summary-panel"),
-      workPanel: document.getElementById("work-panel"),
-      selectionSearchPanel: document.getElementById("selection-search-panel"),
-      reliableSearchPanel: document.getElementById("reliable-search-panel"),
-      groupingParameterList: document.getElementById("grouping-parameter-list"),
-      groupingSelectionSummary: document.getElementById("grouping-selection-summary"),
-      runCombinedGrouping: document.getElementById("run-combined-grouping"),
-      combinedGroupingResult: document.getElementById("combined-grouping-result"),
-      combinedGroupingMeta: document.getElementById("combined-grouping-meta"),
-      combinedGroupingList: document.getElementById("combined-grouping-list"),
-      selectionSearchStatus: document.getElementById("selection-search-status"),
-      selectionSearchList: document.getElementById("selection-search-list"),
-      readSelection: document.getElementById("read-selection"),
       analysisContext: document.getElementById("analysis-context"),
       analysisScore: document.getElementById("analysis-score"),
       metricElements: document.getElementById("metric-elements"),
       metricParameters: document.getElementById("metric-parameters"),
-      metricReliable: document.getElementById("metric-reliable"),
-      metricIssues: document.getElementById("metric-issues"),
-      qualitySummary: document.getElementById("quality-summary"),
-      recommendationSection: document.getElementById("recommendation-section"),
-      recommendations: document.getElementById("recommendations"),
-      activeGrouping: document.getElementById("active-grouping"),
-      backToRecommendations: document.getElementById("back-to-recommendations"),
-      groupHead: document.getElementById("group-head"),
-      groupList: document.getElementById("group-list"),
-      parameterFilter: document.getElementById("parameter-filter"),
-      parameterList: document.getElementById("parameter-list"),
-      sortParameters: document.getElementById("sort-parameters"),
-      colorGroups: document.getElementById("color-groups"),
-      restoreGroups: document.getElementById("restore-groups"),
-      exportGroups: document.getElementById("export-groups")
+      metricTop: document.getElementById("metric-top"),
+      metricFiltered: document.getElementById("metric-filtered"),
+
+      usefulPanel: document.getElementById("useful-panel"),
+      parameterCards: document.getElementById("parameter-cards"),
+      valueSection: document.getElementById("value-section"),
+      valueTitle: document.getElementById("value-title"),
+      valueList: document.getElementById("value-list"),
+      refineBox: document.getElementById("refine-box"),
+      filterList: document.getElementById("filter-list"),
+      addFilter: document.getElementById("add-filter"),
+      refineResultCount: document.getElementById("refine-result-count"),
+      focusRefined: document.getElementById("focus-refined"),
+
+      selectionPanel: document.getElementById("selection-panel"),
+      selectionStatus: document.getElementById("selection-status"),
+      readSelection: document.getElementById("read-selection"),
+      selectionResult: document.getElementById("selection-result"),
+
+      manualPanel: document.getElementById("manual-panel"),
+      manualParameter: document.getElementById("manual-parameter"),
+      manualValue: document.getElementById("manual-value"),
+      manualSearch: document.getElementById("manual-search"),
+      manualStatus: document.getElementById("manual-status")
     };
 
     function normalizeText(value) {
@@ -435,13 +506,6 @@
       if (score >= 80) return "good";
       if (score >= 55) return "warn";
       return "bad";
-    }
-
-    function reliabilityLabel(score) {
-      if (score >= 85) return "Sterk";
-      if (score >= 70) return "Bruikbaar";
-      if (score >= 50) return "Met controle";
-      return "Onbetrouwbaar";
     }
 
     function setProgress(percent, message) {
@@ -474,19 +538,27 @@
         const rawIds = Array.isArray(model.objectRuntimeIds)
           ? model.objectRuntimeIds
           : getObjects(model).map(getRuntimeId);
+
         return {
           modelId: model.modelId,
-          objects: rawIds.filter(function(id) { return id !== null && id !== undefined; }).map(function(id) { return { id: id }; })
+          objects: rawIds
+            .filter(function(id) { return id !== null && id !== undefined; })
+            .map(function(id) { return { id: id }; })
         };
-      }).filter(function(model) { return model.modelId && model.objects.length > 0; });
+      }).filter(function(model) {
+        return model.modelId && model.objects.length > 0;
+      });
     }
 
     function countModelObjects(models) {
-      return models.reduce(function(total, model) { return total + getObjects(model).length; }, 0);
+      return models.reduce(function(total, model) {
+        return total + getObjects(model).length;
+      }, 0);
     }
 
     function selectorFromDetails(details) {
       const byModel = new Map();
+
       details.forEach(function(detail) {
         if (!detail || !detail.modelId || detail.runtimeId === null || detail.runtimeId === undefined) return;
         if (!byModel.has(detail.modelId)) byModel.set(detail.modelId, []);
@@ -495,16 +567,14 @@
 
       return {
         modelObjectIds: Array.from(byModel.entries()).map(function(entry) {
-          return { modelId: entry[0], objectRuntimeIds: Array.from(new Set(entry[1])) };
-        }).filter(function(item) { return item.objectRuntimeIds.length > 0; })
+          return {
+            modelId: entry[0],
+            objectRuntimeIds: Array.from(new Set(entry[1]))
+          };
+        }).filter(function(item) {
+          return item.objectRuntimeIds.length > 0;
+        })
       };
-    }
-
-    function isolateInputFromDetails(details) {
-      const selector = selectorFromDetails(details);
-      return selector.modelObjectIds.map(function(model) {
-        return { modelId: model.modelId, entityIds: model.objectRuntimeIds };
-      });
     }
 
     async function connectToTrimble() {
@@ -535,22 +605,28 @@
         const loadedObjects = await API.viewer.getObjects();
         return normalizeModelObjects(loadedObjects);
       } catch (error) {
-        console.warn("Objecten uit het geladen model ophalen is niet gelukt:", error);
+        console.warn("Objecten ophalen mislukt:", error);
         return [];
       }
     }
 
     async function refreshModelScope() {
       if (!API) return;
+
       ui.refreshModel.disabled = true;
       try {
         currentModelScope = await readLoadedModelObjects();
         const count = countModelObjects(currentModelScope);
         const modelCount = currentModelScope.length;
-        ui.scopeTitle.textContent = count > 0 ? count + " objecten klaar voor analyse" : "Geen geladen modelobjecten gevonden";
+
+        ui.scopeTitle.textContent = count > 0
+          ? count + " objecten klaar voor analyse"
+          : "Geen geladen modelobjecten gevonden";
+
         ui.scopeDetail.textContent = count > 0
-          ? "Gevonden in " + modelCount + " geladen model" + (modelCount === 1 ? "" : "len") + ". De analyse maakt hiervan een vaste momentopname."
-          : "Open of laad eerst het IFC-model dat je voor de calculatie wilt beoordelen.";
+          ? "Gevonden in " + modelCount + " geladen model" + (modelCount === 1 ? "" : "len") + "."
+          : "Open of laad eerst het IFC-model.";
+
         ui.runAnalysis.disabled = count === 0;
       } finally {
         ui.refreshModel.disabled = false;
@@ -559,7 +635,9 @@
 
     function splitIntoBatches(items, size) {
       const result = [];
-      for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+      for (let index = 0; index < items.length; index += size) {
+        result.push(items.slice(index, index + size));
+      }
       return result;
     }
 
@@ -583,12 +661,20 @@
     function addValue(target, setName, name, value, source) {
       const cleanName = String(name || "").trim();
       if (!cleanName) return;
+
       const cleanSet = String(setName || "Algemeen").trim();
       const key = cleanSet + " → " + cleanName;
       const existing = target.get(key);
       const textValue = value === null || value === undefined ? "" : String(value).trim();
+
       if (!existing) {
-        target.set(key, { key: key, setName: cleanSet, name: cleanName, value: textValue, source: source || "IFC-property" });
+        target.set(key, {
+          key: key,
+          setName: cleanSet,
+          name: cleanName,
+          value: textValue,
+          source: source || "IFC-property"
+        });
       } else if (!existing.value && textValue) {
         existing.value = textValue;
       } else if (textValue && existing.value !== textValue) {
@@ -598,20 +684,33 @@
 
     function flattenObjectProperties(objectProperties) {
       const values = new Map();
+
       addValue(values, "Objectinformatie", "IFC-klasse", objectProperties.class, "Object");
+
       if (objectProperties.product) {
         addValue(values, "Objectinformatie", "Productnaam", objectProperties.product.name, "Object");
         addValue(values, "Objectinformatie", "Producttype", objectProperties.product.type, "Object");
       }
 
       const sets = Array.isArray(objectProperties.properties) ? objectProperties.properties : [];
+
       sets.forEach(function(propertySet) {
-        const setName = String(propertySet.set || propertySet.name || propertySet.displayName || "Algemeen").trim();
-        const properties = Array.isArray(propertySet.properties) ? propertySet.properties : [];
+        const setName = String(
+          propertySet.set ||
+          propertySet.name ||
+          propertySet.displayName ||
+          "Algemeen"
+        ).trim();
+
+        const properties = Array.isArray(propertySet.properties)
+          ? propertySet.properties
+          : [];
+
         properties.forEach(function(property) {
           addValue(values, setName, property.name, property.value, "IFC-property");
         });
       });
+
       return values;
     }
 
@@ -626,37 +725,164 @@
 
     function isSuspiciousValue(value) {
       const normalized = normalizeText(value).replace(/[.\s_-]+/g, "");
-      return !normalized || ["n/a", "na", "none", "null", "undefined", "onbekend", "unknown", "tbd", "-", "0"].includes(normalized);
+      return !normalized || [
+        "n/a", "na", "none", "null", "undefined",
+        "onbekend", "unknown", "tbd", "-", "0"
+      ].includes(normalized);
+    }
+
+    function isBlockedParameter(setName, name) {
+      const setText = normalizeText(setName);
+      const nameText = normalizeText(name);
+      const full = setText + " " + nameText;
+
+      const blockedSetPatterns = [
+        /calculatedgeometryvalues/,
+        /calculated geometry values/,
+        /basequantities/,
+        /base quantities/,
+        /^qto_/,
+        /geometry/,
+        /geometrie/,
+        /trimble/,
+        /connect/,
+        /importplugin/,
+        /import plugin/,
+        /importer/,
+        /viewer metadata/,
+        /viewerdata/,
+        /conversion/,
+        /converted/,
+        /mapping metadata/,
+        /plugin metadata/
+      ];
+
+      const blockedNamePatterns = [
+        /guid/,
+        /globalid/,
+        /uuid/,
+        /runtime/,
+        /entity id/,
+        /object id/,
+        /model id/,
+        /source id/,
+        /created/,
+        /modified/,
+        /timestamp/,
+        /ownerhistory/,
+        /bounding/,
+        /coordinate/,
+        /placement/,
+        /position/,
+        /geometry/,
+        /geometrie/,
+        /mesh/,
+        /vertex/,
+        /face/,
+        /normal/,
+        /length/,
+        /lengte/,
+        /width/,
+        /breedte/,
+        /height/,
+        /hoogte/,
+        /thickness/,
+        /dikte/,
+        /area/,
+        /oppervlak/,
+        /surface/,
+        /volume/,
+        /inhoud/,
+        /perimeter/,
+        /omtrek/,
+        /weight/,
+        /gewicht/,
+        /mass/,
+        /massa/,
+        /quantity/,
+        /quantities/,
+        /count quantity/,
+        /gross area/,
+        /net area/,
+        /gross volume/,
+        /net volume/
+      ];
+
+      if (blockedSetPatterns.some(function(pattern) { return pattern.test(setText); })) return true;
+      if (blockedNamePatterns.some(function(pattern) { return pattern.test(nameText); })) return true;
+
+      // Extra harde blokkade voor combinaties die typisch technisch/importmatig zijn.
+      if (/import/.test(full) && /(id|source|file|model|plugin|version|path)/.test(full)) return true;
+
+      return false;
     }
 
     function parameterRole(setName, name) {
       const text = normalizeText(setName + " " + name);
-      if (/(volume|inhoud|area|oppervlak|length|lengte|height|hoogte|width|breedte|thickness|dikte|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(text)) return "Hoeveelheid";
-      if (/(material|materiaal|type|class|klasse|category|categorie|profile|profiel|finish|afwerking|status|phase|fase|storey|verdieping|level|laag|system|systeem|assembly|cast unit|merk)/.test(text)) return "Groepering";
-      if (/(guid|globalid|objectid|object id|uuid|entity id|runtime id)/.test(text)) return "Identificatie";
+
+      if (/(material|materiaal)/.test(text)) return "Materiaal";
+      if (/(producttype|product type|objecttype|object type|walltype|roof type|rooftype|slabtype|floor type|membertype|beamtype|columntype|type|reference|referentie|classification|classificatie|construction|family)/.test(text)) return "Type / classificatie";
+      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly|status)/.test(text)) return "Context";
       if (/(description|omschrijving|comment|opmerking|note|tekst)/.test(text)) return "Informatie";
+
       return "Algemeen";
     }
 
     function calculateGroupability(uniqueCount, filledCount, role) {
-      if (filledCount <= 1 || uniqueCount <= 1) return 20;
+      if (filledCount <= 1 || uniqueCount <= 1) return 15;
+
       const ratio = uniqueCount / filledCount;
       let score;
-      if (uniqueCount <= 12 && ratio <= 0.5) score = 100;
-      else if (uniqueCount <= 30 && ratio <= 0.7) score = 82;
-      else if (ratio <= 0.85) score = 60;
-      else score = 22;
-      if (role === "Groepering") score += 8;
-      if (role === "Identificatie") score -= 45;
+
+      if (uniqueCount <= 12 && ratio <= 0.45) score = 100;
+      else if (uniqueCount <= 30 && ratio <= 0.65) score = 86;
+      else if (uniqueCount <= 60 && ratio <= 0.78) score = 70;
+      else if (ratio <= 0.88) score = 52;
+      else score = 18;
+
+      if (role === "Materiaal") score += 10;
+      if (role === "Type / classificatie") score += 10;
+      if (role === "Context") score += 5;
+
+      return clamp(score, 0, 100);
+    }
+
+    function usefulnessScore(parameter) {
+      const text = normalizeText(parameter.key);
+      let score =
+        parameter.reliability * 0.42 +
+        parameter.groupability * 0.38 +
+        parameter.coverage * 0.10;
+
+      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text)) score += 30;
+      if (/(producttype|product type|objecttype|object type)/.test(text)) score += 27;
+      if (/(walltype|roof type|rooftype|slabtype|floor type|membertype|beamtype|columntype)/.test(text)) score += 26;
+      if (/(reference|referentie|classification|classificatie|construction|family|type)/.test(text)) score += 19;
+      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly|status)/.test(text)) score += 11;
+      if (/pset_/.test(text)) score += 6;
+
+      if (parameter.unique <= 1) score -= 80;
+      if (parameter.filled > 3 && parameter.unique / parameter.filled > 0.85) score -= 45;
+
+      // Materialen blijven relevant ook wanneer ze niet op elk object voorkomen.
+      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text) && parameter.coverage >= 15) score += 12;
+      else if (parameter.coverage < 25) score -= 20;
+
       return clamp(score, 0, 100);
     }
 
     function buildParameterAnalysis(elements) {
       const total = elements.length;
       const catalog = new Map();
+      const excludedKeys = new Set();
 
       elements.forEach(function(element) {
         element.values.forEach(function(item, key) {
+          if (isBlockedParameter(item.setName, item.name)) {
+            excludedKeys.add(key);
+            return;
+          }
+
           if (!catalog.has(key)) {
             catalog.set(key, {
               key: key,
@@ -669,9 +895,12 @@
               suspicious: 0
             });
           }
+
           const parameter = catalog.get(key);
           const value = String(item.value ?? "").trim();
+
           parameter.valuesByElement.set(element.uid, value);
+
           if (value) {
             parameter.filled += 1;
             const type = detectValueType(value);
@@ -681,12 +910,16 @@
         });
       });
 
+      excludedParameterCount = excludedKeys.size;
+
       return Array.from(catalog.values()).map(function(parameter) {
         const valueCounts = new Map();
+
         parameter.valuesByElement.forEach(function(value) {
           const clean = String(value || "").trim();
           if (clean) valueCounts.set(clean, (valueCounts.get(clean) || 0) + 1);
         });
+
         const unique = valueCounts.size;
         const coverage = total ? parameter.filled / total * 100 : 0;
         const dominantTypeCount = Math.max(0, ...Array.from(parameter.typeCounts.values()));
@@ -694,16 +927,16 @@
         const validity = parameter.filled ? (parameter.filled - parameter.suspicious) / parameter.filled * 100 : 0;
         const role = parameterRole(parameter.setName, parameter.name);
         const groupability = calculateGroupability(unique, parameter.filled, role);
-        const reliability = clamp(coverage * 0.52 + consistency * 0.20 + validity * 0.18 + groupability * 0.10, 0, 100);
-        const recommendationScore = clamp(reliability * 0.68 + groupability * 0.32 + (role === "Groepering" ? 5 : 0), 0, 100);
-        const issues = [];
-        if (coverage < 95) issues.push(formatPercent(100 - coverage) + " ontbreekt");
-        if (consistency < 90) issues.push("wisselend datatype");
-        if (parameter.suspicious > 0) issues.push(parameter.suspicious + " verdachte waarde" + (parameter.suspicious === 1 ? "" : "n"));
-        if (unique === 1 && parameter.filled > 1) issues.push("één constante waarde");
-        if (parameter.filled > 3 && unique / parameter.filled > 0.9) issues.push("bijna elke waarde is uniek");
+        const reliability = clamp(
+          coverage * 0.50 +
+          consistency * 0.20 +
+          validity * 0.18 +
+          groupability * 0.12,
+          0,
+          100
+        );
 
-        return Object.assign(parameter, {
+        const result = Object.assign(parameter, {
           total: total,
           missing: total - parameter.filled,
           unique: unique,
@@ -712,52 +945,79 @@
           validity: validity,
           role: role,
           groupability: groupability,
-          reliability: reliability,
-          recommendationScore: recommendationScore,
-          issues: issues
+          reliability: reliability
         });
-      }).sort(function(a, b) { return b.reliability - a.reliability || a.key.localeCompare(b.key, "nl"); });
+
+        result.usefulness = usefulnessScore(result);
+        return result;
+      }).filter(function(parameter) {
+        return parameter.filled > 1 && parameter.unique > 1;
+      }).sort(function(a, b) {
+        return b.usefulness - a.usefulness
+          || b.reliability - a.reliability
+          || a.key.localeCompare(b.key, "nl");
+      });
     }
 
     async function runAnalysis() {
       const modelSnapshot = await readLoadedModelObjects();
-      const modelObjectCount = countModelObjects(modelSnapshot);
-      if (!modelObjectCount) {
-        currentModelScope = [];
+      const requestedCount = countModelObjects(modelSnapshot);
+
+      if (!requestedCount) {
         await refreshModelScope();
         return;
       }
 
-      currentModelScope = modelSnapshot;
       ui.runAnalysis.disabled = true;
       ui.refreshModel.disabled = true;
-      ui.summaryPanel.classList.add("hidden");
-      ui.workPanel.classList.add("hidden");
-      ui.activeGrouping.classList.add("hidden");
+
       analyzedElements = [];
       parameterResults = [];
-      activeGroups = [];
-      activeParameter = null;
+      excludedParameterCount = 0;
+      activeTopParameter = null;
+      refineFilters = [];
+
+      ui.summaryPanel.classList.add("hidden");
+      ui.usefulPanel.classList.add("hidden");
+      ui.selectionPanel.classList.add("hidden");
+      ui.manualPanel.classList.add("hidden");
 
       const totalBatches = modelSnapshot.reduce(function(total, model) {
         return total + Math.ceil(getObjects(model).length / PROPERTY_BATCH_SIZE);
       }, 0);
+
       let completedBatches = 0;
       let failedBatches = 0;
 
       try {
-        setProgress(2, "Volledig model vastleggen: " + modelObjectCount + " objecten...");
+        setProgress(2, requestedCount + " objecten vastleggen...");
+
         for (let modelIndex = 0; modelIndex < modelSnapshot.length; modelIndex++) {
           const model = modelSnapshot[modelIndex];
-          const ids = getObjects(model).map(getRuntimeId).filter(function(id) { return id !== null && id !== undefined; });
+          const ids = getObjects(model)
+            .map(getRuntimeId)
+            .filter(function(id) { return id !== null && id !== undefined; });
+
           const batches = splitIntoBatches(ids, PROPERTY_BATCH_SIZE);
+
           for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-            setProgress(5 + completedBatches / Math.max(1, totalBatches) * 82, "Properties inlezen – model " + (modelIndex + 1) + "/" + modelSnapshot.length + ", blok " + (batchIndex + 1) + "/" + batches.length);
+            setProgress(
+              5 + completedBatches / Math.max(1, totalBatches) * 82,
+              "Properties inlezen – model " + (modelIndex + 1) + "/" + modelSnapshot.length +
+              ", blok " + (batchIndex + 1) + "/" + batches.length
+            );
+
             try {
               const properties = await getPropertyBatch(model.modelId, batches[batchIndex]);
+
               properties.forEach(function(objectProperties) {
-                const runtimeId = objectProperties.id ?? objectProperties.runtimeId ?? objectProperties.objectRuntimeId;
+                const runtimeId =
+                  objectProperties.id ??
+                  objectProperties.runtimeId ??
+                  objectProperties.objectRuntimeId;
+
                 if (runtimeId === null || runtimeId === undefined) return;
+
                 analyzedElements.push({
                   uid: String(model.modelId) + "|" + String(runtimeId),
                   modelId: model.modelId,
@@ -769,16 +1029,18 @@
               failedBatches += 1;
               console.warn("Propertyblok overgeslagen:", error);
             }
+
             completedBatches += 1;
           }
         }
 
-        setProgress(92, "Dekking, consistentie en groepeerbaarheid berekenen...");
+        setProgress(92, "Niet-geometrische parameters beoordelen...");
         parameterResults = buildParameterAnalysis(analyzedElements);
         setProgress(100, "Analyse gereed.");
-        renderAnalysis(failedBatches, modelObjectCount);
+
+        renderAnalysis(requestedCount, failedBatches);
       } catch (error) {
-        console.error("Modelanalyse mislukt:", error);
+        console.error("Analyse mislukt:", error);
         ui.connection.textContent = "Analyse mislukt: " + (error.message || "onbekende fout");
         ui.connection.className = "connection bad";
       } finally {
@@ -788,376 +1050,75 @@
       }
     }
 
-    function isReliableGroupingParameter(item) {
-      return item.reliability >= 80
-        && item.coverage >= 80
-        && item.filled > 1
-        && item.unique > 1
-        && item.role !== "Identificatie";
+    function topUsefulParameters() {
+      return parameterResults.slice(0, 10);
     }
 
-    function renderAnalysis(failedBatches, requestedCount) {
-      const reliable = parameterResults.filter(isReliableGroupingParameter);
-      const issues = parameterResults.filter(function(item) { return item.issues.length > 0 && !isReliableGroupingParameter(item); });
-      const meaningful = parameterResults.filter(function(item) { return item.role !== "Identificatie"; });
-      const overall = meaningful.length
-        ? meaningful.slice(0, Math.min(30, meaningful.length)).reduce(function(sum, item) { return sum + item.reliability; }, 0) / Math.min(30, meaningful.length)
+    function renderAnalysis(requestedCount, failedBatches) {
+      const top = topUsefulParameters();
+      const averageTop = top.length
+        ? top.reduce(function(sum, p) { return sum + p.usefulness; }, 0) / top.length
         : 0;
 
-      ui.analysisContext.textContent = "Volledige modelmomentopname uit " + projectName + ": " + analyzedElements.length + " van " + requestedCount + " modelobjecten ingelezen" + (failedBatches ? "; " + failedBatches + " blok(ken) mislukt" : "") + ".";
-      ui.analysisScore.textContent = formatPercent(overall);
-      ui.analysisScore.className = "score " + scoreClass(overall);
+      ui.analysisContext.textContent =
+        "Modelmomentopname uit " + projectName + ": " +
+        analyzedElements.length + " van " + requestedCount + " objecten ingelezen" +
+        (failedBatches ? "; " + failedBatches + " blok(ken) mislukt" : "") + ".";
+
+      ui.analysisScore.textContent = formatPercent(averageTop);
+      ui.analysisScore.className = "score " + scoreClass(averageTop);
       ui.metricElements.textContent = analyzedElements.length;
       ui.metricParameters.textContent = parameterResults.length;
-      ui.metricReliable.textContent = reliable.length;
-      ui.metricIssues.textContent = issues.length;
-
-      const summaryClass = scoreClass(overall);
-      ui.qualitySummary.className = "quality-summary " + summaryClass;
-      ui.qualitySummary.textContent = reliable.length + " betrouwbare parameters: minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden. "
-        + issues.length + " parameters te controleren door te weinig dekking, wisselend datatype, verdachte, constante of bijna unieke waarden.";
+      ui.metricTop.textContent = top.length;
+      ui.metricFiltered.textContent = excludedParameterCount;
 
       ui.summaryPanel.classList.remove("hidden");
-      ui.workPanel.classList.remove("hidden");
-      ui.selectionSearchPanel.classList.remove("hidden");
-      ui.reliableSearchPanel.classList.remove("hidden");
-      ui.activeGrouping.classList.add("hidden");
-      ui.recommendationSection.classList.remove("hidden");
-      renderRecommendations();
-      renderParameterList();
-      initializeGroupingParameterSelection();
+      ui.usefulPanel.classList.remove("hidden");
+      ui.selectionPanel.classList.remove("hidden");
+      ui.manualPanel.classList.remove("hidden");
+
+      renderTopParameters();
+      populateManualParameters();
+
+      ui.valueSection.classList.add("hidden");
+      ui.refineBox.classList.add("hidden");
+      ui.selectionResult.innerHTML = "";
+      ui.selectionStatus.innerHTML =
+        "<strong>Nog geen object ingelezen</strong>" +
+        "<span>Selecteer precies één object in Trimble Connect.</span>";
     }
 
-    function recommendedParameters() {
-      return parameterResults.filter(isReliableGroupingParameter)
-        .sort(function(a, b) { return b.recommendationScore - a.recommendationScore; });
-    }
-
-    function renderRecommendations() {
-      ui.recommendations.innerHTML = "";
-      const recommendations = recommendedParameters();
-      if (!recommendations.length) {
-        ui.recommendations.innerHTML = '<div class="empty">Geen sterke groepeerparameter gevonden. Bekijk alle parameters en controleer de IFC-exportinstellingen.</div>';
-        return;
-      }
-
-      recommendations.forEach(function(parameter) {
-        const card = document.createElement("div");
-        card.className = "recommendation";
-        const title = document.createElement("div");
-        title.className = "recommendation-title";
-        const name = document.createElement("div");
-        name.className = "recommendation-name";
-        name.textContent = parameter.key;
-        const score = document.createElement("span");
-        score.className = "score " + scoreClass(parameter.reliability);
-        score.textContent = formatPercent(parameter.reliability);
-        title.appendChild(name);
-        title.appendChild(score);
-
-        const meta = document.createElement("div");
-        meta.className = "recommendation-meta";
-        meta.textContent = parameter.role + " · " + formatPercent(parameter.coverage) + " gevuld · " + parameter.unique + " unieke waarden · " + reliabilityLabel(parameter.reliability);
-
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "small";
-        button.textContent = "Groepeer hiermee";
-        button.addEventListener("click", function() { groupByParameter(parameter); });
-
-        card.appendChild(title);
-        card.appendChild(meta);
-        card.appendChild(button);
-        ui.recommendations.appendChild(card);
-      });
-    }
-
-    function groupByParameter(parameter) {
-      activeParameter = parameter;
-      const groups = new Map();
-      analyzedElements.forEach(function(element) {
-        const raw = parameter.valuesByElement.get(element.uid);
-        const value = raw && String(raw).trim() ? String(raw).trim() : EMPTY_VALUE;
-        if (!groups.has(value)) groups.set(value, []);
-        groups.get(value).push(element);
-      });
-
-      activeGroups = Array.from(groups.entries()).map(function(entry) {
-        return { value: entry[0], elements: entry[1] };
-      }).sort(function(a, b) {
-        if (a.value === EMPTY_VALUE) return 1;
-        if (b.value === EMPTY_VALUE) return -1;
-        return b.elements.length - a.elements.length || a.value.localeCompare(b.value, "nl", { numeric: true });
-      });
-
-      ui.groupHead.innerHTML = "";
-      const strong = document.createElement("strong");
-      strong.textContent = parameter.key;
-      const meta = document.createElement("span");
-      meta.textContent = activeGroups.length + " groepen · " + formatPercent(parameter.coverage) + " dekking · betrouwbaarheid " + formatPercent(parameter.reliability);
-      ui.groupHead.appendChild(strong);
-      ui.groupHead.appendChild(meta);
-      ui.recommendationSection.classList.add("hidden");
-      ui.activeGrouping.classList.remove("hidden");
-      renderGroups();
-    }
-
-    function renderGroups() {
-      ui.groupList.innerHTML = "";
-      const largest = Math.max(1, ...activeGroups.map(function(group) { return group.elements.length; }));
-      activeGroups.forEach(function(group, index) {
-        const row = document.createElement("div");
-        row.className = "group-row";
-        const title = document.createElement("div");
-        title.className = "group-title";
-        const value = document.createElement("div");
-        value.className = "group-value";
-        value.textContent = group.value;
-        const count = document.createElement("div");
-        count.className = "group-count";
-        count.textContent = group.elements.length + " elem.";
-        title.appendChild(value);
-        title.appendChild(count);
-
-        const bar = document.createElement("div");
-        bar.className = "group-bar";
-        const fill = document.createElement("div");
-        fill.style.width = group.elements.length / largest * 100 + "%";
-        bar.appendChild(fill);
-
-        const actions = document.createElement("div");
-        actions.className = "group-actions";
-        [
-          ["Selecteer", function() { selectDetails(group.elements, false); }],
-          ["Focus", function() { focusDetails(group.elements); }],
-          ["Isoleer", function() { isolateDetails(group.elements, true); }],
-          ["Kleur", function() { colorOneGroup(group, index); }]
-        ].forEach(function(definition) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = definition[0] === "Selecteer" ? "secondary" : "";
-          button.textContent = definition[0];
-          button.addEventListener("click", definition[1]);
-          actions.appendChild(button);
-        });
-
-        row.appendChild(title);
-        row.appendChild(bar);
-        row.appendChild(actions);
-        ui.groupList.appendChild(row);
-      });
-    }
-
-    async function selectDetails(details, zoom) {
-      const selector = selectorFromDetails(details);
-      if (!selector.modelObjectIds.length) return;
-      await API.viewer.setSelection(selector, "set");
-      if (zoom) {
-        try { await API.viewer.setCamera(selector, { animationTime: 450 }); } catch (error) { console.warn("Focus mislukt:", error); }
-      }
-    }
-
-    async function focusDetails(details) {
-      const scopeSelector = selectorFromDetails(analyzedElements);
-      const targetSelector = selectorFromDetails(details);
-      if (!targetSelector.modelObjectIds.length) return;
-
-      try {
-        await API.viewer.setObjectState(scopeSelector, {
-          color: { r: 185, g: 190, b: 195, a: 255 },
-          opacity: 0.15,
-          visible: true
-        });
-        await API.viewer.setObjectState(targetSelector, { color: "reset", opacity: 1, visible: true });
-        await API.viewer.setSelection(targetSelector, "set");
-        await API.viewer.setCamera(targetSelector, { animationTime: 450 });
-      } catch (error) {
-        console.warn("Focus met transparante context mislukt:", error);
-        await selectDetails(details, true);
-      }
-    }
-
-    async function focusDetailsGhost(details) {
-      const scopeSelector = selectorFromDetails(analyzedElements);
-      const targetSelector = selectorFromDetails(details);
-      if (!targetSelector.modelObjectIds.length) return;
-
-      try {
-        // Trimble Connect Ghost Mode visualiseert verborgen objecten als ghost-context.
-        // Daarom verbergen we de context i.p.v. ze transparant te kleuren.
-        await API.viewer.setObjectState(scopeSelector, { color: "reset", opacity: 1, visible: false });
-        await API.viewer.setObjectState(targetSelector, { color: "reset", opacity: 1, visible: true });
-        await API.viewer.setSelection(targetSelector, "set");
-        await API.viewer.setCamera(targetSelector, { animationTime: 450 });
-      } catch (error) {
-        console.warn("Ghost-focus mislukt:", error);
-        await focusDetails(details);
-      }
-    }
-
-    async function isolateDetails(details, zoom) {
-      const entities = isolateInputFromDetails(details);
-      if (!entities.length) return;
-      try {
-        await API.viewer.isolateEntities(entities);
-      } catch (error) {
-        console.warn("isolateEntities mislukt; zichtbaarheid wordt via object state ingesteld:", error);
-        await API.viewer.setObjectState(undefined, { visible: false });
-        await API.viewer.setObjectState(selectorFromDetails(details), { visible: true });
-      }
-      if (zoom) await selectDetails(details, true);
-    }
-
-    async function resetAnalysisColors() {
-      for (const selector of coloredSelectors) {
-        try { await API.viewer.setObjectState(selector, { color: "reset", opacity: 1, visible: true }); } catch (error) { console.warn("Kleur herstellen mislukt:", error); }
-      }
-      coloredSelectors = [];
-    }
-
-    async function restoreAnalyzedView() {
-      await resetAnalysisColors();
-      const selector = selectorFromDetails(analyzedElements);
-      if (!selector.modelObjectIds.length) return;
-      try {
-        await API.viewer.setObjectState(undefined, { visible: true, opacity: 1 });
-        await API.viewer.setObjectState(selector, { color: "reset", opacity: 1, visible: true });
-      } catch (error) {
-        console.warn("Weergave herstellen mislukt:", error);
-      }
-    }
-
-    async function colorOneGroup(group, index) {
-      const selector = selectorFromDetails(group.elements);
-      const color = GROUP_COLORS[index % GROUP_COLORS.length];
-      await API.viewer.setObjectState(selector, { color: color, opacity: 1, visible: true });
-      coloredSelectors.push(selector);
-      await API.viewer.setSelection(selector, "set");
-    }
-
-    async function colorAllGroups() {
-      await resetAnalysisColors();
-      for (let index = 0; index < activeGroups.length; index++) {
-        const selector = selectorFromDetails(activeGroups[index].elements);
-        await API.viewer.setObjectState(selector, { color: GROUP_COLORS[index % GROUP_COLORS.length], opacity: 1, visible: true });
-        coloredSelectors.push(selector);
-      }
-    }
-
-    function isTechnicalOrQuantityParameter(parameter) {
-      const text = normalizeText(parameter.key);
-      const blocked = [
-        /guid/, /globalid/, /uuid/, /runtime/, /entity id/, /object id/,
-        /created/, /modified/, /timestamp/, /ownerhistory/,
-        /bounding/, /coordinate/, /placement/, /location/, /position/,
-        /geometry/, /geometrie/, /mesh/, /vertex/, /face/, /normal/,
-        /length/, /lengte/, /width/, /breedte/, /height/, /hoogte/,
-        /thickness/, /dikte/, /area/, /oppervlak/, /volume/, /inhoud/,
-        /perimeter/, /omtrek/, /weight/, /gewicht/, /mass/, /massa/,
-        /quantity/, /quantities/, /basequantities/, /qto_/
-      ];
-      return blocked.some(function(pattern) { return pattern.test(text); });
-    }
-
-    function groupingUsefulnessScore(parameter) {
-      if (!parameter || parameter.role === "Identificatie") return -999;
-      if (isTechnicalOrQuantityParameter(parameter)) return -999;
-
-      const text = normalizeText(parameter.key);
-      let score = parameter.reliability * 0.48 + parameter.groupability * 0.28 + parameter.coverage * 0.12;
-
-      // Calculatiegerichte prioriteiten
-      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text)) score += 38;
-      if (/(producttype|product type|objecttype|object type)/.test(text)) score += 34;
-      if (/(type|reference|referentie|construction|family|classification|classificatie)/.test(text)) score += 25;
-      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly)/.test(text)) score += 14;
-      if (/pset_/.test(text)) score += 8;
-
-      // Productnaam blijft bruikbaar, maar kan unieke suffixen bevatten.
-      if (/productnaam/.test(text)) score += 10;
-
-      // Niet bruikbaar als er geen echte verdeling is.
-      if (parameter.unique <= 1) score -= 80;
-
-      // Bijna unieke waarden zijn slechte groepeerparameters.
-      if (parameter.filled > 3 && parameter.unique / parameter.filled > 0.80) score -= 50;
-
-      // Materiaal mag ook waardevol zijn met lagere globale dekking.
-      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text) && parameter.coverage >= 20) score += 18;
-      else if (parameter.coverage < 35) score -= 30;
-
-      return clamp(score, 0, 100);
-    }
-
-    function topGroupingParameters() {
-      return parameterResults
-        .filter(function(parameter) {
-          return parameter.filled > 1
-            && parameter.unique > 1
-            && parameter.role !== "Identificatie"
-            && !isTechnicalOrQuantityParameter(parameter);
-        })
-        .map(function(parameter) {
-          return { parameter: parameter, usefulness: groupingUsefulnessScore(parameter) };
-        })
-        .filter(function(item) { return item.usefulness > 0; })
-        .sort(function(a, b) {
-          return b.usefulness - a.usefulness
-            || b.parameter.reliability - a.parameter.reliability
-            || a.parameter.key.localeCompare(b.parameter.key, "nl");
-        })
-        .slice(0, 10);
-    }
-
-    function initializeGroupingParameterSelection() {
-      const top = topGroupingParameters();
-      selectedGroupingParameters = top.slice(0, Math.min(3, top.length)).map(function(item) {
-        return item.parameter.key;
-      });
-      renderGroupingParameterList();
-      ui.combinedGroupingResult.classList.add("hidden");
-    }
-
-    function renderGroupingParameterList() {
-      const top = topGroupingParameters();
-      ui.groupingParameterList.innerHTML = "";
+    function renderTopParameters() {
+      const top = topUsefulParameters();
+      ui.parameterCards.innerHTML = "";
 
       if (!top.length) {
-        ui.groupingParameterList.innerHTML = '<div class="empty">Geen geschikte groepeerparameters gevonden.</div>';
-        ui.runCombinedGrouping.disabled = true;
+        ui.parameterCards.innerHTML = '<div class="empty">Geen geschikte inhoudelijke parameters gevonden.</div>';
         return;
       }
 
-      top.forEach(function(item) {
-        const parameter = item.parameter;
-        const selectedIndex = selectedGroupingParameters.indexOf(parameter.key);
-
+      top.forEach(function(parameter, index) {
         const card = document.createElement("div");
-        card.className = "grouping-parameter-card" + (selectedIndex >= 0 ? " selected" : "");
+        card.className = "parameter-card" + (activeTopParameter && activeTopParameter.key === parameter.key ? " active" : "");
 
         const head = document.createElement("div");
-        head.className = "grouping-parameter-head";
+        head.className = "parameter-head";
 
         const name = document.createElement("div");
-        name.className = "grouping-parameter-name";
-        name.textContent = parameter.key;
+        name.className = "parameter-name";
+        name.textContent = (index + 1) + ". " + parameter.key;
 
-        const right = document.createElement("div");
-        if (selectedIndex >= 0) {
-          right.className = "grouping-parameter-order";
-          right.textContent = String(selectedIndex + 1);
-        } else {
-          right.className = "score " + scoreClass(item.usefulness);
-          right.textContent = round(item.usefulness, 0);
-        }
+        const score = document.createElement("span");
+        score.className = "score " + scoreClass(parameter.usefulness);
+        score.textContent = round(parameter.usefulness, 0);
 
         head.appendChild(name);
-        head.appendChild(right);
+        head.appendChild(score);
 
         const meta = document.createElement("div");
-        meta.className = "useful-parameter-meta";
+        meta.className = "parameter-meta";
         meta.textContent =
-          "score " + round(item.usefulness, 0) +
+          parameter.role +
           " · " + parameter.unique + " waarden" +
           " · " + formatPercent(parameter.coverage) + " gevuld" +
           " · betrouwbaarheid " + formatPercent(parameter.reliability);
@@ -1166,133 +1127,273 @@
         card.appendChild(meta);
 
         card.addEventListener("click", function() {
-          const existing = selectedGroupingParameters.indexOf(parameter.key);
-
-          if (existing >= 0) {
-            selectedGroupingParameters.splice(existing, 1);
-          } else {
-            if (selectedGroupingParameters.length >= 3) return;
-            selectedGroupingParameters.push(parameter.key);
-          }
-
-          renderGroupingParameterList();
-          ui.combinedGroupingResult.classList.add("hidden");
+          activeTopParameter = parameter;
+          renderTopParameters();
+          renderValuesForParameter(parameter);
         });
 
-        ui.groupingParameterList.appendChild(card);
+        ui.parameterCards.appendChild(card);
       });
-
-      if (!selectedGroupingParameters.length) {
-        ui.groupingSelectionSummary.textContent = "Kies 1 tot 3 parameters. De volgorde waarin je ze selecteert bepaalt de hiërarchie.";
-      } else {
-        ui.groupingSelectionSummary.textContent =
-          "Geselecteerde groepering: " + selectedGroupingParameters.join(" → ");
-      }
-
-      ui.runCombinedGrouping.disabled = selectedGroupingParameters.length === 0;
     }
 
-    function valueForGrouping(element, parameterKey) {
-      const item = element.values.get(parameterKey);
-      const raw = item && String(item.value || "").trim();
-      return raw || EMPTY_VALUE;
-    }
+    function valueCountsForParameter(parameter, scopeElements) {
+      const counts = new Map();
 
-    function buildCombinedGroupingTree(elements, parameterKeys, level) {
-      if (level >= parameterKeys.length) return null;
+      scopeElements.forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
 
-      const key = parameterKeys[level];
-      const groups = new Map();
+        if (!value || isSuspiciousValue(value)) return;
 
-      elements.forEach(function(element) {
-        const value = valueForGrouping(element, key);
-        if (!groups.has(value)) groups.set(value, []);
-        groups.get(value).push(element);
+        if (!counts.has(value)) counts.set(value, []);
+        counts.get(value).push(element);
       });
 
-      return Array.from(groups.entries()).map(function(entry) {
-        const value = entry[0];
-        const groupedElements = entry[1];
-
-        return {
-          parameterKey: key,
-          value: value,
-          elements: groupedElements,
-          children: buildCombinedGroupingTree(groupedElements, parameterKeys, level + 1)
-        };
+      return Array.from(counts.entries()).map(function(entry) {
+        return { value: entry[0], elements: entry[1] };
       }).sort(function(a, b) {
-        if (a.value === EMPTY_VALUE) return 1;
-        if (b.value === EMPTY_VALUE) return -1;
         return b.elements.length - a.elements.length
           || a.value.localeCompare(b.value, "nl", { numeric: true });
       });
     }
 
-    function renderHierarchyNodes(nodes, container) {
-      if (!nodes) return;
+    function renderValuesForParameter(parameter) {
+      const values = valueCountsForParameter(parameter, analyzedElements);
 
-      nodes.forEach(function(node) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "hierarchy-node";
+      ui.valueTitle.textContent = parameter.key;
+      ui.valueList.innerHTML = "";
+      ui.valueSection.classList.remove("hidden");
 
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "hierarchy-node-button";
+      if (!values.length) {
+        ui.valueList.innerHTML = '<div class="empty">Geen bruikbare waarden gevonden.</div>';
+        return;
+      }
 
-        const strong = document.createElement("strong");
-        strong.textContent = node.value;
+      values.forEach(function(entry) {
+        const row = document.createElement("div");
+        row.className = "value-row";
 
-        const meta = document.createElement("span");
-        meta.textContent = node.parameterKey + " · " + node.elements.length + " element" + (node.elements.length === 1 ? "" : "en");
+        const value = document.createElement("div");
+        value.className = "value-text";
+        value.textContent = entry.value;
 
-        button.appendChild(strong);
-        button.appendChild(meta);
+        const count = document.createElement("div");
+        count.className = "value-count";
+        count.textContent = entry.elements.length + " elem.";
 
-        button.addEventListener("click", async function() {
-          await focusDetailsGhost(node.elements);
+        const actions = document.createElement("div");
+        actions.className = "value-actions";
+
+        const focusButton = document.createElement("button");
+        focusButton.type = "button";
+        focusButton.className = "small";
+        focusButton.textContent = "Focus";
+        focusButton.addEventListener("click", function() {
+          focusDetailsGhost(entry.elements);
         });
 
-        wrapper.appendChild(button);
+        const refineButton = document.createElement("button");
+        refineButton.type = "button";
+        refineButton.className = "secondary small";
+        refineButton.textContent = "Verfijn";
+        refineButton.addEventListener("click", function() {
+          refineFilters = [{
+            key: parameter.key,
+            value: entry.value
+          }];
+          ui.refineBox.classList.remove("hidden");
+          renderRefineFilters();
+        });
 
-        if (node.children && node.children.length) {
-          const children = document.createElement("div");
-          children.className = "hierarchy-children";
-          renderHierarchyNodes(node.children, children);
-          wrapper.appendChild(children);
-        }
+        actions.appendChild(focusButton);
+        actions.appendChild(refineButton);
 
-        container.appendChild(wrapper);
+        row.appendChild(value);
+        row.appendChild(count);
+        row.appendChild(actions);
+
+        ui.valueList.appendChild(row);
       });
     }
 
-    function runCombinedGrouping() {
-      if (!selectedGroupingParameters.length) return;
+    function elementsMatchingFilters(filters, ignoredIndex) {
+      const complete = filters.filter(function(filter, index) {
+        return index !== ignoredIndex && filter.key && filter.value;
+      });
 
-      combinedGroupingTree = buildCombinedGroupingTree(
-        analyzedElements,
-        selectedGroupingParameters,
-        0
-      );
+      return analyzedElements.filter(function(element) {
+        return complete.every(function(filter) {
+          const item = element.values.get(filter.key);
+          return item && normalizeText(item.value) === normalizeText(filter.value);
+        });
+      });
+    }
 
-      ui.combinedGroupingList.innerHTML = "";
-      renderHierarchyNodes(combinedGroupingTree, ui.combinedGroupingList);
+    function valuesForFilter(index, key) {
+      if (!key) return [];
 
-      ui.combinedGroupingMeta.textContent =
-        selectedGroupingParameters.join(" → ") +
-        " · " + analyzedElements.length + " geanalyseerde elementen";
+      const scope = elementsMatchingFilters(refineFilters, index);
+      const parameter = parameterResults.find(function(p) { return p.key === key; });
+      if (!parameter) return [];
 
-      ui.combinedGroupingResult.classList.remove("hidden");
+      return valueCountsForParameter(parameter, scope);
+    }
+
+    function renderRefineFilters() {
+      ui.filterList.innerHTML = "";
+
+      refineFilters.forEach(function(filter, index) {
+        const row = document.createElement("div");
+        row.className = "filter-row";
+
+        const parameterSelect = document.createElement("select");
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Kies parameter...";
+        parameterSelect.appendChild(placeholder);
+
+        parameterResults.forEach(function(parameter) {
+          const option = document.createElement("option");
+          option.value = parameter.key;
+          option.textContent = parameter.key;
+          option.selected = parameter.key === filter.key;
+          parameterSelect.appendChild(option);
+        });
+
+        parameterSelect.addEventListener("change", function() {
+          refineFilters[index].key = parameterSelect.value;
+          refineFilters[index].value = "";
+          renderRefineFilters();
+        });
+
+        const valueSelect = document.createElement("select");
+        valueSelect.disabled = !filter.key;
+
+        const valuePlaceholder = document.createElement("option");
+        valuePlaceholder.value = "";
+        valuePlaceholder.textContent = filter.key ? "Kies waarde..." : "Kies eerst parameter...";
+        valueSelect.appendChild(valuePlaceholder);
+
+        if (filter.key) {
+          valuesForFilter(index, filter.key).forEach(function(entry) {
+            const option = document.createElement("option");
+            option.value = entry.value;
+            option.textContent = entry.value + " (" + entry.elements.length + ")";
+            option.selected = entry.value === filter.value;
+            valueSelect.appendChild(option);
+          });
+        }
+
+        valueSelect.addEventListener("change", function() {
+          refineFilters[index].value = valueSelect.value;
+          renderRefineFilters();
+        });
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary small";
+        remove.textContent = "×";
+        remove.title = "Filter verwijderen";
+        remove.disabled = refineFilters.length === 1;
+
+        remove.addEventListener("click", function() {
+          refineFilters.splice(index, 1);
+          renderRefineFilters();
+        });
+
+        row.appendChild(parameterSelect);
+        row.appendChild(valueSelect);
+        row.appendChild(remove);
+
+        ui.filterList.appendChild(row);
+      });
+
+      const complete = refineFilters.filter(function(filter) {
+        return filter.key && filter.value;
+      });
+
+      const matches = complete.length
+        ? elementsMatchingFilters(refineFilters, -1)
+        : [];
+
+      ui.refineResultCount.textContent = complete.length
+        ? matches.length + " elementen voldoen aan " + complete.length + " filter" + (complete.length === 1 ? "" : "s") + "."
+        : "Kies minstens één volledige filter.";
+
+      ui.focusRefined.disabled = complete.length === 0 || matches.length === 0;
+      ui.addFilter.disabled = refineFilters.length >= 3;
+    }
+
+    function addRefineFilter() {
+      if (refineFilters.length >= 3) return;
+      refineFilters.push({ key: "", value: "" });
+      renderRefineFilters();
+    }
+
+    async function focusRefinedSelection() {
+      const complete = refineFilters.filter(function(filter) {
+        return filter.key && filter.value;
+      });
+
+      if (!complete.length) return;
+
+      const matches = elementsMatchingFilters(refineFilters, -1);
+      if (!matches.length) return;
+
+      await focusDetailsGhost(matches);
+    }
+
+    async function focusDetailsGhost(details) {
+      const scopeSelector = selectorFromDetails(analyzedElements);
+      const targetSelector = selectorFromDetails(details);
+
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        // Eén vaste focuslogica in de hele tool:
+        // doelobjecten zichtbaar + geselecteerd, rest verborgen.
+        // Met Trimble Connect Ghost Mode worden verborgen objecten als ghostlijnen/context getoond.
+        await API.viewer.setObjectState(scopeSelector, {
+          color: "reset",
+          opacity: 1,
+          visible: false
+        });
+
+        await API.viewer.setObjectState(targetSelector, {
+          color: "reset",
+          opacity: 1,
+          visible: true
+        });
+
+        await API.viewer.setSelection(targetSelector, "set");
+
+        try {
+          await API.viewer.setCamera(targetSelector, { animationTime: 450 });
+        } catch (cameraError) {
+          console.warn("Camera focus mislukt:", cameraError);
+        }
+      } catch (error) {
+        console.warn("Ghost-focus mislukt:", error);
+        await API.viewer.setSelection(targetSelector, "set");
+      }
     }
 
     function getSelectedRuntimeIds(selection) {
       const models = normalizeModelObjects(selection);
       const result = [];
+
       models.forEach(function(model) {
         getObjects(model).forEach(function(object) {
           const id = getRuntimeId(object);
-          if (id !== null && id !== undefined) result.push({ modelId: model.modelId, runtimeId: id });
+          if (id !== null && id !== undefined) {
+            result.push({
+              modelId: model.modelId,
+              runtimeId: id
+            });
+          }
         });
       });
+
       return result;
     }
 
@@ -1301,9 +1402,13 @@
       return text && !isSuspiciousValue(text) ? text : "";
     }
 
-    function getSelectedValue(element, setName, name) {
-      const item = element.values.get(setName + " → " + name);
+    function getElementValue(element, key) {
+      const item = element.values.get(key);
       return item ? cleanTypeValue(item.value) : "";
+    }
+
+    function getSelectedValue(element, setName, name) {
+      return getElementValue(element, setName + " → " + name);
     }
 
     function classToken(ifcClass) {
@@ -1317,7 +1422,7 @@
       let text = String(value || "").trim();
       if (!text) return "";
 
-      text = text
+      return text
         .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/ig, "")
         .replace(/\b[0-9a-f]{10,}\b/ig, "")
         .replace(/([_\-\s])\d{5,}$/g, "")
@@ -1325,13 +1430,33 @@
         .replace(/\s{2,}/g, " ")
         .replace(/[_\-\s]+$/g, "")
         .trim();
-
-      return text;
     }
 
-    function matchCountForCandidate(key, value, ifcClass, normalizeProductName) {
-      if (!key || !value) return 0;
-      const target = normalizeProductName ? normalizeProductNameForType(value) : String(value).trim();
+    function selectionCandidateScore(item, parameter, ifcClass) {
+      if (isBlockedParameter(item.setName, item.name)) return -999;
+
+      const nameText = normalizeText(item.name);
+      const setText = normalizeText(item.setName);
+      const token = classToken(ifcClass);
+      let score = 0;
+
+      if (/(producttype|product type|objecttype|object type)/.test(nameText)) score += 135;
+      if (/^(type|reference|referentie|type name|typename)$/.test(nameText)) score += 120;
+      if (/(walltype|roof type|rooftype|slabtype|floor type|floortype|membertype|beamtype|columntype|doortype|windowtype)/.test(nameText)) score += 130;
+      if (/(constructiontype|elementtype|family and type|familytype|type mark|typemark)/.test(nameText)) score += 105;
+      if (/pset_/.test(setText)) score += 20;
+      if (/common/.test(setText)) score += 10;
+      if (token && (setText.includes(token) || nameText.includes(token))) score += 42;
+      if (parameter) score += parameter.usefulness * 0.22;
+
+      return score;
+    }
+
+    function countCandidateMatches(key, value, ifcClass, normalizeProductName) {
+      const target = normalizeProductName
+        ? normalizeProductNameForType(value)
+        : String(value || "").trim();
+
       if (!target) return 0;
 
       return analyzedElements.filter(function(element) {
@@ -1353,31 +1478,6 @@
       }).length;
     }
 
-    function scoreTypeCandidate(item, parameter, ifcClass) {
-      const keyText = normalizeText(item.key);
-      const nameText = normalizeText(item.name);
-      const setText = normalizeText(item.setName);
-      const token = classToken(ifcClass);
-      let score = 0;
-
-      if (/(producttype|product type|objecttype|object type)/.test(nameText)) score += 135;
-      if (/^(type|reference|referentie|type name|typename)$/.test(nameText)) score += 120;
-      if (/(walltype|roof type|rooftype|slabtype|floor type|floortype|membertype|beamtype|columntype|doortype|windowtype)/.test(nameText)) score += 130;
-      if (/(constructiontype|elementtype|family and type|familytype|type mark|typemark)/.test(nameText)) score += 105;
-      if (/pset_/.test(setText)) score += 22;
-      if (/common/.test(setText)) score += 12;
-      if (token && (setText.includes(token) || nameText.includes(token))) score += 44;
-      if (parameter && parameter.role === "Groepering") score += 30;
-      if (parameter) score += clamp(parameter.recommendationScore, 0, 100) * 0.2;
-
-      if (/(guid|globalid|objectid|uuid|entity id|runtime)/.test(keyText)) score -= 250;
-      if (/(quantity|quantities|basequantities|length|width|height|area|volume|weight|mass)/.test(keyText)) score -= 120;
-      if (/(fire|brand|loadbearing|isexternal|external|thermal|acoustic|status|phase|storey|level)/.test(nameText)) score -= 45;
-      if (parameter && parameter.role === "Identificatie") score -= 200;
-
-      return score;
-    }
-
     function determineSelectedType(element) {
       const ifcClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
       const candidates = [];
@@ -1385,11 +1485,22 @@
       function addCandidate(key, value, source, baseScore, normalizeProductName) {
         const cleanValue = cleanTypeValue(value);
         if (!cleanValue) return;
-        const matchCount = matchCountForCandidate(key, cleanValue, ifcClass, normalizeProductName);
-        const normalized = normalizeProductName ? normalizeProductNameForType(cleanValue) : cleanValue;
+
+        const normalized = normalizeProductName
+          ? normalizeProductNameForType(cleanValue)
+          : cleanValue;
+
         if (!normalized) return;
 
+        const matchCount = countCandidateMatches(
+          key,
+          cleanValue,
+          ifcClass,
+          normalizeProductName
+        );
+
         let score = baseScore;
+
         if (matchCount >= 2) score += 45;
         if (matchCount >= 5) score += 20;
         if (matchCount >= 20) score += 10;
@@ -1408,28 +1519,58 @@
       }
 
       const productType = getSelectedValue(element, "Objectinformatie", "Producttype");
-      addCandidate("Objectinformatie → Producttype", productType, "Product Type", 150, false);
+      addCandidate(
+        "Objectinformatie → Producttype",
+        productType,
+        "Product Type",
+        150,
+        false
+      );
 
       const productName = getSelectedValue(element, "Objectinformatie", "Productnaam");
-      addCandidate("Objectinformatie → Productnaam", productName, "Product Name", 95, true);
+      addCandidate(
+        "Objectinformatie → Productnaam",
+        productName,
+        "Product Name",
+        95,
+        true
+      );
 
       element.values.forEach(function(item, key) {
-        if (key === "Objectinformatie → IFC-klasse" ||
-            key === "Objectinformatie → Productnaam" ||
-            key === "Objectinformatie → Producttype") return;
+        if (
+          key === "Objectinformatie → IFC-klasse" ||
+          key === "Objectinformatie → Productnaam" ||
+          key === "Objectinformatie → Producttype"
+        ) return;
 
         const value = cleanTypeValue(item.value);
         if (!value) return;
+        if (isBlockedParameter(item.setName, item.name)) return;
 
-        const parameter = parameterResults.find(function(p) { return p.key === key; });
-        const baseScore = scoreTypeCandidate(item, parameter, ifcClass);
-        if (baseScore <= 0) return;
+        const parameter = parameterResults.find(function(p) {
+          return p.key === key;
+        });
 
-        addCandidate(key, value, item.setName + " → " + item.name, baseScore, false);
+        const score = selectionCandidateScore(item, parameter, ifcClass);
+        if (score <= 0) return;
+
+        addCandidate(
+          key,
+          value,
+          item.setName + " → " + item.name,
+          score,
+          false
+        );
       });
 
       if (ifcClass) {
-        addCandidate("Objectinformatie → IFC-klasse", ifcClass, "Alleen IFC-klasse", 5, false);
+        addCandidate(
+          "Objectinformatie → IFC-klasse",
+          ifcClass,
+          "Alleen IFC-klasse",
+          5,
+          false
+        );
       }
 
       candidates.sort(function(a, b) {
@@ -1443,6 +1584,7 @@
 
     function findSameTypeElements(typeInfo) {
       if (!typeInfo) return [];
+
       return analyzedElements.filter(function(element) {
         const item = element.values.get(typeInfo.key);
         if (!item) return false;
@@ -1455,7 +1597,11 @@
 
         if (typeInfo.key !== "Objectinformatie → IFC-klasse" && typeInfo.ifcClass) {
           const elementClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
-          if (elementClass && normalizeText(elementClass) !== normalizeText(typeInfo.ifcClass)) return false;
+
+          if (
+            elementClass &&
+            normalizeText(elementClass) !== normalizeText(typeInfo.ifcClass)
+          ) return false;
         }
 
         return true;
@@ -1465,27 +1611,39 @@
     async function readCurrentSelectionForSearch() {
       if (!API) return;
 
-      ui.selectionSearchList.innerHTML = "";
-      ui.selectionSearchStatus.innerHTML = "<strong>Selectie inlezen...</strong><span>Product Type, Product Name zonder unieke code en geschikte Pset-/type-eigenschappen worden met elkaar vergeleken.</span>";
+      ui.selectionResult.innerHTML = "";
+      ui.selectionStatus.innerHTML =
+        "<strong>Selectie inlezen...</strong>" +
+        "<span>Type-eigenschappen worden vergeleken.</span>";
 
       try {
         const selection = await API.viewer.getSelection();
         const selected = getSelectedRuntimeIds(selection);
 
         if (selected.length !== 1) {
-          selectedSearchElement = null;
-          ui.selectionSearchStatus.innerHTML = "<strong>Selecteer precies één object</strong><span>Momenteel zijn " + selected.length + " objecten geselecteerd.</span>";
+          ui.selectionStatus.innerHTML =
+            "<strong>Selecteer precies één object</strong>" +
+            "<span>Momenteel zijn " + selected.length + " objecten geselecteerd.</span>";
           return;
         }
 
         const target = selected[0];
+
         let element = analyzedElements.find(function(item) {
-          return String(item.modelId) === String(target.modelId) && String(item.runtimeId) === String(target.runtimeId);
+          return String(item.modelId) === String(target.modelId)
+            && String(item.runtimeId) === String(target.runtimeId);
         });
 
         if (!element) {
-          const properties = await getPropertyBatch(target.modelId, [target.runtimeId]);
-          if (!properties.length) throw new Error("Geen properties gevonden voor het geselecteerde object.");
+          const properties = await getPropertyBatch(
+            target.modelId,
+            [target.runtimeId]
+          );
+
+          if (!properties.length) {
+            throw new Error("Geen properties gevonden voor het geselecteerde object.");
+          }
+
           element = {
             uid: String(target.modelId) + "|" + String(target.runtimeId),
             modelId: target.modelId,
@@ -1494,160 +1652,153 @@
           };
         }
 
-        selectedSearchElement = element;
-        renderSelectionTypeResult();
-      } catch (error) {
-        console.error("Selectie inlezen mislukt:", error);
-        ui.selectionSearchStatus.innerHTML = "<strong>Selectie kon niet worden ingelezen</strong><span>" + (error.message || "Onbekende fout") + "</span>";
-      }
-    }
+        const typeInfo = determineSelectedType(element);
 
-    function renderSelectionTypeResult() {
-      ui.selectionSearchList.innerHTML = "";
-      const typeInfo = determineSelectedType(selectedSearchElement);
+        if (!typeInfo) {
+          ui.selectionStatus.innerHTML =
+            "<strong>Geen bruikbaar type herkend</strong>" +
+            "<span>Geen geschikte type-, Pset- of IFC-eigenschap gevonden.</span>";
+          return;
+        }
 
-      if (!typeInfo) {
-        ui.selectionSearchStatus.innerHTML = "<strong>Geen bruikbaar type herkend</strong><span>Er werd geen geldige Product Type, Product Name, Pset-type-eigenschap of IFC-klasse gevonden.</span>";
-        return;
-      }
+        const matches = findSameTypeElements(typeInfo);
 
-      const matches = findSameTypeElements(typeInfo);
-      ui.selectionSearchStatus.innerHTML =
-        "<strong>Type herkend: " + typeInfo.value + "</strong>" +
-        "<span>IFC-klasse: " + (typeInfo.ifcClass || "niet ingevuld") +
-        " · gebruikt veld: " + typeInfo.source +
-        " · " + matches.length + " overeenkomstige element" + (matches.length === 1 ? "" : "en") + ".</span>";
+        ui.selectionStatus.innerHTML =
+          "<strong>Type herkend: " + typeInfo.value + "</strong>" +
+          "<span>Gebruikt veld: " + typeInfo.source +
+          " · IFC-klasse: " + (typeInfo.ifcClass || "niet ingevuld") + ".</span>";
 
-      const card = document.createElement("div");
-      card.className = "search-result-card";
+        const card = document.createElement("div");
+        card.className = "selection-result";
 
-      const strong = document.createElement("strong");
-      strong.textContent = matches.length + " element" + (matches.length === 1 ? "" : "en") + " van hetzelfde type";
+        const strong = document.createElement("strong");
+        strong.textContent =
+          matches.length + " element" +
+          (matches.length === 1 ? "" : "en") +
+          " van hetzelfde type";
 
-      const detail = document.createElement("span");
-      detail.textContent = (typeInfo.ifcClass ? typeInfo.ifcClass + " · " : "") + typeInfo.source + " = " + typeInfo.value;
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Zoek " + matches.length + " gelijke element" + (matches.length === 1 ? "" : "en");
-      button.disabled = matches.length === 0;
-      button.addEventListener("click", async function() {
-        await focusDetailsGhost(matches);
-        ui.selectionSearchStatus.innerHTML =
-          "<strong>" + matches.length + " gelijke element" + (matches.length === 1 ? "" : "en") + " geselecteerd</strong>" +
-          "<span>" + typeInfo.source + " = " + typeInfo.value + ". De overige objecten zijn als verborgen context ingesteld zodat Trimble Connect Ghost Mode ze als ghostlijnen kan tonen.</span>";
-      });
-
-      card.appendChild(strong);
-      card.appendChild(detail);
-      card.appendChild(button);
-      ui.selectionSearchList.appendChild(card);
-    }
-
-    function renderParameterList() {
-      const query = normalizeText(ui.parameterFilter.value);
-      const parameters = parameterResults.filter(function(parameter) {
-        return !query || normalizeText(parameter.key + " " + parameter.role).includes(query);
-      }).slice().sort(function(a, b) {
-        const difference = a.reliability - b.reliability;
-        return parameterSortDescending ? -difference : difference;
-      });
-
-      ui.parameterList.innerHTML = "";
-      if (!parameters.length) {
-        ui.parameterList.innerHTML = '<div class="empty">Geen parameters gevonden.</div>';
-        return;
-      }
-
-      parameters.forEach(function(parameter) {
-        const row = document.createElement("div");
-        row.className = "parameter-row";
-        const top = document.createElement("div");
-        top.className = "parameter-top";
-        const name = document.createElement("div");
-        name.className = "parameter-name";
-        name.textContent = parameter.key;
-        const score = document.createElement("span");
-        score.className = "score " + scoreClass(parameter.reliability);
-        score.textContent = formatPercent(parameter.reliability);
-        top.appendChild(name);
-        top.appendChild(score);
-
-        const meta = document.createElement("div");
-        meta.className = "parameter-meta";
-        meta.textContent = parameter.role + " · " + parameter.filled + "/" + parameter.total + " gevuld · " + parameter.unique + " unieke waarden · " + formatPercent(parameter.consistency) + " typeconsistent";
+        const detail = document.createElement("span");
+        detail.textContent =
+          typeInfo.source + " = " + typeInfo.value;
 
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "small ghost";
-        button.textContent = "Groeperen op deze parameter";
-        button.disabled = parameter.filled === 0;
+        button.style.marginTop = "8px";
+        button.textContent =
+          "Focus " + matches.length + " gelijke element" +
+          (matches.length === 1 ? "" : "en");
+
+        button.disabled = matches.length === 0;
+
         button.addEventListener("click", function() {
-          switchTab("smart");
-          groupByParameter(parameter);
+          focusDetailsGhost(matches);
         });
 
-        row.appendChild(top);
-        row.appendChild(meta);
-        row.appendChild(button);
-        ui.parameterList.appendChild(row);
+        card.appendChild(strong);
+        card.appendChild(detail);
+        card.appendChild(button);
+
+        ui.selectionResult.appendChild(card);
+      } catch (error) {
+        console.error("Selectie inlezen mislukt:", error);
+
+        ui.selectionStatus.innerHTML =
+          "<strong>Selectie kon niet worden ingelezen</strong>" +
+          "<span>" + (error.message || "Onbekende fout") + "</span>";
+      }
+    }
+
+    function populateManualParameters() {
+      ui.manualParameter.innerHTML = '<option value="">Kies parameter...</option>';
+
+      parameterResults.forEach(function(parameter) {
+        const option = document.createElement("option");
+        option.value = parameter.key;
+        option.textContent = parameter.key;
+        ui.manualParameter.appendChild(option);
       });
+
+      ui.manualValue.innerHTML = '<option value="">Kies eerst parameter...</option>';
+      ui.manualValue.disabled = true;
+      ui.manualSearch.disabled = true;
+      ui.manualStatus.classList.add("hidden");
     }
 
-    function switchTab(tabName) {
-      document.querySelectorAll(".tab").forEach(function(button) {
-        button.classList.toggle("active", button.dataset.tab === tabName);
+    function updateManualValues() {
+      const key = ui.manualParameter.value;
+      const parameter = parameterResults.find(function(p) { return p.key === key; });
+
+      ui.manualValue.innerHTML = "";
+      ui.manualSearch.disabled = true;
+      ui.manualStatus.classList.add("hidden");
+
+      if (!parameter) {
+        ui.manualValue.innerHTML = '<option value="">Kies eerst parameter...</option>';
+        ui.manualValue.disabled = true;
+        return;
+      }
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Kies waarde...";
+      ui.manualValue.appendChild(placeholder);
+
+      valueCountsForParameter(parameter, analyzedElements).forEach(function(entry) {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.value + " (" + entry.elements.length + ")";
+        ui.manualValue.appendChild(option);
       });
-      document.querySelectorAll(".tab-content").forEach(function(content) {
-        content.classList.toggle("hidden", content.id !== "tab-" + tabName);
+
+      ui.manualValue.disabled = false;
+    }
+
+    function updateManualSearchButton() {
+      ui.manualSearch.disabled =
+        !ui.manualParameter.value ||
+        !ui.manualValue.value;
+    }
+
+    async function runManualSearch() {
+      const key = ui.manualParameter.value;
+      const value = ui.manualValue.value;
+
+      if (!key || !value) return;
+
+      const matches = analyzedElements.filter(function(element) {
+        const item = element.values.get(key);
+        return item && normalizeText(item.value) === normalizeText(value);
       });
-    }
 
-    function csvCell(value) {
-      return '"' + String(value ?? "").replace(/"/g, '""') + '"';
-    }
+      ui.manualStatus.classList.remove("hidden");
 
-    function downloadCsv(filename, rows) {
-      const content = "\ufeff" + rows.map(function(row) { return row.map(csvCell).join(";"); }).join("\r\n");
-      const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-    }
+      if (!matches.length) {
+        ui.manualStatus.innerHTML =
+          "<strong>Geen objecten gevonden</strong>" +
+          "<span>" + key + " = " + value + "</span>";
+        return;
+      }
 
-    function exportGroups() {
-      if (!activeParameter) return;
-      const rows = [["Property set", "Parameter", "Groepswaarde", "Aantal elementen"]];
-      activeGroups.forEach(function(group) { rows.push([activeParameter.setName, activeParameter.name, group.value, group.elements.length]); });
-      downloadCsv("altez-ifc-groepering.csv", rows);
+      await focusDetailsGhost(matches);
+
+      ui.manualStatus.innerHTML =
+        "<strong>" + matches.length + " object" +
+        (matches.length === 1 ? "" : "en") +
+        " gevonden</strong>" +
+        "<span>" + key + " = " + value + "</span>";
     }
 
     ui.refreshModel.addEventListener("click", refreshModelScope);
-    ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
-    ui.runCombinedGrouping.addEventListener("click", runCombinedGrouping);
     ui.runAnalysis.addEventListener("click", runAnalysis);
-    ui.parameterFilter.addEventListener("input", renderParameterList);
-    ui.sortParameters.addEventListener("click", function() {
-      parameterSortDescending = !parameterSortDescending;
-      ui.sortParameters.textContent = parameterSortDescending ? "Score ↓" : "Score ↑";
-      renderParameterList();
-    });
-    ui.colorGroups.addEventListener("click", colorAllGroups);
-    ui.exportGroups.addEventListener("click", exportGroups);
-    ui.restoreGroups.addEventListener("click", restoreAnalyzedView);
-    ui.backToRecommendations.addEventListener("click", async function() {
-      await restoreAnalyzedView();
-      ui.activeGrouping.classList.add("hidden");
-      ui.recommendationSection.classList.remove("hidden");
-    });
-    document.querySelectorAll(".tab").forEach(function(button) {
-      button.addEventListener("click", function() { switchTab(button.dataset.tab); });
-    });
+
+    ui.addFilter.addEventListener("click", addRefineFilter);
+    ui.focusRefined.addEventListener("click", focusRefinedSelection);
+
+    ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
+
+    ui.manualParameter.addEventListener("change", updateManualValues);
+    ui.manualValue.addEventListener("change", updateManualSearchButton);
+    ui.manualSearch.addEventListener("click", runManualSearch);
 
     connectToTrimble();
   </script>
