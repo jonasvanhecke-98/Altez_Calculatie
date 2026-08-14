@@ -213,7 +213,7 @@
     <div class="metric-grid">
       <div class="metric"><span id="metric-elements" class="metric-value">0</span><span class="metric-label">elementen</span></div>
       <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">parameters</span></div>
-      <div class="metric" title="Minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden."><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbare groepeerparameters</span></div>
+      <div class="metric" title="Minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden."><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbare parameters</span></div>
       <div class="metric" title="Parameters met te weinig dekking, wisselend datatype, verdachte, constante of bijna unieke waarden."><span id="metric-issues" class="metric-value">0</span><span class="metric-label">parameters te controleren</span></div>
     </div>
 
@@ -223,17 +223,39 @@
   <section id="selection-search-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>Zoeken vanuit selectie</h2>
-        <p class="subtitle">Selecteer één object in het model. Kies daarna een eigenschap om alle objecten met dezelfde waarde te vinden.</p>
+        <h2>Betrouwbare parameters</h2>
+        <p class="subtitle">Zoek objecten op twee manieren: rechtstreeks via een betrouwbare parameter of vertrekkend vanuit een geselecteerd object.</p>
       </div>
-      <span class="badge">Omgekeerd zoeken</span>
+      <span class="badge">Zoeken</span>
     </div>
-    <div id="selection-search-status" class="scope-box">
-      <strong>Nog geen object ingelezen</strong>
-      <span>Selecteer één object in Trimble Connect en klik op onderstaande knop.</span>
+
+    <div class="grouping-workspace" style="margin-bottom:12px;">
+      <span class="workspace-label">Functie 1</span>
+      <h2>Zoeken op betrouwbare parameter</h2>
+      <p class="subtitle">Kies eerst een betrouwbare parameter en daarna de gewenste waarde. De plugin zoekt alle objecten met die combinatie.</p>
+      <div style="display:grid; gap:8px;">
+        <select id="reliable-search-parameter">
+          <option value="">Kies een betrouwbare parameter...</option>
+        </select>
+        <select id="reliable-search-value" disabled>
+          <option value="">Kies eerst een parameter...</option>
+        </select>
+        <button id="run-reliable-search" type="button" disabled>Zoek objecten</button>
+      </div>
+      <div id="reliable-search-status" class="scope-box hidden" style="margin-bottom:0;"></div>
     </div>
-    <button id="read-selection" type="button">Lees geselecteerd object</button>
-    <div id="selection-search-list" class="selection-search-list"></div>
+
+    <div class="grouping-workspace">
+      <span class="workspace-label">Functie 2</span>
+      <h2>Zoeken vanuit selectie</h2>
+      <p class="subtitle">Selecteer één object in het model. Kies daarna een eigenschap om alle andere objecten met dezelfde waarde te vinden.</p>
+      <div id="selection-search-status" class="scope-box">
+        <strong>Nog geen object ingelezen</strong>
+        <span>Selecteer één object in Trimble Connect en klik op onderstaande knop.</span>
+      </div>
+      <button id="read-selection" type="button">Lees geselecteerd object</button>
+      <div id="selection-search-list" class="selection-search-list"></div>
+    </div>
   </section>
 
   <section id="work-panel" class="panel hidden">
@@ -244,7 +266,7 @@
 
     <div id="tab-smart" class="tab-content">
       <div id="recommendation-section">
-        <h2>Betrouwbare groepeerparameters</h2>
+        <h2>Betrouwbare parameters</h2>
         <p class="subtitle">Dezelfde parameters als in het analyseoverzicht, gerangschikt op bruikbaarheid voor calculatie.</p>
         <div id="recommendations" class="recommendations"></div>
       </div>
@@ -318,6 +340,10 @@
       summaryPanel: document.getElementById("summary-panel"),
       workPanel: document.getElementById("work-panel"),
       selectionSearchPanel: document.getElementById("selection-search-panel"),
+      reliableSearchParameter: document.getElementById("reliable-search-parameter"),
+      reliableSearchValue: document.getElementById("reliable-search-value"),
+      runReliableSearch: document.getElementById("run-reliable-search"),
+      reliableSearchStatus: document.getElementById("reliable-search-status"),
       selectionSearchStatus: document.getElementById("selection-search-status"),
       selectionSearchList: document.getElementById("selection-search-list"),
       readSelection: document.getElementById("read-selection"),
@@ -742,7 +768,7 @@
 
       const summaryClass = scoreClass(overall);
       ui.qualitySummary.className = "quality-summary " + summaryClass;
-      ui.qualitySummary.textContent = reliable.length + " betrouwbare groepeerparameters: minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden. "
+      ui.qualitySummary.textContent = reliable.length + " betrouwbare parameters: minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden. "
         + issues.length + " parameters te controleren door te weinig dekking, wisselend datatype, verdachte, constante of bijna unieke waarden.";
 
       ui.summaryPanel.classList.remove("hidden");
@@ -752,6 +778,7 @@
       ui.recommendationSection.classList.remove("hidden");
       renderRecommendations();
       renderParameterList();
+      populateReliableSearchParameters();
     }
 
     function recommendedParameters() {
@@ -950,6 +977,88 @@
         await API.viewer.setObjectState(selector, { color: GROUP_COLORS[index % GROUP_COLORS.length], opacity: 1, visible: true });
         coloredSelectors.push(selector);
       }
+    }
+
+    function populateReliableSearchParameters() {
+      const reliable = recommendedParameters();
+      ui.reliableSearchParameter.innerHTML = '<option value="">Kies een betrouwbare parameter...</option>';
+      reliable.forEach(function(parameter) {
+        const option = document.createElement("option");
+        option.value = parameter.key;
+        option.textContent = parameter.key;
+        ui.reliableSearchParameter.appendChild(option);
+      });
+      ui.reliableSearchValue.innerHTML = '<option value="">Kies eerst een parameter...</option>';
+      ui.reliableSearchValue.disabled = true;
+      ui.runReliableSearch.disabled = true;
+      ui.reliableSearchStatus.classList.add("hidden");
+    }
+
+    function updateReliableSearchValues() {
+      const key = ui.reliableSearchParameter.value;
+      const parameter = parameterResults.find(function(item) { return item.key === key; });
+      ui.reliableSearchValue.innerHTML = "";
+      ui.runReliableSearch.disabled = true;
+      ui.reliableSearchStatus.classList.add("hidden");
+
+      if (!parameter) {
+        ui.reliableSearchValue.innerHTML = '<option value="">Kies eerst een parameter...</option>';
+        ui.reliableSearchValue.disabled = true;
+        return;
+      }
+
+      const counts = new Map();
+      analyzedElements.forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+        if (!value || isSuspiciousValue(value)) return;
+        counts.set(value, (counts.get(value) || 0) + 1);
+      });
+
+      const values = Array.from(counts.entries()).sort(function(a, b) {
+        return b[1] - a[1] || a[0].localeCompare(b[0], "nl", { numeric: true });
+      });
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Kies een waarde...";
+      ui.reliableSearchValue.appendChild(placeholder);
+
+      values.forEach(function(entry) {
+        const option = document.createElement("option");
+        option.value = entry[0];
+        option.textContent = entry[0] + " (" + entry[1] + ")";
+        ui.reliableSearchValue.appendChild(option);
+      });
+
+      ui.reliableSearchValue.disabled = values.length === 0;
+    }
+
+    function updateReliableSearchButton() {
+      ui.runReliableSearch.disabled = !ui.reliableSearchParameter.value || !ui.reliableSearchValue.value;
+    }
+
+    async function runReliableParameterSearch() {
+      const key = ui.reliableSearchParameter.value;
+      const value = ui.reliableSearchValue.value;
+      if (!key || !value) return;
+
+      const parameter = parameterResults.find(function(item) { return item.key === key; });
+      if (!parameter) return;
+
+      const matches = analyzedElements.filter(function(element) {
+        const item = element.values.get(key);
+        return item && normalizeText(item.value) === normalizeText(value);
+      });
+
+      ui.reliableSearchStatus.classList.remove("hidden");
+      if (!matches.length) {
+        ui.reliableSearchStatus.innerHTML = "<strong>Geen objecten gevonden</strong><span>" + key + " = " + value + "</span>";
+        return;
+      }
+
+      await focusDetails(matches);
+      ui.reliableSearchStatus.innerHTML = "<strong>" + matches.length + " object" + (matches.length === 1 ? "" : "en") + " gevonden</strong><span>" + key + " = " + value + ". De resultaten zijn geselecteerd en gefocust; de rest blijft transparant zichtbaar.</span>";
     }
 
     function getSelectedRuntimeIds(selection) {
@@ -1174,6 +1283,9 @@
 
     ui.refreshModel.addEventListener("click", refreshModelScope);
     ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
+    ui.reliableSearchParameter.addEventListener("change", updateReliableSearchValues);
+    ui.reliableSearchValue.addEventListener("change", updateReliableSearchButton);
+    ui.runReliableSearch.addEventListener("click", runReliableParameterSearch);
     ui.runAnalysis.addEventListener("click", runAnalysis);
     ui.parameterFilter.addEventListener("input", renderParameterList);
     ui.sortParameters.addEventListener("click", function() {
