@@ -307,13 +307,74 @@
 
       .filter-row button { width: 100%; }
     }
-  </style>
+  
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .compact-button {
+      width: auto;
+      white-space: nowrap;
+    }
+
+    .quick-choice-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 9px;
+    }
+
+    .quick-choice {
+      width: 100%;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .quick-choice:hover {
+      border-color: var(--blue);
+      background: #f5fbfe;
+    }
+
+    .quick-choice strong {
+      display: block;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .quick-choice span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .selection-path {
+      margin-bottom: 10px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 520px) {
+      .action-grid { grid-template-columns: 1fr; }
+    }
+</style>
 </head>
 <body>
   <header class="app-header">
     <span class="eyebrow">Altez Calculatie</span>
-    <h1>Gerichte modelselecties</h1>
-    <p class="subtitle">Analyseer alleen inhoudelijke IFC-eigenschappen en maak snel gerichte selecties op type, materiaal, classificatie, verdieping en andere bruikbare parameters.</p>
+    <h1>Gerichte selecties</h1>
+    <p class="subtitle">Kies eerst wat je wilt doen. Alleen de informatie die je nodig hebt wordt getoond.</p>
     <div id="connection-status" class="connection">Verbinding met Trimble Connect controleren...</div>
   </header>
 
@@ -321,7 +382,7 @@
     <div class="panel-head">
       <div>
         <h2>1. Modelanalyse</h2>
-        <p class="subtitle">Geometrie, hoeveelheden, technische IDs en importplugin-data worden uitgesloten uit de groepeeranalyse.</p>
+        <p class="subtitle">Analyseert alleen bruikbare, niet-geometrische eigenschappen.</p>
       </div>
       <span class="badge">Start</span>
     </div>
@@ -340,58 +401,74 @@
       <div id="progress-text" class="progress-text">Analyse voorbereiden...</div>
       <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
     </div>
-  </section>
 
-  <section id="summary-panel" class="panel hidden">
-    <div class="panel-head">
-      <div>
-        <h2>Analyseoverzicht</h2>
-        <p id="analysis-context" class="subtitle"></p>
-      </div>
-      <span id="analysis-score" class="score warn">0%</span>
-    </div>
-
-    <div class="metric-grid">
-      <div class="metric"><span id="metric-elements" class="metric-value">0</span><span class="metric-label">elementen</span></div>
-      <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">bruikbare parameters</span></div>
-      <div class="metric"><span id="metric-top" class="metric-value">0</span><span class="metric-label">nuttigste parameters</span></div>
-      <div class="metric"><span id="metric-filtered" class="metric-value">0</span><span class="metric-label">technische/geometrische velden uitgesloten</span></div>
+    <div id="mini-summary" class="scope-box hidden" style="margin-bottom:0;">
+      <strong id="mini-summary-title"></strong>
+      <span id="mini-summary-detail"></span>
     </div>
   </section>
 
-  <section id="useful-panel" class="panel hidden">
+  <section id="main-actions" class="panel hidden">
+    <h2>2. Wat wil je doen?</h2>
+    <div class="action-grid">
+      <button id="open-quick-select" type="button">Snel selecteren</button>
+      <button id="open-selection-search" class="secondary" type="button">Zoeken vanuit selectie</button>
+    </div>
+    <button id="open-advanced-search" class="ghost small" type="button" style="margin-top:8px;">Geavanceerd zoeken op parameter</button>
+  </section>
+
+  <section id="quick-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>2. Nuttigste parameters</h2>
-        <p class="subtitle">Top 10 van de inhoudelijke parameters die het meest geschikt zijn om snel te groeperen. Klik op een parameter om zijn waarden te bekijken.</p>
+        <h2>Snel selecteren</h2>
+        <p class="subtitle">Kies eerst een nuttige parameter. Daarna zie je alleen de waarden die bij die parameter horen.</p>
       </div>
-      <span class="badge">Top 10</span>
+      <button id="close-quick" class="secondary small compact-button" type="button">Sluiten</button>
     </div>
 
-    <div id="parameter-cards" class="parameter-cards"></div>
+    <div id="quick-path" class="selection-path hidden"></div>
 
-    <div id="value-section" class="value-section hidden">
-      <h3 id="value-title">Waarden</h3>
-      <div id="value-list" class="value-list"></div>
+    <div id="quick-parameters">
+      <h3>Kies parameter</h3>
+      <div id="quick-parameter-list" class="quick-choice-list"></div>
     </div>
 
-    <div id="refine-box" class="refine-box hidden">
-      <h3>Verfijn selectie</h3>
-      <p class="subtitle">Combineer maximaal 3 parameters. Elke extra regel werkt als EN-filter.</p>
-      <div id="filter-list" class="filter-list"></div>
-      <button id="add-filter" class="secondary small" type="button">+ Parameter toevoegen</button>
-      <div id="refine-result-count" class="result-count"></div>
-      <button id="focus-refined" type="button" disabled>Focus selectie</button>
+    <div id="quick-values" class="hidden">
+      <div class="panel-head">
+        <div>
+          <h3 id="quick-value-title">Kies waarde</h3>
+          <p id="quick-value-subtitle" class="subtitle"></p>
+        </div>
+        <button id="back-to-parameters" class="secondary small compact-button" type="button">← Terug</button>
+      </div>
+      <div id="quick-value-list" class="quick-choice-list"></div>
+    </div>
+
+    <div id="quick-result" class="hidden">
+      <div class="selection-result">
+        <strong id="quick-result-title"></strong>
+        <span id="quick-result-detail"></span>
+        <div class="button-row" style="margin-top:8px;">
+          <button id="quick-focus" type="button">Focus</button>
+          <button id="quick-refine" class="secondary" type="button">+ Verder verfijnen</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="quick-refine-panel" class="hidden" style="margin-top:12px;">
+      <h3>Kies volgende parameter</h3>
+      <p class="subtitle">Je kunt maximaal 3 parameters combineren.</p>
+      <div id="quick-refine-parameters" class="quick-choice-list"></div>
     </div>
   </section>
 
   <section id="selection-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>3. Zoeken vanuit selectie</h2>
-        <p class="subtitle">Selecteer één object. De plugin vergelijkt Product Type, Product Name zonder unieke code en relevante Pset-/type-eigenschappen om hetzelfde bouwtype te vinden.</p>
+        <h2>Zoeken vanuit selectie</h2>
+        <p class="subtitle">Selecteer één object. De plugin zoekt automatisch hetzelfde bouwtype.</p>
       </div>
-      <span class="badge">Selectie</span>
+      <button id="close-selection" class="secondary small compact-button" type="button">Sluiten</button>
     </div>
 
     <div id="selection-status" class="scope-box">
@@ -399,17 +476,17 @@
       <span>Selecteer precies één object in Trimble Connect.</span>
     </div>
 
-    <button id="read-selection" type="button">Herken geselecteerd type</button>
+    <button id="read-selection" type="button">Zoek hetzelfde type</button>
     <div id="selection-result"></div>
   </section>
 
   <section id="manual-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>4. Zoeken op parameter</h2>
-        <p class="subtitle">Handmatige zoekactie over alle toegestane niet-geometrische parameters, ook wanneer ze niet in de top 10 staan.</p>
+        <h2>Zoeken op parameter</h2>
+        <p class="subtitle">Handmatig zoeken wanneer de snelle selectie niet volstaat.</p>
       </div>
-      <span class="badge">Handmatig</span>
+      <button id="close-manual" class="secondary small compact-button" type="button">Sluiten</button>
     </div>
 
     <div class="manual-grid">
@@ -420,11 +497,12 @@
         <option value="">Kies eerst parameter...</option>
       </select>
     </div>
+
     <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en focus</button>
     <div id="manual-status" class="scope-box hidden"></div>
   </section>
 
-  <p class="footer-note">Focus gebruikt overal dezelfde logica: de doelobjecten blijven zichtbaar en geselecteerd; alle overige geanalyseerde objecten worden verborgen zodat Trimble Connect Ghost Mode ze als ghostcontext kan tonen.</p>
+  <p class="footer-note">Focus: resultaat blijft volledig zichtbaar; alle andere geanalyseerde objecten blijven zichtbaar maar worden sterk transparant weergegeven.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script>
@@ -454,31 +532,41 @@
       progressText: document.getElementById("progress-text"),
       progressBar: document.getElementById("progress-bar"),
 
-      summaryPanel: document.getElementById("summary-panel"),
-      analysisContext: document.getElementById("analysis-context"),
-      analysisScore: document.getElementById("analysis-score"),
-      metricElements: document.getElementById("metric-elements"),
-      metricParameters: document.getElementById("metric-parameters"),
-      metricTop: document.getElementById("metric-top"),
-      metricFiltered: document.getElementById("metric-filtered"),
+      miniSummary: document.getElementById("mini-summary"),
+      miniSummaryTitle: document.getElementById("mini-summary-title"),
+      miniSummaryDetail: document.getElementById("mini-summary-detail"),
+      mainActions: document.getElementById("main-actions"),
 
-      usefulPanel: document.getElementById("useful-panel"),
-      parameterCards: document.getElementById("parameter-cards"),
-      valueSection: document.getElementById("value-section"),
-      valueTitle: document.getElementById("value-title"),
-      valueList: document.getElementById("value-list"),
-      refineBox: document.getElementById("refine-box"),
-      filterList: document.getElementById("filter-list"),
-      addFilter: document.getElementById("add-filter"),
-      refineResultCount: document.getElementById("refine-result-count"),
-      focusRefined: document.getElementById("focus-refined"),
+      openQuickSelect: document.getElementById("open-quick-select"),
+      openSelectionSearch: document.getElementById("open-selection-search"),
+      openAdvancedSearch: document.getElementById("open-advanced-search"),
+
+      quickPanel: document.getElementById("quick-panel"),
+      closeQuick: document.getElementById("close-quick"),
+      quickPath: document.getElementById("quick-path"),
+      quickParameters: document.getElementById("quick-parameters"),
+      quickParameterList: document.getElementById("quick-parameter-list"),
+      quickValues: document.getElementById("quick-values"),
+      quickValueTitle: document.getElementById("quick-value-title"),
+      quickValueSubtitle: document.getElementById("quick-value-subtitle"),
+      quickValueList: document.getElementById("quick-value-list"),
+      backToParameters: document.getElementById("back-to-parameters"),
+      quickResult: document.getElementById("quick-result"),
+      quickResultTitle: document.getElementById("quick-result-title"),
+      quickResultDetail: document.getElementById("quick-result-detail"),
+      quickFocus: document.getElementById("quick-focus"),
+      quickRefine: document.getElementById("quick-refine"),
+      quickRefinePanel: document.getElementById("quick-refine-panel"),
+      quickRefineParameters: document.getElementById("quick-refine-parameters"),
 
       selectionPanel: document.getElementById("selection-panel"),
+      closeSelection: document.getElementById("close-selection"),
       selectionStatus: document.getElementById("selection-status"),
       readSelection: document.getElementById("read-selection"),
       selectionResult: document.getElementById("selection-result"),
 
       manualPanel: document.getElementById("manual-panel"),
+      closeManual: document.getElementById("close-manual"),
       manualParameter: document.getElementById("manual-parameter"),
       manualValue: document.getElementById("manual-value"),
       manualSearch: document.getElementById("manual-search"),
@@ -977,10 +1065,6 @@
       activeTopParameter = null;
       refineFilters = [];
 
-      ui.summaryPanel.classList.add("hidden");
-      ui.usefulPanel.classList.add("hidden");
-      ui.selectionPanel.classList.add("hidden");
-      ui.manualPanel.classList.add("hidden");
 
       const totalBatches = modelSnapshot.reduce(function(total, model) {
         return total + Math.ceil(getObjects(model).length / PROPERTY_BATCH_SIZE);
@@ -1054,293 +1138,210 @@
       return parameterResults.slice(0, 10);
     }
 
+    let quickFilters = [];
+    let quickPendingParameter = null;
+    let quickCurrentMatches = [];
+
+    function closeAllActionPanels() {
+      ui.quickPanel.classList.add("hidden");
+    }
+
     function renderAnalysis(requestedCount, failedBatches) {
       const top = topUsefulParameters();
-      const averageTop = top.length
-        ? top.reduce(function(sum, p) { return sum + p.usefulness; }, 0) / top.length
-        : 0;
 
-      ui.analysisContext.textContent =
-        "Modelmomentopname uit " + projectName + ": " +
-        analyzedElements.length + " van " + requestedCount + " objecten ingelezen" +
-        (failedBatches ? "; " + failedBatches + " blok(ken) mislukt" : "") + ".";
+      ui.miniSummaryTitle.textContent =
+        analyzedElements.length + " elementen · " +
+        parameterResults.length + " bruikbare parameters";
 
-      ui.analysisScore.textContent = formatPercent(averageTop);
-      ui.analysisScore.className = "score " + scoreClass(averageTop);
-      ui.metricElements.textContent = analyzedElements.length;
-      ui.metricParameters.textContent = parameterResults.length;
-      ui.metricTop.textContent = top.length;
-      ui.metricFiltered.textContent = excludedParameterCount;
+      ui.miniSummaryDetail.textContent =
+        top.length + " nuttige parameters klaar voor snelle selectie" +
+        (failedBatches ? " · " + failedBatches + " blok(ken) mislukt" : "") + ".";
 
-      ui.summaryPanel.classList.remove("hidden");
-      ui.usefulPanel.classList.remove("hidden");
-      ui.selectionPanel.classList.remove("hidden");
-      ui.manualPanel.classList.remove("hidden");
+      ui.miniSummary.classList.remove("hidden");
+      ui.mainActions.classList.remove("hidden");
 
-      renderTopParameters();
+      closeAllActionPanels();
+      renderQuickParameterChoices();
       populateManualParameters();
 
-      ui.valueSection.classList.add("hidden");
-      ui.refineBox.classList.add("hidden");
       ui.selectionResult.innerHTML = "";
       ui.selectionStatus.innerHTML =
         "<strong>Nog geen object ingelezen</strong>" +
         "<span>Selecteer precies één object in Trimble Connect.</span>";
     }
 
-    function renderTopParameters() {
-      const top = topUsefulParameters();
-      ui.parameterCards.innerHTML = "";
+    function quickParameterPool() {
+      return topUsefulParameters().slice(0, 5);
+    }
 
-      if (!top.length) {
-        ui.parameterCards.innerHTML = '<div class="empty">Geen geschikte inhoudelijke parameters gevonden.</div>';
-        return;
-      }
+    function renderQuickParameterChoices() {
+      ui.quickParameterList.innerHTML = "";
+      quickParameterPool().forEach(function(parameter) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-choice";
 
-      top.forEach(function(parameter, index) {
-        const card = document.createElement("div");
-        card.className = "parameter-card" + (activeTopParameter && activeTopParameter.key === parameter.key ? " active" : "");
+        const strong = document.createElement("strong");
+        strong.textContent = parameter.key;
 
-        const head = document.createElement("div");
-        head.className = "parameter-head";
-
-        const name = document.createElement("div");
-        name.className = "parameter-name";
-        name.textContent = (index + 1) + ". " + parameter.key;
-
-        const score = document.createElement("span");
-        score.className = "score " + scoreClass(parameter.usefulness);
-        score.textContent = round(parameter.usefulness, 0);
-
-        head.appendChild(name);
-        head.appendChild(score);
-
-        const meta = document.createElement("div");
-        meta.className = "parameter-meta";
+        const meta = document.createElement("span");
         meta.textContent =
-          parameter.role +
+          "score " + round(parameter.usefulness, 0) +
           " · " + parameter.unique + " waarden" +
-          " · " + formatPercent(parameter.coverage) + " gevuld" +
-          " · betrouwbaarheid " + formatPercent(parameter.reliability);
+          " · " + formatPercent(parameter.coverage) + " gevuld";
 
-        card.appendChild(head);
-        card.appendChild(meta);
+        button.appendChild(strong);
+        button.appendChild(meta);
 
-        card.addEventListener("click", function() {
-          activeTopParameter = parameter;
-          renderTopParameters();
-          renderValuesForParameter(parameter);
+        button.addEventListener("click", function() {
+          quickPendingParameter = parameter;
+          renderQuickValues(parameter);
         });
 
-        ui.parameterCards.appendChild(card);
+        ui.quickParameterList.appendChild(button);
       });
     }
 
-    function valueCountsForParameter(parameter, scopeElements) {
-      const counts = new Map();
-
-      scopeElements.forEach(function(element) {
-        const item = element.values.get(parameter.key);
-        const value = item && String(item.value || "").trim();
-
-        if (!value || isSuspiciousValue(value)) return;
-
-        if (!counts.has(value)) counts.set(value, []);
-        counts.get(value).push(element);
-      });
-
-      return Array.from(counts.entries()).map(function(entry) {
-        return { value: entry[0], elements: entry[1] };
-      }).sort(function(a, b) {
-        return b.elements.length - a.elements.length
-          || a.value.localeCompare(b.value, "nl", { numeric: true });
-      });
-    }
-
-    function renderValuesForParameter(parameter) {
-      const values = valueCountsForParameter(parameter, analyzedElements);
-
-      ui.valueTitle.textContent = parameter.key;
-      ui.valueList.innerHTML = "";
-      ui.valueSection.classList.remove("hidden");
-
-      if (!values.length) {
-        ui.valueList.innerHTML = '<div class="empty">Geen bruikbare waarden gevonden.</div>';
-        return;
-      }
-
-      values.forEach(function(entry) {
-        const row = document.createElement("div");
-        row.className = "value-row";
-
-        const value = document.createElement("div");
-        value.className = "value-text";
-        value.textContent = entry.value;
-
-        const count = document.createElement("div");
-        count.className = "value-count";
-        count.textContent = entry.elements.length + " elem.";
-
-        const actions = document.createElement("div");
-        actions.className = "value-actions";
-
-        const focusButton = document.createElement("button");
-        focusButton.type = "button";
-        focusButton.className = "small";
-        focusButton.textContent = "Focus";
-        focusButton.addEventListener("click", function() {
-          focusDetailsGhost(entry.elements);
-        });
-
-        const refineButton = document.createElement("button");
-        refineButton.type = "button";
-        refineButton.className = "secondary small";
-        refineButton.textContent = "Verfijn";
-        refineButton.addEventListener("click", function() {
-          refineFilters = [{
-            key: parameter.key,
-            value: entry.value
-          }];
-          ui.refineBox.classList.remove("hidden");
-          renderRefineFilters();
-        });
-
-        actions.appendChild(focusButton);
-        actions.appendChild(refineButton);
-
-        row.appendChild(value);
-        row.appendChild(count);
-        row.appendChild(actions);
-
-        ui.valueList.appendChild(row);
-      });
-    }
-
-    function elementsMatchingFilters(filters, ignoredIndex) {
-      const complete = filters.filter(function(filter, index) {
-        return index !== ignoredIndex && filter.key && filter.value;
-      });
+    function currentQuickScope() {
+      if (!quickFilters.length) return analyzedElements;
 
       return analyzedElements.filter(function(element) {
-        return complete.every(function(filter) {
+        return quickFilters.every(function(filter) {
           const item = element.values.get(filter.key);
           return item && normalizeText(item.value) === normalizeText(filter.value);
         });
       });
     }
 
-    function valuesForFilter(index, key) {
-      if (!key) return [];
+    function renderQuickValues(parameter) {
+      const scope = currentQuickScope();
+      const values = valueCountsForParameter(parameter, scope);
 
-      const scope = elementsMatchingFilters(refineFilters, index);
-      const parameter = parameterResults.find(function(p) { return p.key === key; });
-      if (!parameter) return [];
+      ui.quickParameters.classList.add("hidden");
+      ui.quickValues.classList.remove("hidden");
+      ui.quickResult.classList.add("hidden");
+      ui.quickRefinePanel.classList.add("hidden");
 
-      return valueCountsForParameter(parameter, scope);
-    }
+      ui.quickValueTitle.textContent = parameter.key;
+      ui.quickValueSubtitle.textContent =
+        values.length + " waarden binnen " + scope.length + " elementen";
 
-    function renderRefineFilters() {
-      ui.filterList.innerHTML = "";
+      ui.quickValueList.innerHTML = "";
 
-      refineFilters.forEach(function(filter, index) {
-        const row = document.createElement("div");
-        row.className = "filter-row";
+      values.forEach(function(entry) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-choice";
 
-        const parameterSelect = document.createElement("select");
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = "Kies parameter...";
-        parameterSelect.appendChild(placeholder);
+        const strong = document.createElement("strong");
+        strong.textContent = entry.value;
 
-        parameterResults.forEach(function(parameter) {
-          const option = document.createElement("option");
-          option.value = parameter.key;
-          option.textContent = parameter.key;
-          option.selected = parameter.key === filter.key;
-          parameterSelect.appendChild(option);
-        });
+        const meta = document.createElement("span");
+        meta.textContent = entry.elements.length + " elementen";
 
-        parameterSelect.addEventListener("change", function() {
-          refineFilters[index].key = parameterSelect.value;
-          refineFilters[index].value = "";
-          renderRefineFilters();
-        });
+        button.appendChild(strong);
+        button.appendChild(meta);
 
-        const valueSelect = document.createElement("select");
-        valueSelect.disabled = !filter.key;
-
-        const valuePlaceholder = document.createElement("option");
-        valuePlaceholder.value = "";
-        valuePlaceholder.textContent = filter.key ? "Kies waarde..." : "Kies eerst parameter...";
-        valueSelect.appendChild(valuePlaceholder);
-
-        if (filter.key) {
-          valuesForFilter(index, filter.key).forEach(function(entry) {
-            const option = document.createElement("option");
-            option.value = entry.value;
-            option.textContent = entry.value + " (" + entry.elements.length + ")";
-            option.selected = entry.value === filter.value;
-            valueSelect.appendChild(option);
+        button.addEventListener("click", function() {
+          quickFilters.push({
+            key: parameter.key,
+            value: entry.value
           });
-        }
 
-        valueSelect.addEventListener("change", function() {
-          refineFilters[index].value = valueSelect.value;
-          renderRefineFilters();
+          quickCurrentMatches = currentQuickScope();
+          renderQuickResult();
         });
 
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "secondary small";
-        remove.textContent = "×";
-        remove.title = "Filter verwijderen";
-        remove.disabled = refineFilters.length === 1;
+        ui.quickValueList.appendChild(button);
+      });
+    }
 
-        remove.addEventListener("click", function() {
-          refineFilters.splice(index, 1);
-          renderRefineFilters();
+    function renderQuickPath() {
+      if (!quickFilters.length) {
+        ui.quickPath.classList.add("hidden");
+        return;
+      }
+
+      ui.quickPath.textContent =
+        quickFilters.map(function(filter) {
+          return filter.value;
+        }).join(" → ") +
+        " · " + quickCurrentMatches.length + " elementen";
+
+      ui.quickPath.classList.remove("hidden");
+    }
+
+    function renderQuickResult() {
+      renderQuickPath();
+
+      ui.quickValues.classList.add("hidden");
+      ui.quickParameters.classList.add("hidden");
+      ui.quickRefinePanel.classList.add("hidden");
+      ui.quickResult.classList.remove("hidden");
+
+      const last = quickFilters[quickFilters.length - 1];
+
+      ui.quickResultTitle.textContent =
+        quickCurrentMatches.length + " elementen geselecteerd";
+
+      ui.quickResultDetail.textContent =
+        quickFilters.map(function(filter) {
+          return filter.key + " = " + filter.value;
+        }).join(" · ");
+
+      ui.quickRefine.disabled = quickFilters.length >= 3;
+    }
+
+    function renderRefineParameterChoices() {
+      ui.quickRefineParameters.innerHTML = "";
+
+      const usedKeys = new Set(quickFilters.map(function(filter) {
+        return filter.key;
+      }));
+
+      const candidates = parameterResults
+        .filter(function(parameter) {
+          return !usedKeys.has(parameter.key);
+        })
+        .slice(0, 5);
+
+      candidates.forEach(function(parameter) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-choice";
+
+        const strong = document.createElement("strong");
+        strong.textContent = parameter.key;
+
+        const meta = document.createElement("span");
+        meta.textContent =
+          "score " + round(parameter.usefulness, 0) +
+          " · " + parameter.unique + " waarden";
+
+        button.appendChild(strong);
+        button.appendChild(meta);
+
+        button.addEventListener("click", function() {
+          quickPendingParameter = parameter;
+          renderQuickValues(parameter);
         });
 
-        row.appendChild(parameterSelect);
-        row.appendChild(valueSelect);
-        row.appendChild(remove);
-
-        ui.filterList.appendChild(row);
+        ui.quickRefineParameters.appendChild(button);
       });
-
-      const complete = refineFilters.filter(function(filter) {
-        return filter.key && filter.value;
-      });
-
-      const matches = complete.length
-        ? elementsMatchingFilters(refineFilters, -1)
-        : [];
-
-      ui.refineResultCount.textContent = complete.length
-        ? matches.length + " elementen voldoen aan " + complete.length + " filter" + (complete.length === 1 ? "" : "s") + "."
-        : "Kies minstens één volledige filter.";
-
-      ui.focusRefined.disabled = complete.length === 0 || matches.length === 0;
-      ui.addFilter.disabled = refineFilters.length >= 3;
     }
 
-    function addRefineFilter() {
-      if (refineFilters.length >= 3) return;
-      refineFilters.push({ key: "", value: "" });
-      renderRefineFilters();
-    }
+    function resetQuickFlow() {
+      quickFilters = [];
+      quickPendingParameter = null;
+      quickCurrentMatches = [];
 
-    async function focusRefinedSelection() {
-      const complete = refineFilters.filter(function(filter) {
-        return filter.key && filter.value;
-      });
+      ui.quickPath.classList.add("hidden");
+      ui.quickParameters.classList.remove("hidden");
+      ui.quickValues.classList.add("hidden");
+      ui.quickResult.classList.add("hidden");
+      ui.quickRefinePanel.classList.add("hidden");
 
-      if (!complete.length) return;
-
-      const matches = elementsMatchingFilters(refineFilters, -1);
-      if (!matches.length) return;
-
-      await focusDetailsGhost(matches);
+      renderQuickParameterChoices();
     }
 
     async function focusDetailsGhost(details) {
@@ -1350,13 +1351,16 @@
       if (!targetSelector.modelObjectIds.length) return;
 
       try {
-        // Eén vaste focuslogica in de hele tool:
-        // doelobjecten zichtbaar + geselecteerd, rest verborgen.
-        // Met Trimble Connect Ghost Mode worden verborgen objecten als ghostlijnen/context getoond.
+        // Vaste focusweergave voor ALLE functies:
+        // 1. alles opnieuw zichtbaar;
+        // 2. alle overige modelobjecten sterk transparant;
+        // 3. doelobjecten volledig zichtbaar;
+        // 4. doelobjecten selecteren;
+        // 5. erop inzoomen.
         await API.viewer.setObjectState(scopeSelector, {
           color: "reset",
-          opacity: 1,
-          visible: false
+          opacity: 0.12,
+          visible: true
         });
 
         await API.viewer.setObjectState(targetSelector, {
@@ -1373,8 +1377,13 @@
           console.warn("Camera focus mislukt:", cameraError);
         }
       } catch (error) {
-        console.warn("Ghost-focus mislukt:", error);
-        await API.viewer.setSelection(targetSelector, "set");
+        console.warn("Focusweergave mislukt:", error);
+        try {
+          await API.viewer.setSelection(targetSelector, "set");
+          await API.viewer.setCamera(targetSelector, { animationTime: 450 });
+        } catch (fallbackError) {
+          console.warn("Focus fallback mislukt:", fallbackError);
+        }
       }
     }
 
@@ -1685,12 +1694,13 @@
         button.type = "button";
         button.style.marginTop = "8px";
         button.textContent =
-          "Focus " + matches.length + " gelijke element" +
+          "Zoek " + matches.length + " gelijke element" +
           (matches.length === 1 ? "" : "en");
 
         button.disabled = matches.length === 0;
 
         button.addEventListener("click", function() {
+          // Exact dezelfde functie als alle andere Focus-knoppen.
           focusDetailsGhost(matches);
         });
 
@@ -1791,8 +1801,60 @@
     ui.refreshModel.addEventListener("click", refreshModelScope);
     ui.runAnalysis.addEventListener("click", runAnalysis);
 
-    ui.addFilter.addEventListener("click", addRefineFilter);
-    ui.focusRefined.addEventListener("click", focusRefinedSelection);
+    ui.openQuickSelect.addEventListener("click", function() {
+      closeAllActionPanels();
+      resetQuickFlow();
+      ui.quickPanel.classList.remove("hidden");
+    });
+
+    ui.openSelectionSearch.addEventListener("click", function() {
+      closeAllActionPanels();
+      ui.selectionPanel.classList.remove("hidden");
+    });
+
+    ui.openAdvancedSearch.addEventListener("click", function() {
+      closeAllActionPanels();
+      ui.manualPanel.classList.remove("hidden");
+    });
+
+    ui.closeQuick.addEventListener("click", function() {
+      ui.quickPanel.classList.add("hidden");
+    });
+
+    ui.closeSelection.addEventListener("click", function() {
+      ui.selectionPanel.classList.add("hidden");
+    });
+
+    ui.closeManual.addEventListener("click", function() {
+      ui.manualPanel.classList.add("hidden");
+    });
+
+    ui.backToParameters.addEventListener("click", function() {
+      if (quickFilters.length) {
+        quickFilters.pop();
+        quickCurrentMatches = currentQuickScope();
+        if (quickFilters.length) {
+          renderQuickResult();
+        } else {
+          resetQuickFlow();
+        }
+      } else {
+        resetQuickFlow();
+      }
+    });
+
+    ui.quickFocus.addEventListener("click", function() {
+      if (quickCurrentMatches.length) {
+        focusDetailsGhost(quickCurrentMatches);
+      }
+    });
+
+    ui.quickRefine.addEventListener("click", function() {
+      if (quickFilters.length >= 3) return;
+      ui.quickResult.classList.add("hidden");
+      ui.quickRefinePanel.classList.remove("hidden");
+      renderRefineParameterChoices();
+    });
 
     ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
 
