@@ -608,7 +608,7 @@
       <span>Maak eerst een selectie via Snel selecteren, Zoeken vanuit selectie of Zoeken op parameter.</span>
     </div>
 
-    <button id="analyze-datatable-columns" type="button">Analyseer beschikbare kolommen</button>
+    <button id="analyze-datatable-columns" type="button">Laad beschikbare Data Table-kolommen</button>
 
     <div id="datatable-builder" class="datatable-builder hidden">
       <div class="datatable-builder-head">
@@ -1356,8 +1356,16 @@
         button.appendChild(meta);
 
         button.addEventListener("click", function() {
-          quickPendingParameter = parameter;
-          renderQuickValues(parameter);
+          try {
+            quickPendingParameter = parameter;
+            renderQuickValues(parameter);
+          } catch (error) {
+            console.error("Waarden openen mislukt:", error);
+            ui.quickParameterList.insertAdjacentHTML(
+              "afterbegin",
+              '<div class="empty">Waarden konden niet worden geopend. Herlaad de extensie met deze nieuwe versie.</div>'
+            );
+          }
         });
 
         ui.quickParameterList.appendChild(button);
@@ -1371,6 +1379,27 @@
       } else {
         ui.showMoreParameters.classList.add("hidden");
       }
+    }
+
+    function valueCountsForParameter(parameter, scopeElements) {
+      const counts = new Map();
+
+      (scopeElements || []).forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+
+        if (!value || isSuspiciousValue(value)) return;
+
+        if (!counts.has(value)) counts.set(value, []);
+        counts.get(value).push(element);
+      });
+
+      return Array.from(counts.entries()).map(function(entry) {
+        return { value: entry[0], elements: entry[1] };
+      }).sort(function(a, b) {
+        return b.elements.length - a.elements.length ||
+          a.value.localeCompare(b.value, "nl", { numeric: true });
+      });
     }
 
     function currentQuickScope() {
@@ -1688,8 +1717,49 @@
       ui.datatableStatus.textContent = "Beschikbare Data Table-kolommen ophalen...";
 
       try {
-        const columns = await API.dataTable.getAllColumns();
-        dataTableColumns = Array.isArray(columns) ? columns : [];
+        // Data Table kan pas kolommen teruggeven nadat de interne tabelclient
+        // effectief actief is. Zorg daarom eerst voor de actuele Trimble-selectie
+        // en open de tabel in Selected Objects-modus.
+        const selector = selectorFromDetails(currentResultDetails);
+        await API.viewer.setSelection(selector, "set");
+
+        try {
+          await API.dataTable.setConfig({
+            show: true,
+            mode: "selected"
+          });
+        } catch (configError) {
+          console.warn("Data Table vooraf openen mislukt:", configError);
+        }
+
+        let columns = [];
+        for (let attempt = 0; attempt < 4; attempt++) {
+          try {
+            const response = await API.dataTable.getAllColumns();
+            columns = Array.isArray(response) ? response : [];
+          } catch (columnError) {
+            console.warn("Data Table kolommen poging " + (attempt + 1) + " mislukt:", columnError);
+          }
+
+          if (columns.length) break;
+          await wait(350 * (attempt + 1));
+        }
+
+        dataTableColumns = columns;
+
+        if (!dataTableColumns.length) {
+          ui.datatableBuilder.classList.remove("hidden");
+          ui.datatablePropertyColumns.innerHTML =
+            '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
+          ui.datatableQuantityColumns.innerHTML =
+            '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
+          ui.datatableOtherColumns.innerHTML =
+            '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
+          ui.datatableStatus.textContent =
+            "De Data Table is geopend op Selected Objects, maar getAllColumns() gaf geen kolommen terug. " +
+            "Laat de Data Table kort laden en klik daarna nogmaals op Analyseer beschikbare kolommen.";
+          return;
+        }
 
         const classified = classifyDataTableColumns(dataTableColumns);
 
