@@ -109,7 +109,7 @@
     .quality-summary.warn { background: var(--soft-warn); color: var(--warn); }
     .quality-summary.bad { background: var(--soft-bad); color: var(--bad); }
 
-    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
     .tab { color: var(--muted); background: #e7e9eb; }
     .tab.active { color: white; background: var(--blue); }
 
@@ -119,6 +119,11 @@
     .recommendation-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: bold; }
     .recommendation-meta { color: var(--muted); font-size: 11px; line-height: 1.4; }
     .recommendation button { margin-top: 8px; }
+
+    .grouping-workspace { margin-top: 4px; padding: 13px; border: 2px solid var(--blue); border-radius: 8px; background: #f5fbfe; }
+    .grouping-workspace .workspace-label { display: block; margin: 11px 0 4px; color: var(--blue-dark); font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
+    .grouping-workspace h2 { margin-bottom: 9px; }
+    .back-button { width: auto; }
 
     .score { min-width: 42px; padding: 4px 6px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: bold; }
     .score.good { color: var(--good); background: var(--soft-good); }
@@ -146,11 +151,6 @@
     .group-bar > div { height: 100%; background: var(--blue); }
     .group-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
     .group-actions button { min-height: 29px; padding: 5px 4px; font-size: 10px; }
-
-    .issue-list { display: grid; gap: 8px; }
-    .issue { padding: 10px; border-left: 4px solid var(--warn); border-radius: 4px; background: var(--soft-warn); font-size: 12px; line-height: 1.45; }
-    .issue.bad { border-color: var(--bad); background: var(--soft-bad); }
-    .issue strong { display: block; margin-bottom: 2px; overflow-wrap: anywhere; }
 
     .footer-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
 
@@ -205,35 +205,33 @@
     <div class="metric-grid">
       <div class="metric"><span id="metric-elements" class="metric-value">0</span><span class="metric-label">elementen</span></div>
       <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">parameters</span></div>
-      <div class="metric"><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbaar</span></div>
-      <div class="metric"><span id="metric-issues" class="metric-value">0</span><span class="metric-label">aandachtspunten</span></div>
+      <div class="metric" title="Minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden."><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbare groepeerparameters</span></div>
+      <div class="metric" title="Parameters met ontbrekende, inconsistente of verdachte waarden."><span id="metric-issues" class="metric-value">0</span><span class="metric-label">parameters te controleren</span></div>
     </div>
 
     <div id="quality-summary" class="quality-summary warn"></div>
-
-    <div class="button-row three single-button">
-      <button id="focus-scope" class="ghost" type="button">Focus analysemodel</button>
-      <button id="reset-view" class="secondary" type="button">Weergave herstellen</button>
-      <button id="export-audit" class="secondary" type="button">Audit naar CSV</button>
-    </div>
   </section>
 
   <section id="work-panel" class="panel hidden">
     <div class="tabs">
       <button class="tab active" data-tab="smart" type="button">Slim groeperen</button>
       <button class="tab" data-tab="parameters" type="button">Parameters</button>
-      <button class="tab" data-tab="issues" type="button">Controle</button>
     </div>
 
     <div id="tab-smart" class="tab-content">
-      <h2>Aanbevolen groeperingen</h2>
-      <p class="subtitle">Gerangschikt op dekking, consistente waarden en bruikbaarheid voor calculatie.</p>
-      <div id="recommendations" class="recommendations"></div>
-      <div id="active-grouping" class="hidden" style="margin-top:12px">
+      <div id="recommendation-section">
+        <h2>Betrouwbare groepeerparameters</h2>
+        <p class="subtitle">Dezelfde parameters als in het analyseoverzicht, gerangschikt op bruikbaarheid voor calculatie.</p>
+        <div id="recommendations" class="recommendations"></div>
+      </div>
+      <div id="active-grouping" class="grouping-workspace hidden">
+        <button id="back-to-recommendations" class="secondary small back-button" type="button">← Andere parameter kiezen</button>
+        <span class="workspace-label">Actieve groepering</span>
+        <h2>Groepen en modelacties</h2>
         <div id="group-head" class="group-head"></div>
         <div class="button-row three" style="margin-bottom:9px">
           <button id="color-groups" type="button">Kleur groepen</button>
-          <button id="isolate-scope" class="ghost" type="button">Isoleer analyse</button>
+          <button id="restore-groups" class="ghost" type="button">Herstel weergave</button>
           <button id="export-groups" class="secondary" type="button">Groepen naar CSV</button>
         </div>
         <div id="group-list" class="group-list"></div>
@@ -247,12 +245,6 @@
         <button id="sort-parameters" class="secondary small" type="button">Score ↓</button>
       </div>
       <div id="parameter-list" class="parameter-list"></div>
-    </div>
-
-    <div id="tab-issues" class="tab-content hidden">
-      <h2>Betrouwbaarheid en aandachtspunten</h2>
-      <p class="subtitle">Parameters met beperkte dekking, wisselende datatypes, lege of verdachte waarden.</p>
-      <div id="issue-list" class="issue-list"></div>
     </div>
 
     <p class="footer-note">Betrouwbaarheid is een beslissingshulp, geen inhoudelijke goedkeuring. Controleer hoeveelheidsparameters steeds tegen de IFC-exportinstellingen en de meetregels van je calculatie.</p>
@@ -307,19 +299,17 @@
       metricReliable: document.getElementById("metric-reliable"),
       metricIssues: document.getElementById("metric-issues"),
       qualitySummary: document.getElementById("quality-summary"),
+      recommendationSection: document.getElementById("recommendation-section"),
       recommendations: document.getElementById("recommendations"),
       activeGrouping: document.getElementById("active-grouping"),
+      backToRecommendations: document.getElementById("back-to-recommendations"),
       groupHead: document.getElementById("group-head"),
       groupList: document.getElementById("group-list"),
       parameterFilter: document.getElementById("parameter-filter"),
       parameterList: document.getElementById("parameter-list"),
       sortParameters: document.getElementById("sort-parameters"),
-      issueList: document.getElementById("issue-list"),
-      focusScope: document.getElementById("focus-scope"),
-      resetView: document.getElementById("reset-view"),
-      exportAudit: document.getElementById("export-audit"),
       colorGroups: document.getElementById("color-groups"),
-      isolateScope: document.getElementById("isolate-scope"),
+      restoreGroups: document.getElementById("restore-groups"),
       exportGroups: document.getElementById("export-groups")
     };
 
@@ -697,9 +687,17 @@
       }
     }
 
+    function isReliableGroupingParameter(item) {
+      return item.reliability >= 80
+        && item.coverage >= 80
+        && item.filled > 1
+        && item.unique > 1
+        && item.role !== "Identificatie";
+    }
+
     function renderAnalysis(failedBatches, requestedCount) {
-      const reliable = parameterResults.filter(function(item) { return item.reliability >= 80 && item.coverage >= 80; });
-      const issues = parameterResults.filter(function(item) { return item.issues.length > 0 && item.reliability < 80; });
+      const reliable = parameterResults.filter(isReliableGroupingParameter);
+      const issues = parameterResults.filter(function(item) { return item.issues.length > 0 && !isReliableGroupingParameter(item); });
       const meaningful = parameterResults.filter(function(item) { return item.role !== "Identificatie"; });
       const overall = meaningful.length
         ? meaningful.slice(0, Math.min(30, meaningful.length)).reduce(function(sum, item) { return sum + item.reliability; }, 0) / Math.min(30, meaningful.length)
@@ -715,23 +713,20 @@
 
       const summaryClass = scoreClass(overall);
       ui.qualitySummary.className = "quality-summary " + summaryClass;
-      ui.qualitySummary.textContent = overall >= 80
-        ? "Sterke basis voor calculatie. Gebruik de aanbevolen parameters om het model snel in meet- of kostengroepen op te delen."
-        : overall >= 55
-          ? "Bruikbare basis, maar controleer ontbrekende en inconsistente waarden vóór je hoeveelheden of kosten vastlegt."
-          : "De geladen IFC bevat te weinig betrouwbare parameterdata. Gebruik het tabblad Controle om de grootste risico’s te vinden.";
+      ui.qualitySummary.textContent = reliable.length + " betrouwbare groepeerparameters: minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden. "
+        + issues.length + " parameters te controleren door ontbrekende, inconsistente of verdachte waarden.";
 
       ui.summaryPanel.classList.remove("hidden");
       ui.workPanel.classList.remove("hidden");
+      ui.activeGrouping.classList.add("hidden");
+      ui.recommendationSection.classList.remove("hidden");
       renderRecommendations();
       renderParameterList();
-      renderIssues();
     }
 
     function recommendedParameters() {
-      return parameterResults.filter(function(item) {
-        return item.filled > 1 && item.unique > 1 && item.groupability >= 45 && item.role !== "Identificatie";
-      }).sort(function(a, b) { return b.recommendationScore - a.recommendationScore; }).slice(0, 6);
+      return parameterResults.filter(isReliableGroupingParameter)
+        .sort(function(a, b) { return b.recommendationScore - a.recommendationScore; });
     }
 
     function renderRecommendations() {
@@ -798,9 +793,9 @@
       meta.textContent = activeGroups.length + " groepen · " + formatPercent(parameter.coverage) + " dekking · betrouwbaarheid " + formatPercent(parameter.reliability);
       ui.groupHead.appendChild(strong);
       ui.groupHead.appendChild(meta);
+      ui.recommendationSection.classList.add("hidden");
       ui.activeGrouping.classList.remove("hidden");
       renderGroups();
-      ui.activeGrouping.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function renderGroups() {
@@ -830,7 +825,7 @@
         actions.className = "group-actions";
         [
           ["Selecteer", function() { selectDetails(group.elements, false); }],
-          ["Focus", function() { selectDetails(group.elements, true); }],
+          ["Focus", function() { focusDetails(group.elements); }],
           ["Isoleer", function() { isolateDetails(group.elements, true); }],
           ["Kleur", function() { colorOneGroup(group, index); }]
         ].forEach(function(definition) {
@@ -858,6 +853,26 @@
       }
     }
 
+    async function focusDetails(details) {
+      const scopeSelector = selectorFromDetails(analyzedElements);
+      const targetSelector = selectorFromDetails(details);
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        await API.viewer.setObjectState(scopeSelector, {
+          color: { r: 185, g: 190, b: 195, a: 255 },
+          opacity: 0.15,
+          visible: true
+        });
+        await API.viewer.setObjectState(targetSelector, { color: "reset", opacity: 1, visible: true });
+        await API.viewer.setSelection(targetSelector, "set");
+        await API.viewer.setCamera(targetSelector, { animationTime: 450 });
+      } catch (error) {
+        console.warn("Focus met transparante context mislukt:", error);
+        await selectDetails(details, true);
+      }
+    }
+
     async function isolateDetails(details, zoom) {
       const entities = isolateInputFromDetails(details);
       if (!entities.length) return;
@@ -876,6 +891,18 @@
         try { await API.viewer.setObjectState(selector, { color: "reset", opacity: 1, visible: true }); } catch (error) { console.warn("Kleur herstellen mislukt:", error); }
       }
       coloredSelectors = [];
+    }
+
+    async function restoreAnalyzedView() {
+      await resetAnalysisColors();
+      const selector = selectorFromDetails(analyzedElements);
+      if (!selector.modelObjectIds.length) return;
+      try {
+        await API.viewer.setObjectState(undefined, { visible: true, opacity: 1 });
+        await API.viewer.setObjectState(selector, { color: "reset", opacity: 1, visible: true });
+      } catch (error) {
+        console.warn("Weergave herstellen mislukt:", error);
+      }
     }
 
     async function colorOneGroup(group, index) {
@@ -945,30 +972,6 @@
       });
     }
 
-    function renderIssues() {
-      ui.issueList.innerHTML = "";
-      const issues = parameterResults.filter(function(parameter) {
-        return parameter.issues.length > 0 && (parameter.reliability < 80 || parameter.role === "Hoeveelheid");
-      }).sort(function(a, b) { return a.reliability - b.reliability; }).slice(0, 40);
-
-      if (!issues.length) {
-        ui.issueList.innerHTML = '<div class="empty">Geen belangrijke parameterproblemen gevonden binnen het geanalyseerde model.</div>';
-        return;
-      }
-
-      issues.forEach(function(parameter) {
-        const item = document.createElement("div");
-        item.className = "issue " + (parameter.reliability < 50 ? "bad" : "");
-        const title = document.createElement("strong");
-        title.textContent = parameter.key + " – " + formatPercent(parameter.reliability);
-        const detail = document.createElement("span");
-        detail.textContent = parameter.issues.join(" · ") + ". Rol: " + parameter.role + ".";
-        item.appendChild(title);
-        item.appendChild(detail);
-        ui.issueList.appendChild(item);
-      });
-    }
-
     function switchTab(tabName) {
       document.querySelectorAll(".tab").forEach(function(button) {
         button.classList.toggle("active", button.dataset.tab === tabName);
@@ -995,14 +998,6 @@
       setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
     }
 
-    function exportAudit() {
-      const rows = [["Property set", "Parameter", "Rol", "Betrouwbaarheid %", "Dekking %", "Gevuld", "Ontbrekend", "Unieke waarden", "Datatypeconsistentie %", "Verdachte waarden", "Aandachtspunten"]];
-      parameterResults.forEach(function(parameter) {
-        rows.push([parameter.setName, parameter.name, parameter.role, round(parameter.reliability), round(parameter.coverage), parameter.filled, parameter.missing, parameter.unique, round(parameter.consistency), parameter.suspicious, parameter.issues.join(" | ")]);
-      });
-      downloadCsv("altez-ifc-parameter-audit.csv", rows);
-    }
-
     function exportGroups() {
       if (!activeParameter) return;
       const rows = [["Property set", "Parameter", "Groepswaarde", "Aantal elementen"]];
@@ -1018,15 +1013,13 @@
       ui.sortParameters.textContent = parameterSortDescending ? "Score ↓" : "Score ↑";
       renderParameterList();
     });
-    ui.focusScope.addEventListener("click", function() { selectDetails(analyzedElements, true); });
-    ui.isolateScope.addEventListener("click", function() { isolateDetails(analyzedElements, true); });
     ui.colorGroups.addEventListener("click", colorAllGroups);
-    ui.exportAudit.addEventListener("click", exportAudit);
     ui.exportGroups.addEventListener("click", exportGroups);
-    ui.resetView.addEventListener("click", async function() {
-      await resetAnalysisColors();
-      try { await API.viewer.setObjectState(undefined, { visible: true, opacity: 1 }); } catch (error) { console.warn("Weergave herstellen mislukt:", error); }
-      await selectDetails(analyzedElements, false);
+    ui.restoreGroups.addEventListener("click", restoreAnalyzedView);
+    ui.backToRecommendations.addEventListener("click", async function() {
+      await restoreAnalyzedView();
+      ui.activeGrouping.classList.add("hidden");
+      ui.recommendationSection.classList.remove("hidden");
     });
     document.querySelectorAll(".tab").forEach(function(button) {
       button.addEventListener("click", function() { switchTab(button.dataset.tab); });
