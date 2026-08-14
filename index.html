@@ -368,6 +368,58 @@
     @media (max-width: 520px) {
       .action-grid { grid-template-columns: 1fr; }
     }
+
+    .quantity-panel {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .quantity-panel h3 {
+      margin-bottom: 8px;
+    }
+
+    .quantity-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .quantity-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
+    .quantity-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .quantity-total {
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: bold;
+      text-align: right;
+    }
+
+    .quantity-total.unsafe {
+      color: var(--muted);
+      font-weight: normal;
+    }
+
+    .quantity-meta {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
 </style>
 </head>
 <body>
@@ -431,6 +483,7 @@
     <div id="quick-parameters">
       <h3>Kies parameter</h3>
       <div id="quick-parameter-list" class="quick-choice-list"></div>
+      <button id="show-more-parameters" class="ghost small hidden" type="button" style="margin-top:8px;">Toon 10 meer</button>
     </div>
 
     <div id="quick-values" class="hidden">
@@ -448,6 +501,7 @@
       <div class="selection-result">
         <strong id="quick-result-title"></strong>
         <span id="quick-result-detail"></span>
+        <div id="quick-quantities" class="quantity-panel"></div>
         <div class="button-row" style="margin-top:8px;">
           <button id="quick-focus" type="button">Focus</button>
           <button id="quick-refine" class="secondary" type="button">+ Verder verfijnen</button>
@@ -478,6 +532,7 @@
 
     <button id="read-selection" type="button">Zoek hetzelfde type</button>
     <div id="selection-result"></div>
+    <div id="selection-quantities" class="quantity-panel hidden"></div>
   </section>
 
   <section id="manual-panel" class="panel hidden">
@@ -500,6 +555,7 @@
 
     <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en focus</button>
     <div id="manual-status" class="scope-box hidden"></div>
+    <div id="manual-quantities" class="quantity-panel hidden"></div>
   </section>
 
   <p class="footer-note">Focus: resultaat blijft volledig zichtbaar; alle andere geanalyseerde objecten blijven zichtbaar maar worden sterk transparant weergegeven.</p>
@@ -546,6 +602,7 @@
       quickPath: document.getElementById("quick-path"),
       quickParameters: document.getElementById("quick-parameters"),
       quickParameterList: document.getElementById("quick-parameter-list"),
+      showMoreParameters: document.getElementById("show-more-parameters"),
       quickValues: document.getElementById("quick-values"),
       quickValueTitle: document.getElementById("quick-value-title"),
       quickValueSubtitle: document.getElementById("quick-value-subtitle"),
@@ -554,6 +611,7 @@
       quickResult: document.getElementById("quick-result"),
       quickResultTitle: document.getElementById("quick-result-title"),
       quickResultDetail: document.getElementById("quick-result-detail"),
+      quickQuantities: document.getElementById("quick-quantities"),
       quickFocus: document.getElementById("quick-focus"),
       quickRefine: document.getElementById("quick-refine"),
       quickRefinePanel: document.getElementById("quick-refine-panel"),
@@ -564,13 +622,15 @@
       selectionStatus: document.getElementById("selection-status"),
       readSelection: document.getElementById("read-selection"),
       selectionResult: document.getElementById("selection-result"),
+      selectionQuantities: document.getElementById("selection-quantities"),
 
       manualPanel: document.getElementById("manual-panel"),
       closeManual: document.getElementById("close-manual"),
       manualParameter: document.getElementById("manual-parameter"),
       manualValue: document.getElementById("manual-value"),
       manualSearch: document.getElementById("manual-search"),
-      manualStatus: document.getElementById("manual-status")
+      manualStatus: document.getElementById("manual-status"),
+      manualQuantities: document.getElementById("manual-quantities")
     };
 
     function normalizeText(value) {
@@ -1134,20 +1194,22 @@
       }
     }
 
-    function topUsefulParameters() {
-      return parameterResults.slice(0, 10);
+    function topUsefulParameters(limit) {
+      const source = parameterResults.slice();
+      return typeof limit === "number" ? source.slice(0, limit) : source;
     }
 
     let quickFilters = [];
     let quickPendingParameter = null;
     let quickCurrentMatches = [];
+    let visibleQuickParameterCount = 10;
 
     function closeAllActionPanels() {
       ui.quickPanel.classList.add("hidden");
     }
 
     function renderAnalysis(requestedCount, failedBatches) {
-      const top = topUsefulParameters();
+      const top = topUsefulParameters(10);
 
       ui.miniSummaryTitle.textContent =
         analyzedElements.length + " elementen · " +
@@ -1165,24 +1227,35 @@
       populateManualParameters();
 
       ui.selectionResult.innerHTML = "";
+      ui.selectionQuantities.innerHTML = "";
+      ui.selectionQuantities.classList.add("hidden");
       ui.selectionStatus.innerHTML =
         "<strong>Nog geen object ingelezen</strong>" +
         "<span>Selecteer precies één object in Trimble Connect.</span>";
     }
 
     function quickParameterPool() {
-      return topUsefulParameters().slice(0, 5);
+      return topUsefulParameters().slice(0, visibleQuickParameterCount);
     }
 
     function renderQuickParameterChoices() {
       ui.quickParameterList.innerHTML = "";
-      quickParameterPool().forEach(function(parameter) {
+
+      const parameters = quickParameterPool();
+
+      if (!parameters.length) {
+        ui.quickParameterList.innerHTML = '<div class="empty">Geen bruikbare parameters gevonden.</div>';
+        ui.showMoreParameters.classList.add("hidden");
+        return;
+      }
+
+      parameters.forEach(function(parameter, index) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "quick-choice";
 
         const strong = document.createElement("strong");
-        strong.textContent = parameter.key;
+        strong.textContent = (index + 1) + ". " + parameter.key;
 
         const meta = document.createElement("span");
         meta.textContent =
@@ -1200,6 +1273,15 @@
 
         ui.quickParameterList.appendChild(button);
       });
+
+      const total = topUsefulParameters().length;
+      if (visibleQuickParameterCount < total) {
+        ui.showMoreParameters.classList.remove("hidden");
+        ui.showMoreParameters.textContent =
+          "Toon 10 meer (" + Math.min(visibleQuickParameterCount + 10, total) + "/" + total + ")";
+      } else {
+        ui.showMoreParameters.classList.add("hidden");
+      }
     }
 
     function currentQuickScope() {
@@ -1289,6 +1371,7 @@
           return filter.key + " = " + filter.value;
         }).join(" · ");
 
+      renderQuantities(ui.quickQuantities, quickCurrentMatches);
       ui.quickRefine.disabled = quickFilters.length >= 3;
     }
 
@@ -1334,6 +1417,7 @@
       quickFilters = [];
       quickPendingParameter = null;
       quickCurrentMatches = [];
+      visibleQuickParameterCount = 10;
 
       ui.quickPath.classList.add("hidden");
       ui.quickParameters.classList.remove("hidden");
@@ -1342,6 +1426,201 @@
       ui.quickRefinePanel.classList.add("hidden");
 
       renderQuickParameterChoices();
+    }
+
+    function isQuantityLikeProperty(item) {
+      const setText = normalizeText(item.setName);
+      const nameText = normalizeText(item.name);
+      const full = setText + " " + nameText;
+
+      if (
+        /qto_/.test(setText) ||
+        /basequantities/.test(setText) ||
+        /base quantities/.test(setText) ||
+        /ifcelementquantity/.test(setText) ||
+        /calculatedgeometryvalues/.test(setText) ||
+        /calculated geometry values/.test(setText)
+      ) return true;
+
+      return /(area|oppervlak|surface|volume|inhoud|length|lengte|width|breedte|height|hoogte|thickness|dikte|perimeter|omtrek|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(full);
+    }
+
+    function quantityPriority(item) {
+      const setText = normalizeText(item.setName);
+      if (/qto_/.test(setText) || /basequantities/.test(setText) || /base quantities/.test(setText)) return 1;
+      if (/ifcelementquantity/.test(setText) || /quantity/.test(setText)) return 2;
+      if (/calculatedgeometryvalues/.test(setText) || /calculated geometry values/.test(setText)) return 4;
+      return 3;
+    }
+
+    function parseQuantityValue(value) {
+      const raw = String(value ?? "").trim();
+      if (!raw) return null;
+
+      const normalized = raw
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      // Accept comma or dot decimal separator and keep any suffix as unit.
+      const match = normalized.match(/^([+-]?(?:\d{1,3}(?:[.\s]\d{3})*|\d+)(?:[.,]\d+)?)\s*(.*)$/);
+      if (!match) return null;
+
+      let numberText = match[1].replace(/\s/g, "");
+
+      // If both separators occur, assume the last one is decimal.
+      if (numberText.includes(",") && numberText.includes(".")) {
+        if (numberText.lastIndexOf(",") > numberText.lastIndexOf(".")) {
+          numberText = numberText.replace(/\./g, "").replace(",", ".");
+        } else {
+          numberText = numberText.replace(/,/g, "");
+        }
+      } else if (numberText.includes(",")) {
+        numberText = numberText.replace(",", ".");
+      }
+
+      const number = Number(numberText);
+      if (!Number.isFinite(number)) return null;
+
+      return {
+        number: number,
+        unit: String(match[2] || "").trim()
+      };
+    }
+
+    function isSafelyAdditiveQuantity(item) {
+      const nameText = normalizeText(item.name);
+
+      // Alleen grootheden waarvan een som voor een selectie in het algemeen
+      // betekenisvol is. Afmetingen per element worden bewust NIET opgeteld.
+      if (/(area|oppervlak|surface)/.test(nameText)) return true;
+      if (/(volume|inhoud)/.test(nameText)) return true;
+      if (/(weight|gewicht|mass|massa)/.test(nameText)) return true;
+      if (/^(count|aantal|quantity|hoeveelheid)$/.test(nameText)) return true;
+
+      return false;
+    }
+
+    function collectSelectionQuantities(details) {
+      const byKey = new Map();
+
+      details.forEach(function(element) {
+        element.values.forEach(function(item, key) {
+          if (!isQuantityLikeProperty(item)) return;
+
+          if (!byKey.has(key)) {
+            byKey.set(key, {
+              key: key,
+              setName: item.setName,
+              name: item.name,
+              priority: quantityPriority(item),
+              values: [],
+              presentCount: 0
+            });
+          }
+
+          const entry = byKey.get(key);
+          const parsed = parseQuantityValue(item.value);
+
+          if (String(item.value || "").trim()) {
+            entry.presentCount += 1;
+          }
+
+          if (parsed) entry.values.push(parsed);
+        });
+      });
+
+      return Array.from(byKey.values()).map(function(entry) {
+        const units = Array.from(new Set(entry.values.map(function(v) {
+          return normalizeText(v.unit);
+        })));
+
+        const sameUnit = units.length <= 1;
+        const allNumeric = entry.values.length === entry.presentCount && entry.presentCount > 0;
+        const additive = isSafelyAdditiveQuantity(entry);
+
+        // Strenge regel: alleen totaal wanneer alle aanwezige waarden numeriek zijn,
+        // dezelfde eenheid hebben én het type quantity veilig optelbaar is.
+        const canTotal = allNumeric && sameUnit && additive;
+
+        let total = null;
+        let unit = entry.values.length ? entry.values[0].unit : "";
+
+        if (canTotal) {
+          total = entry.values.reduce(function(sum, v) {
+            return sum + v.number;
+          }, 0);
+        }
+
+        return Object.assign(entry, {
+          canTotal: canTotal,
+          total: total,
+          unit: unit,
+          totalSelected: details.length
+        });
+      }).sort(function(a, b) {
+        return a.priority - b.priority || a.key.localeCompare(b.key, "nl");
+      });
+    }
+
+    function formatQuantityNumber(value) {
+      return new Intl.NumberFormat("nl-BE", {
+        maximumFractionDigits: 3
+      }).format(value);
+    }
+
+    function renderQuantities(container, details) {
+      if (!container) return;
+
+      container.innerHTML = "";
+      const quantities = collectSelectionQuantities(details);
+
+      if (!quantities.length) {
+        container.classList.add("hidden");
+        return;
+      }
+
+      const title = document.createElement("h3");
+      title.textContent = "Hoeveelheden";
+      container.appendChild(title);
+
+      const list = document.createElement("div");
+      list.className = "quantity-list";
+
+      quantities.forEach(function(entry) {
+        const row = document.createElement("div");
+        row.className = "quantity-row";
+
+        const name = document.createElement("div");
+        name.className = "quantity-name";
+        name.textContent = entry.key;
+
+        const total = document.createElement("div");
+        total.className = "quantity-total";
+
+        if (entry.canTotal) {
+          total.textContent =
+            formatQuantityNumber(entry.total) +
+            (entry.unit ? " " + entry.unit : "");
+        } else {
+          total.textContent = "geen veilig totaal";
+          total.classList.add("unsafe");
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "quantity-meta";
+        meta.textContent =
+          entry.presentCount + "/" + entry.totalSelected +
+          " geselecteerde objecten hebben een waarde";
+
+        row.appendChild(name);
+        row.appendChild(total);
+        row.appendChild(meta);
+        list.appendChild(row);
+      });
+
+      container.appendChild(list);
+      container.classList.remove("hidden");
     }
 
     async function focusDetailsGhost(details) {
@@ -1724,7 +2003,8 @@
       parameterResults.forEach(function(parameter) {
         const option = document.createElement("option");
         option.value = parameter.key;
-        option.textContent = parameter.key;
+        option.textContent =
+          parameter.key + " · score " + round(parameter.usefulness, 0);
         ui.manualParameter.appendChild(option);
       });
 
@@ -1732,13 +2012,15 @@
       ui.manualValue.disabled = true;
       ui.manualSearch.disabled = true;
       ui.manualStatus.classList.add("hidden");
+      ui.manualQuantities.innerHTML = "";
+      ui.manualQuantities.classList.add("hidden");
     }
 
     function updateManualValues() {
       const key = ui.manualParameter.value;
       const parameter = parameterResults.find(function(p) { return p.key === key; });
 
-      ui.manualValue.innerHTML = "";
+      ui.manualValue.innerHTML = '<option value="">Kies waarde...</option>';
       ui.manualSearch.disabled = true;
       ui.manualStatus.classList.add("hidden");
 
@@ -1748,19 +2030,17 @@
         return;
       }
 
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "Kies waarde...";
-      ui.manualValue.appendChild(placeholder);
+      const values = valueCountsForParameter(parameter, analyzedElements);
 
-      valueCountsForParameter(parameter, analyzedElements).forEach(function(entry) {
+      values.forEach(function(entry) {
         const option = document.createElement("option");
         option.value = entry.value;
         option.textContent = entry.value + " (" + entry.elements.length + ")";
         ui.manualValue.appendChild(option);
       });
 
-      ui.manualValue.disabled = false;
+      ui.manualValue.disabled = values.length === 0;
+      ui.manualSearch.disabled = true;
     }
 
     function updateManualSearchButton() {
@@ -1790,6 +2070,7 @@
       }
 
       await focusDetailsGhost(matches);
+      renderQuantities(ui.manualQuantities, matches);
 
       ui.manualStatus.innerHTML =
         "<strong>" + matches.length + " object" +
@@ -1805,6 +2086,11 @@
       closeAllActionPanels();
       resetQuickFlow();
       ui.quickPanel.classList.remove("hidden");
+    });
+
+    ui.showMoreParameters.addEventListener("click", function() {
+      visibleQuickParameterCount += 10;
+      renderQuickParameterChoices();
     });
 
     ui.openSelectionSearch.addEventListener("click", function() {
@@ -1846,6 +2132,7 @@
     ui.quickFocus.addEventListener("click", function() {
       if (quickCurrentMatches.length) {
         focusDetailsGhost(quickCurrentMatches);
+        renderQuantities(ui.quickQuantities, quickCurrentMatches);
       }
     });
 
