@@ -369,56 +369,94 @@
       .action-grid { grid-template-columns: 1fr; }
     }
 
-    .quantity-panel {
-      margin-top: 10px;
-      padding-top: 10px;
+    .datatable-builder {
+      margin-top: 12px;
+      padding-top: 12px;
       border-top: 1px solid var(--line);
     }
 
-    .quantity-panel h3 {
+    .datatable-builder-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
       margin-bottom: 8px;
     }
 
-    .quantity-list {
-      display: grid;
-      gap: 6px;
+    .datatable-builder-head button {
+      width: auto;
     }
 
-    .quantity-row {
+    .datatable-column-group {
+      margin-top: 10px;
+    }
+
+    .datatable-column-group h3 {
+      margin-bottom: 6px;
+    }
+
+    .datatable-column-list {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: center;
+      gap: 6px;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    .datatable-column-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: flex-start;
       padding: 8px 9px;
       border: 1px solid var(--line);
       border-radius: 6px;
       background: #fafbfb;
+      cursor: pointer;
     }
 
-    .quantity-name {
+    .datatable-column-row:hover {
+      border-color: var(--blue);
+      background: #f5fbfe;
+    }
+
+    .datatable-column-row input {
+      width: auto;
+      min-height: 0;
+      margin-top: 2px;
+    }
+
+    .datatable-column-label {
       min-width: 0;
       overflow-wrap: anywhere;
-      font-size: 11px;
-      line-height: 1.35;
-    }
-
-    .quantity-total {
-      white-space: nowrap;
       font-size: 12px;
       font-weight: bold;
-      text-align: right;
     }
 
-    .quantity-total.unsafe {
-      color: var(--muted);
-      font-weight: normal;
-    }
-
-    .quantity-meta {
-      grid-column: 1 / -1;
+    .datatable-column-meta {
+      display: block;
+      margin-top: 2px;
       color: var(--muted);
       font-size: 10px;
+      font-weight: normal;
       line-height: 1.35;
+    }
+
+    .datatable-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .datatable-status {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 520px) {
+      .datatable-actions { grid-template-columns: 1fr; }
     }
 </style>
 </head>
@@ -501,7 +539,6 @@
       <div class="selection-result">
         <strong id="quick-result-title"></strong>
         <span id="quick-result-detail"></span>
-        <div id="quick-quantities" class="quantity-panel"></div>
         <div class="button-row" style="margin-top:8px;">
           <button id="quick-focus" type="button">Focus</button>
           <button id="quick-refine" class="secondary" type="button">+ Verder verfijnen</button>
@@ -532,7 +569,6 @@
 
     <button id="read-selection" type="button">Zoek hetzelfde type</button>
     <div id="selection-result"></div>
-    <div id="selection-quantities" class="quantity-panel hidden"></div>
   </section>
 
   <section id="manual-panel" class="panel hidden">
@@ -555,10 +591,55 @@
 
     <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en focus</button>
     <div id="manual-status" class="scope-box hidden"></div>
-    <div id="manual-quantities" class="quantity-panel hidden"></div>
   </section>
 
-  <p class="footer-note">Focus: resultaat blijft volledig zichtbaar; alle andere geanalyseerde objecten blijven zichtbaar maar worden sterk transparant weergegeven.</p>
+
+  <section id="datatable-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Data Table samenstellen</h2>
+        <p class="subtitle">Analyseer de beschikbare Trimble Data Table-kolommen voor je huidige selectie en vink zelf aan welke kolommen je wilt gebruiken.</p>
+      </div>
+      <span class="badge">Data Table</span>
+    </div>
+
+    <div id="datatable-selection-info" class="scope-box">
+      <strong>Nog geen selectie</strong>
+      <span>Maak eerst een selectie via Snel selecteren, Zoeken vanuit selectie of Zoeken op parameter.</span>
+    </div>
+
+    <button id="analyze-datatable-columns" type="button">Analyseer beschikbare kolommen</button>
+
+    <div id="datatable-builder" class="datatable-builder hidden">
+      <div class="datatable-builder-head">
+        <div>
+          <h3>Aanbevolen eigenschappen</h3>
+          <p class="subtitle">Type, materiaal, classificatie, verdieping en andere bruikbare eigenschappen staan bovenaan.</p>
+        </div>
+      </div>
+      <div id="datatable-property-columns" class="datatable-column-list"></div>
+
+      <div class="datatable-column-group">
+        <h3>Hoeveelheden</h3>
+        <p class="subtitle">Qto/BaseQuantities eerst, daarna andere lengte-, oppervlakte- en volumekolommen. CalculatedGeometryValues staat lager.</p>
+        <div id="datatable-quantity-columns" class="datatable-column-list"></div>
+      </div>
+
+      <div class="datatable-column-group">
+        <h3>Overige beschikbare kolommen</h3>
+        <div id="datatable-other-columns" class="datatable-column-list"></div>
+      </div>
+
+      <div class="datatable-actions">
+        <button id="open-datatable" type="button" disabled>Open selectie in Data Table</button>
+        <button id="clear-datatable-columns" class="secondary" type="button">Selectie wissen</button>
+      </div>
+
+      <div id="datatable-status" class="datatable-status"></div>
+    </div>
+  </section>
+
+  <p class="footer-note">Altez maakt de selectie; daarna kies je zelf welke geanalyseerde kolommen naar de Trimble Connect Data Table gaan.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script>
@@ -611,7 +692,6 @@
       quickResult: document.getElementById("quick-result"),
       quickResultTitle: document.getElementById("quick-result-title"),
       quickResultDetail: document.getElementById("quick-result-detail"),
-      quickQuantities: document.getElementById("quick-quantities"),
       quickFocus: document.getElementById("quick-focus"),
       quickRefine: document.getElementById("quick-refine"),
       quickRefinePanel: document.getElementById("quick-refine-panel"),
@@ -622,7 +702,6 @@
       selectionStatus: document.getElementById("selection-status"),
       readSelection: document.getElementById("read-selection"),
       selectionResult: document.getElementById("selection-result"),
-      selectionQuantities: document.getElementById("selection-quantities"),
 
       manualPanel: document.getElementById("manual-panel"),
       closeManual: document.getElementById("close-manual"),
@@ -630,7 +709,16 @@
       manualValue: document.getElementById("manual-value"),
       manualSearch: document.getElementById("manual-search"),
       manualStatus: document.getElementById("manual-status"),
-      manualQuantities: document.getElementById("manual-quantities")
+      datatablePanel: document.getElementById("datatable-panel"),
+      datatableSelectionInfo: document.getElementById("datatable-selection-info"),
+      analyzeDatatableColumns: document.getElementById("analyze-datatable-columns"),
+      datatableBuilder: document.getElementById("datatable-builder"),
+      datatablePropertyColumns: document.getElementById("datatable-property-columns"),
+      datatableQuantityColumns: document.getElementById("datatable-quantity-columns"),
+      datatableOtherColumns: document.getElementById("datatable-other-columns"),
+      openDatatable: document.getElementById("open-datatable"),
+      clearDatatableColumns: document.getElementById("clear-datatable-columns"),
+      datatableStatus: document.getElementById("datatable-status"),
     };
 
     function normalizeText(value) {
@@ -1203,6 +1291,9 @@
     let quickPendingParameter = null;
     let quickCurrentMatches = [];
     let visibleQuickParameterCount = 10;
+    let currentResultDetails = [];
+    let dataTableColumns = [];
+    let selectedDataTableFields = new Set();
 
     function closeAllActionPanels() {
       ui.quickPanel.classList.add("hidden");
@@ -1227,8 +1318,6 @@
       populateManualParameters();
 
       ui.selectionResult.innerHTML = "";
-      ui.selectionQuantities.innerHTML = "";
-      ui.selectionQuantities.classList.add("hidden");
       ui.selectionStatus.innerHTML =
         "<strong>Nog geen object ingelezen</strong>" +
         "<span>Selecteer precies één object in Trimble Connect.</span>";
@@ -1284,30 +1373,6 @@
       }
     }
 
-    function valueCountsForParameter(parameter, scopeElements) {
-      const counts = new Map();
-
-      (scopeElements || []).forEach(function(element) {
-        const item = element.values.get(parameter.key);
-        const value = item && String(item.value || "").trim();
-
-        if (!value || isSuspiciousValue(value)) return;
-
-        if (!counts.has(value)) counts.set(value, []);
-        counts.get(value).push(element);
-      });
-
-      return Array.from(counts.entries()).map(function(entry) {
-        return {
-          value: entry[0],
-          elements: entry[1]
-        };
-      }).sort(function(a, b) {
-        return b.elements.length - a.elements.length
-          || a.value.localeCompare(b.value, "nl", { numeric: true });
-      });
-    }
-
     function currentQuickScope() {
       if (!quickFilters.length) return analyzedElements;
 
@@ -1323,8 +1388,6 @@
       const scope = currentQuickScope();
       const values = valueCountsForParameter(parameter, scope);
 
-      ui.quickQuantities.innerHTML = "";
-      ui.quickQuantities.classList.add("hidden");
       ui.quickParameters.classList.add("hidden");
       ui.quickValues.classList.remove("hidden");
       ui.quickResult.classList.add("hidden");
@@ -1397,7 +1460,13 @@
           return filter.key + " = " + filter.value;
         }).join(" · ");
 
-      renderQuantities(ui.quickQuantities, quickCurrentMatches);
+      rememberCurrentResult(
+        quickCurrentMatches,
+        quickFilters.map(function(filter) {
+          return filter.key + " = " + filter.value;
+        }).join(" · ")
+      );
+
       ui.quickRefine.disabled = quickFilters.length >= 3;
     }
 
@@ -1446,8 +1515,6 @@
       visibleQuickParameterCount = 10;
 
       ui.quickPath.classList.add("hidden");
-      ui.quickQuantities.innerHTML = "";
-      ui.quickQuantities.classList.add("hidden");
       ui.quickParameters.classList.remove("hidden");
       ui.quickValues.classList.add("hidden");
       ui.quickResult.classList.add("hidden");
@@ -1456,199 +1523,267 @@
       renderQuickParameterChoices();
     }
 
-    function isQuantityLikeProperty(item) {
-      const setText = normalizeText(item.setName);
-      const nameText = normalizeText(item.name);
-      const full = setText + " " + nameText;
+    function rememberCurrentResult(details, label) {
+      currentResultDetails = Array.isArray(details) ? details.slice() : [];
 
-      if (
-        /qto_/.test(setText) ||
-        /basequantities/.test(setText) ||
-        /base quantities/.test(setText) ||
-        /ifcelementquantity/.test(setText) ||
-        /calculatedgeometryvalues/.test(setText) ||
-        /calculated geometry values/.test(setText)
-      ) return true;
-
-      return /(area|oppervlak|surface|volume|inhoud|length|lengte|width|breedte|height|hoogte|thickness|dikte|perimeter|omtrek|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(full);
-    }
-
-    function quantityPriority(item) {
-      const setText = normalizeText(item.setName);
-      if (/qto_/.test(setText) || /basequantities/.test(setText) || /base quantities/.test(setText)) return 1;
-      if (/ifcelementquantity/.test(setText) || /quantity/.test(setText)) return 2;
-      if (/calculatedgeometryvalues/.test(setText) || /calculated geometry values/.test(setText)) return 4;
-      return 3;
-    }
-
-    function parseQuantityValue(value) {
-      const raw = String(value ?? "").trim();
-      if (!raw) return null;
-
-      const normalized = raw
-        .replace(/\u00a0/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      // Accept comma or dot decimal separator and keep any suffix as unit.
-      const match = normalized.match(/^([+-]?(?:\d{1,3}(?:[.\s]\d{3})*|\d+)(?:[.,]\d+)?)\s*(.*)$/);
-      if (!match) return null;
-
-      let numberText = match[1].replace(/\s/g, "");
-
-      // If both separators occur, assume the last one is decimal.
-      if (numberText.includes(",") && numberText.includes(".")) {
-        if (numberText.lastIndexOf(",") > numberText.lastIndexOf(".")) {
-          numberText = numberText.replace(/\./g, "").replace(",", ".");
-        } else {
-          numberText = numberText.replace(/,/g, "");
-        }
-      } else if (numberText.includes(",")) {
-        numberText = numberText.replace(",", ".");
-      }
-
-      const number = Number(numberText);
-      if (!Number.isFinite(number)) return null;
-
-      return {
-        number: number,
-        unit: String(match[2] || "").trim()
-      };
-    }
-
-    function isSafelyAdditiveQuantity(item) {
-      const nameText = normalizeText(item.name);
-
-      // Alleen grootheden waarvan een som voor een selectie in het algemeen
-      // betekenisvol is. Afmetingen per element worden bewust NIET opgeteld.
-      if (/(area|oppervlak|surface)/.test(nameText)) return true;
-      if (/(volume|inhoud)/.test(nameText)) return true;
-      if (/(weight|gewicht|mass|massa)/.test(nameText)) return true;
-      if (/^(count|aantal|quantity|hoeveelheid)$/.test(nameText)) return true;
-
-      return false;
-    }
-
-    function collectSelectionQuantities(details) {
-      const byKey = new Map();
-
-      details.forEach(function(element) {
-        element.values.forEach(function(item, key) {
-          if (!isQuantityLikeProperty(item)) return;
-
-          if (!byKey.has(key)) {
-            byKey.set(key, {
-              key: key,
-              setName: item.setName,
-              name: item.name,
-              priority: quantityPriority(item),
-              values: [],
-              presentCount: 0
-            });
-          }
-
-          const entry = byKey.get(key);
-          const parsed = parseQuantityValue(item.value);
-
-          if (String(item.value || "").trim()) {
-            entry.presentCount += 1;
-          }
-
-          if (parsed) entry.values.push(parsed);
-        });
-      });
-
-      return Array.from(byKey.values()).map(function(entry) {
-        const units = Array.from(new Set(entry.values.map(function(v) {
-          return normalizeText(v.unit);
-        })));
-
-        const sameUnit = units.length <= 1;
-        const allNumeric = entry.values.length === entry.presentCount && entry.presentCount > 0;
-        const additive = isSafelyAdditiveQuantity(entry);
-
-        // Strenge regel: alleen totaal wanneer alle aanwezige waarden numeriek zijn,
-        // dezelfde eenheid hebben én het type quantity veilig optelbaar is.
-        const canTotal = allNumeric && sameUnit && additive;
-
-        let total = null;
-        let unit = entry.values.length ? entry.values[0].unit : "";
-
-        if (canTotal) {
-          total = entry.values.reduce(function(sum, v) {
-            return sum + v.number;
-          }, 0);
-        }
-
-        return Object.assign(entry, {
-          canTotal: canTotal,
-          total: total,
-          unit: unit,
-          totalSelected: details.length
-        });
-      }).sort(function(a, b) {
-        return a.priority - b.priority || a.key.localeCompare(b.key, "nl");
-      });
-    }
-
-    function formatQuantityNumber(value) {
-      return new Intl.NumberFormat("nl-BE", {
-        maximumFractionDigits: 3
-      }).format(value);
-    }
-
-    function renderQuantities(container, details) {
-      if (!container) return;
-
-      container.innerHTML = "";
-      const quantities = collectSelectionQuantities(details);
-
-      if (!quantities.length) {
-        container.classList.add("hidden");
+      if (!currentResultDetails.length) {
+        ui.datatablePanel.classList.add("hidden");
         return;
       }
 
-      const title = document.createElement("h3");
-      title.textContent = "Hoeveelheden";
-      container.appendChild(title);
+      ui.datatablePanel.classList.remove("hidden");
+      ui.datatableSelectionInfo.innerHTML =
+        "<strong>" + currentResultDetails.length + " geselecteerde object" +
+        (currentResultDetails.length === 1 ? "" : "en") + "</strong>" +
+        "<span>" + (label || "Selectie klaar voor Data Table.") + "</span>";
 
-      const list = document.createElement("div");
-      list.className = "quantity-list";
+      ui.datatableBuilder.classList.add("hidden");
+      ui.datatableStatus.textContent = "";
+      selectedDataTableFields = new Set();
+      ui.openDatatable.disabled = true;
+    }
 
-      quantities.forEach(function(entry) {
-        const row = document.createElement("div");
-        row.className = "quantity-row";
+    function normalizeColumnText(column) {
+      return normalizeText(
+        (column && column.label ? column.label : "") + " " +
+        (column && column.field ? column.field : "")
+      );
+    }
 
-        const name = document.createElement("div");
-        name.className = "quantity-name";
-        name.textContent = entry.key;
+    function isDataTableQuantityColumn(column) {
+      const text = normalizeColumnText(column);
+      return /(qto_|basequantit|calculatedgeometryvalues|calculated geometry values|length|lengte|area|oppervlak|surface|volume|inhoud|perimeter|omtrek|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(text);
+    }
 
-        const total = document.createElement("div");
-        total.className = "quantity-total";
+    function dataTableQuantityPriority(column) {
+      const text = normalizeColumnText(column);
 
-        if (entry.canTotal) {
-          total.textContent =
-            formatQuantityNumber(entry.total) +
-            (entry.unit ? " " + entry.unit : "");
-        } else {
-          total.textContent = "geen veilig totaal";
-          total.classList.add("unsafe");
-        }
+      if (/qto_|basequantit/.test(text)) return 1;
+      if (/(ifcelementquantity|quantity set|quantityset)/.test(text)) return 2;
+      if (/(length|lengte|area|oppervlak|surface|volume|inhoud|perimeter|omtrek|weight|gewicht|mass|massa)/.test(text) &&
+          !/calculatedgeometryvalues|calculated geometry values/.test(text)) return 3;
+      if (/calculatedgeometryvalues|calculated geometry values/.test(text)) return 4;
 
-        const meta = document.createElement("div");
-        meta.className = "quantity-meta";
-        meta.textContent =
-          entry.presentCount + "/" + entry.totalSelected +
-          " geselecteerde objecten hebben een waarde";
+      return 5;
+    }
 
-        row.appendChild(name);
-        row.appendChild(total);
-        row.appendChild(meta);
-        list.appendChild(row);
+    function dataTablePropertyScore(column) {
+      const text = normalizeColumnText(column);
+      let score = 0;
+
+      if (/(material|materiaal)/.test(text)) score += 100;
+      if (/(producttype|product type|objecttype|object type|walltype|rooftype|roof type|slabtype|membertype)/.test(text)) score += 95;
+      if (/(reference|referentie|classification|classificatie|construction|family|type)/.test(text)) score += 75;
+      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly|status)/.test(text)) score += 60;
+      if (/pset_/.test(text)) score += 20;
+
+      if (/(guid|globalid|uuid|runtime|entity id|object id|model id|coordinate|placement|bounding|geometry)/.test(text)) score -= 150;
+      if (isDataTableQuantityColumn(column)) score -= 200;
+
+      return score;
+    }
+
+    function classifyDataTableColumns(columns) {
+      const unique = new Map();
+
+      (columns || []).forEach(function(column) {
+        if (!column || !column.field) return;
+        if (!unique.has(column.field)) unique.set(column.field, column);
       });
 
-      container.appendChild(list);
-      container.classList.remove("hidden");
+      const all = Array.from(unique.values());
+
+      const quantities = all
+        .filter(isDataTableQuantityColumn)
+        .sort(function(a, b) {
+          return dataTableQuantityPriority(a) - dataTableQuantityPriority(b)
+            || normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      const quantityFields = new Set(quantities.map(function(c) { return c.field; }));
+
+      const properties = all
+        .filter(function(column) {
+          return !quantityFields.has(column.field) && dataTablePropertyScore(column) > 0;
+        })
+        .sort(function(a, b) {
+          return dataTablePropertyScore(b) - dataTablePropertyScore(a)
+            || normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      const propertyFields = new Set(properties.map(function(c) { return c.field; }));
+
+      const others = all
+        .filter(function(column) {
+          return !quantityFields.has(column.field) && !propertyFields.has(column.field);
+        })
+        .sort(function(a, b) {
+          return normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      return {
+        properties: properties,
+        quantities: quantities,
+        others: others
+      };
+    }
+
+    function renderDataTableColumnRows(container, columns) {
+      container.innerHTML = "";
+
+      if (!columns.length) {
+        container.innerHTML = '<div class="empty">Geen kolommen gevonden in deze categorie.</div>';
+        return;
+      }
+
+      columns.forEach(function(column) {
+        const label = document.createElement("label");
+        label.className = "datatable-column-row";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedDataTableFields.has(column.field);
+
+        checkbox.addEventListener("change", function() {
+          if (checkbox.checked) selectedDataTableFields.add(column.field);
+          else selectedDataTableFields.delete(column.field);
+
+          ui.openDatatable.disabled = selectedDataTableFields.size === 0;
+          ui.datatableStatus.textContent =
+            selectedDataTableFields.size + " kolom" +
+            (selectedDataTableFields.size === 1 ? "" : "men") + " geselecteerd.";
+        });
+
+        const content = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "datatable-column-label";
+        title.textContent = column.label || column.field;
+
+        const meta = document.createElement("span");
+        meta.className = "datatable-column-meta";
+        meta.textContent = column.field;
+
+        content.appendChild(title);
+        content.appendChild(meta);
+
+        label.appendChild(checkbox);
+        label.appendChild(content);
+        container.appendChild(label);
+      });
+    }
+
+    async function analyzeDataTableColumns() {
+      if (!API || !API.dataTable) {
+        ui.datatableStatus.textContent = "Data Table API is niet beschikbaar in deze Trimble Connect-context.";
+        ui.datatableBuilder.classList.remove("hidden");
+        return;
+      }
+
+      if (!currentResultDetails.length) {
+        ui.datatableStatus.textContent = "Maak eerst een selectie.";
+        return;
+      }
+
+      ui.analyzeDatatableColumns.disabled = true;
+      ui.datatableStatus.textContent = "Beschikbare Data Table-kolommen ophalen...";
+
+      try {
+        const columns = await API.dataTable.getAllColumns();
+        dataTableColumns = Array.isArray(columns) ? columns : [];
+
+        const classified = classifyDataTableColumns(dataTableColumns);
+
+        // Advies, maar gebruiker behoudt volledige controle:
+        // standaard max. 5 nuttige eigenschappen + max. 6 sterke quantity-kolommen.
+        selectedDataTableFields = new Set();
+
+        classified.properties.slice(0, 5).forEach(function(column) {
+          selectedDataTableFields.add(column.field);
+        });
+
+        classified.quantities
+          .filter(function(column) {
+            return dataTableQuantityPriority(column) <= 3;
+          })
+          .slice(0, 6)
+          .forEach(function(column) {
+            selectedDataTableFields.add(column.field);
+          });
+
+        renderDataTableColumnRows(ui.datatablePropertyColumns, classified.properties);
+        renderDataTableColumnRows(ui.datatableQuantityColumns, classified.quantities);
+        renderDataTableColumnRows(ui.datatableOtherColumns, classified.others);
+
+        ui.datatableBuilder.classList.remove("hidden");
+        ui.openDatatable.disabled = selectedDataTableFields.size === 0;
+
+        ui.datatableStatus.textContent =
+          dataTableColumns.length + " beschikbare kolommen gevonden · " +
+          selectedDataTableFields.size + " voorgeselecteerd. Pas de vinkjes gerust aan.";
+      } catch (error) {
+        console.error("Data Table-kolommen ophalen mislukt:", error);
+        ui.datatableBuilder.classList.remove("hidden");
+        ui.datatableStatus.textContent =
+          "Data Table-kolommen konden niet worden opgehaald: " +
+          (error.message || "onbekende fout");
+      } finally {
+        ui.analyzeDatatableColumns.disabled = false;
+      }
+    }
+
+    async function openCurrentSelectionInDataTable() {
+      if (!API || !API.dataTable) return;
+      if (!currentResultDetails.length || !selectedDataTableFields.size) return;
+
+      const selectedColumns = dataTableColumns
+        .filter(function(column) {
+          return selectedDataTableFields.has(column.field);
+        })
+        .map(function(column) {
+          return {
+            field: column.field,
+            label: column.label || column.field
+          };
+        });
+
+      if (!selectedColumns.length) return;
+
+      try {
+        // Zorg eerst dat Trimble exact dezelfde objecten als selectie heeft.
+        const selector = selectorFromDetails(currentResultDetails);
+        await API.viewer.setSelection(selector, "set");
+
+        await API.dataTable.setConfig({
+          show: true,
+          mode: "selected",
+          columnSet: {
+            name: "Altez selectie",
+            columns: selectedColumns
+          }
+        });
+
+        ui.datatableStatus.textContent =
+          "Data Table geopend voor " + currentResultDetails.length +
+          " geselecteerde objecten met " + selectedColumns.length + " gekozen kolommen.";
+      } catch (error) {
+        console.error("Data Table openen mislukt:", error);
+        ui.datatableStatus.textContent =
+          "Data Table kon niet worden ingesteld: " +
+          (error.message || "onbekende fout");
+      }
+    }
+
+    function clearDataTableColumnSelection() {
+      selectedDataTableFields = new Set();
+
+      document.querySelectorAll(
+        "#datatable-builder input[type='checkbox']"
+      ).forEach(function(checkbox) {
+        checkbox.checked = false;
+      });
+
+      ui.openDatatable.disabled = true;
+      ui.datatableStatus.textContent = "Kolomselectie gewist.";
     }
 
     async function focusDetailsGhost(details) {
@@ -1979,7 +2114,10 @@
 
         const matches = findSameTypeElements(typeInfo);
 
-        renderQuantities(ui.selectionQuantities, matches);
+        rememberCurrentResult(
+          matches,
+          "Zelfde type: " + typeInfo.source + " = " + typeInfo.value
+        );
 
         ui.selectionStatus.innerHTML =
           "<strong>Type herkend: " + typeInfo.value + "</strong>" +
@@ -2042,8 +2180,6 @@
       ui.manualValue.disabled = true;
       ui.manualSearch.disabled = true;
       ui.manualStatus.classList.add("hidden");
-      ui.manualQuantities.innerHTML = "";
-      ui.manualQuantities.classList.add("hidden");
     }
 
     function updateManualValues() {
@@ -2100,7 +2236,11 @@
       }
 
       await focusDetailsGhost(matches);
-      renderQuantities(ui.manualQuantities, matches);
+
+      rememberCurrentResult(
+        matches,
+        key + " = " + value
+      );
 
       ui.manualStatus.innerHTML =
         "<strong>" + matches.length + " object" +
@@ -2162,7 +2302,6 @@
     ui.quickFocus.addEventListener("click", function() {
       if (quickCurrentMatches.length) {
         focusDetailsGhost(quickCurrentMatches);
-        renderQuantities(ui.quickQuantities, quickCurrentMatches);
       }
     });
 
@@ -2178,6 +2317,10 @@
     ui.manualParameter.addEventListener("change", updateManualValues);
     ui.manualValue.addEventListener("change", updateManualSearchButton);
     ui.manualSearch.addEventListener("click", runManualSearch);
+
+    ui.analyzeDatatableColumns.addEventListener("click", analyzeDataTableColumns);
+    ui.openDatatable.addEventListener("click", openCurrentSelectionInDataTable);
+    ui.clearDatatableColumns.addEventListener("click", clearDataTableColumnSelection);
 
     connectToTrimble();
   </script>
