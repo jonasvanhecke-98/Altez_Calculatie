@@ -1612,11 +1612,121 @@
       return score;
     }
 
+    function isBlockedDataTableColumn(column) {
+      const text = normalizeColumnText(column);
+
+      // Harde uitsluiting van import-/systeemvelden die geen bruikbare IFC-inhoud zijn.
+      const blocked = [
+        /^none\./,
+        /\bnone\./,
+        /discrimination/,
+        /globalid/,
+        /\bguid\b/,
+        /\buuid\b/,
+        /runtime/,
+        /entity id/,
+        /object id/,
+        /model id/,
+        /source id/,
+        /ownerhistory/,
+        /created/,
+        /modified/,
+        /timestamp/,
+        /coordinate/,
+        /placement/,
+        /bounding/,
+        /vertex/,
+        /mesh/,
+        /normal/,
+        /importplugin/,
+        /import plugin/,
+        /importer/,
+        /viewer metadata/,
+        /conversion metadata/
+      ];
+
+      return blocked.some(function(pattern) {
+        return pattern.test(text);
+      });
+    }
+
+    function normalizedPropertyCandidates(element) {
+      const candidates = new Set();
+
+      if (!element || !element.values) return candidates;
+
+      element.values.forEach(function(item) {
+        const setName = String(item.setName || "").trim();
+        const name = String(item.name || "").trim();
+        const value = String(item.value ?? "").trim();
+
+        if (!name || !value) return;
+
+        const combinations = [
+          setName + "." + name,
+          setName + " → " + name,
+          setName + ":" + name,
+          name
+        ];
+
+        combinations.forEach(function(candidate) {
+          const normalized = normalizeText(candidate)
+            .replace(/\s*→\s*/g, ".")
+            .replace(/\s*:\s*/g, ".")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          if (normalized) candidates.add(normalized);
+        });
+      });
+
+      return candidates;
+    }
+
+    function columnHasValueInCurrentSelection(column) {
+      if (!column || !column.field || !currentResultDetails.length) return false;
+
+      const field = normalizeText(column.field)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const label = normalizeText(column.label || "")
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return currentResultDetails.some(function(element) {
+        const candidates = normalizedPropertyCandidates(element);
+
+        if (candidates.has(field) || (label && candidates.has(label))) return true;
+
+        // Trimble kan een veld technisch prefixen. Daarom ook suffix-match,
+        // maar alleen op volledige propertynamen om valse matches te beperken.
+        return Array.from(candidates).some(function(candidate) {
+          return field.endsWith("." + candidate)
+            || candidate.endsWith("." + field)
+            || (label && (
+              label.endsWith("." + candidate)
+              || candidate.endsWith("." + label)
+            ));
+        });
+      });
+    }
+
     function classifyDataTableColumns(columns) {
       const unique = new Map();
 
       (columns || []).forEach(function(column) {
         if (!column || !column.field) return;
+        if (isBlockedDataTableColumn(column)) return;
+
+        // Alleen kolommen tonen waarvan de huidige geselecteerde objecten
+        // effectief een overeenkomstige, ingevulde modelproperty hebben.
+        if (!columnHasValueInCurrentSelection(column)) return;
+
         if (!unique.has(column.field)) unique.set(column.field, column);
       });
 
@@ -1787,9 +1897,15 @@
         ui.datatableBuilder.classList.remove("hidden");
         ui.openDatatable.disabled = selectedDataTableFields.size === 0;
 
+        const usableCount =
+          classified.properties.length +
+          classified.quantities.length +
+          classified.others.length;
+
         ui.datatableStatus.textContent =
-          dataTableColumns.length + " beschikbare kolommen gevonden · " +
-          selectedDataTableFields.size + " voorgeselecteerd. Pas de vinkjes gerust aan.";
+          dataTableColumns.length + " Trimble-kolommen gevonden · " +
+          usableCount + " hebben effectief een ingevulde waarde in deze selectie · " +
+          selectedDataTableFields.size + " voorgeselecteerd.";
       } catch (error) {
         console.error("Data Table-kolommen ophalen mislukt:", error);
         ui.datatableBuilder.classList.remove("hidden");
@@ -1810,10 +1926,9 @@
           return selectedDataTableFields.has(column.field);
         })
         .map(function(column) {
-          return {
-            field: column.field,
-            label: column.label || column.field
-          };
+          // Gebruik het originele Column-object van Trimble zelf.
+          // Zo blijven eventuele interne veldconfiguraties intact.
+          return Object.assign({}, column);
         });
 
       if (!selectedColumns.length) return;
