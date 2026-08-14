@@ -1991,40 +1991,147 @@
       }
     }
 
+    function normalizeDataTableFieldText(value) {
+      return normalizeText(value)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/[\/\\]+/g, ".")
+        .replace(/\.+/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function splitLogicalIfcField(field) {
+      const normalized = normalizeDataTableFieldText(field);
+      const dot = normalized.lastIndexOf(".");
+      if (dot < 0) {
+        return { setName: "", propertyName: normalized };
+      }
+
+      return {
+        setName: normalized.slice(0, dot),
+        propertyName: normalized.slice(dot + 1)
+      };
+    }
+
+    function resolveActualTrimbleColumn(logicalField, availableColumns) {
+      const logical = splitLogicalIfcField(logicalField);
+      const logicalFull = normalizeDataTableFieldText(logicalField);
+
+      const scored = (availableColumns || []).map(function(column) {
+        const actualField = normalizeDataTableFieldText(column.field || "");
+        const actualLabel = normalizeDataTableFieldText(column.label || "");
+        const combined = actualField + " " + actualLabel;
+        let score = 0;
+
+        if (actualField === logicalFull) score += 1000;
+        if (actualLabel === logicalFull) score += 950;
+
+        // Veel Trimble fields hebben een interne prefix. Een exacte suffixmatch
+        // op de oorspronkelijke PropertySet.PropertyName is daarom sterk.
+        if (actualField.endsWith("." + logicalFull)) score += 900;
+        if (actualLabel.endsWith("." + logicalFull)) score += 850;
+
+        if (logical.setName && actualField.includes(logical.setName)) score += 250;
+        if (logical.setName && actualLabel.includes(logical.setName)) score += 220;
+
+        if (logical.propertyName && actualField.endsWith("." + logical.propertyName)) score += 180;
+        if (logical.propertyName && actualLabel.endsWith("." + logical.propertyName)) score += 160;
+
+        if (logical.propertyName && combined.includes(logical.propertyName)) score += 70;
+
+        return { column: column, score: score };
+      }).filter(function(item) {
+        return item.score > 0;
+      }).sort(function(a, b) {
+        return b.score - a.score;
+      });
+
+      // Alleen voldoende sterke matches accepteren om opnieuw verkeerde (*)-kolommen
+      // of "geen data beschikbaar" te vermijden.
+      if (!scored.length || scored[0].score < 300) return null;
+      return scored[0].column;
+    }
+
     async function openCurrentSelectionInDataTable() {
       if (!API || !API.dataTable) return;
       if (!currentResultDetails.length || !selectedDataTableFields.size) return;
 
-      const selectedColumns = dataTableColumns
-        .filter(function(column) {
-          return selectedDataTableFields.has(column.field);
-        })
-        .map(function(column) {
-          return {
-            field: column.field
-          };
-        });
-
-      if (!selectedColumns.length) return;
-
       try {
-        // Zorg eerst dat Trimble exact dezelfde objecten als selectie heeft.
         const selector = selectorFromDetails(currentResultDetails);
         await API.viewer.setSelection(selector, "set");
+
+        // Nu pas de Data Table openen. Eerst zonder custom columns zodat Trimble
+        // zijn echte beschikbare fields voor de geselecteerde objecten kan laden.
+        await API.dataTable.setConfig({
+          show: true,
+          mode: "selected"
+        });
+
+        let availableColumns = [];
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            const response = await API.dataTable.getAllColumns();
+            availableColumns = Array.isArray(response) ? response : [];
+          } catch (error) {
+            console.warn("getAllColumns poging " + (attempt + 1) + " mislukt:", error);
+          }
+
+          if (availableColumns.length) break;
+          await wait(300 * (attempt + 1));
+        }
+
+        if (!availableColumns.length) {
+          ui.datatableStatus.textContent =
+            "De Data Table is geopend, maar Trimble gaf nog geen echte kolomdefinities terug. " +
+            "Probeer Open selectie in Data Table nogmaals zodra de tabel geladen is.";
+          return;
+        }
+
+        const resolvedColumns = [];
+        const unresolved = [];
+
+        Array.from(selectedDataTableFields).forEach(function(logicalField) {
+          const actual = resolveActualTrimbleColumn(logicalField, availableColumns);
+
+          if (actual && actual.field) {
+            if (!resolvedColumns.some(function(existing) {
+              return existing.field === actual.field;
+            })) {
+              // Exact het echte field gebruiken dat Trimble zelf heeft teruggegeven.
+              resolvedColumns.push({ field: actual.field });
+            }
+          } else {
+            unresolved.push(logicalField);
+          }
+        });
+
+        if (!resolvedColumns.length) {
+          ui.datatableStatus.textContent =
+            "Trimble heeft de Data Table geopend, maar geen van de gekozen IFC-properties " +
+            "kon veilig aan een echte Trimble-kolom gekoppeld worden. Er zijn geen custom (*)-kolommen aangemaakt.";
+          return;
+        }
 
         await API.dataTable.setConfig({
           show: true,
           mode: "selected",
           columnSet: {
             name: "Altez selectie",
-            columns: selectedColumns
+            columns: resolvedColumns
           }
         });
 
         ui.datatableStatus.textContent =
-          "Data Table geopend voor " + currentResultDetails.length +
-          " geselecteerde objecten met " + selectedColumns.length +
-          " originele Trimble field-kolommen.";
+          resolvedColumns.length + " echte Trimble-kolom" +
+          (resolvedColumns.length === 1 ? "" : "men") +
+          " gekoppeld voor " + currentResultDetails.length + " geselecteerde objecten" +
+          (unresolved.length
+            ? " · " + unresolved.length + " gekozen IFC-property" +
+              (unresolved.length === 1 ? "" : "s") +
+              " niet toegevoegd omdat er geen veilige match was."
+            : ".");
       } catch (error) {
         console.error("Data Table openen mislukt:", error);
         ui.datatableStatus.textContent =
