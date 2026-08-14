@@ -175,6 +175,21 @@
     .useful-parameter-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
     .useful-parameter-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
     .useful-parameter-meta { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .grouping-parameter-list { display: grid; gap: 8px; margin-top: 10px; }
+    .grouping-parameter-card { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; cursor: pointer; }
+    .grouping-parameter-card:hover { border-color: var(--blue); background: #f5fbfe; }
+    .grouping-parameter-card.selected { border: 2px solid var(--blue); background: #f5fbfe; }
+    .grouping-parameter-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .grouping-parameter-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
+    .grouping-parameter-order { min-width: 28px; padding: 4px 6px; border-radius: 99px; background: var(--blue); color: white; font-size: 10px; font-weight: bold; text-align: center; }
+    .grouping-selection-summary { margin: 10px 0; padding: 10px; border-left: 4px solid var(--blue); background: var(--soft-blue); font-size: 12px; line-height: 1.45; }
+    .hierarchy-list { display: grid; gap: 8px; margin-top: 10px; }
+    .hierarchy-node { border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; overflow: hidden; }
+    .hierarchy-node-button { width: 100%; border: 0; border-radius: 0; background: white; color: var(--ink); text-align: left; padding: 9px 10px; min-height: 34px; }
+    .hierarchy-node-button:hover { background: #f5fbfe; }
+    .hierarchy-node-button strong { display: block; font-size: 12px; }
+    .hierarchy-node-button span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .hierarchy-children { display: grid; gap: 6px; padding: 0 8px 8px 16px; }
     @media (max-width: 520px) {
       .reliable-filter-row { grid-template-columns: 1fr; }
       .reliable-filter-row button { width: 100%; }
@@ -259,23 +274,29 @@
   <section id="reliable-search-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>Zoeken op betrouwbare parameter</h2>
-        <p class="subtitle">Kies eerst een nuttige betrouwbare parameter. Technische importdata, geometrie en hoeveelheden worden bewust lager gezet of uitgesloten.</p>
+        <h2>Beste groepeerparameters</h2>
+        <p class="subtitle">De plugin rangschikt de 10 nuttigste parameters voor calculatie. Geometrie, hoeveelheden, GUID's en technische importdata worden uitgesloten.</p>
       </div>
-      <span class="badge">Filters</span>
+      <span class="badge">Top 10</span>
     </div>
 
-    <h3>Beste nuttige parameters</h3>
-    <div id="useful-parameter-list" class="useful-parameter-list"></div>
+    <div id="grouping-parameter-list" class="grouping-parameter-list"></div>
 
-    <div id="reliable-filter-list" class="reliable-filter-list"></div>
-
-    <div class="button-row">
-      <button id="add-reliable-filter" class="secondary" type="button">+ Filter toevoegen</button>
-      <button id="run-reliable-search" type="button" disabled>Zoek objecten</button>
+    <div id="grouping-selection-summary" class="grouping-selection-summary">
+      Kies 1 tot 3 parameters. De volgorde waarin je ze selecteert bepaalt de hiërarchie.
     </div>
 
-    <div id="reliable-search-status" class="scope-box hidden" style="margin-bottom:0;"></div>
+    <button id="run-combined-grouping" type="button" disabled>Groepeer op geselecteerde parameters</button>
+
+    <div id="combined-grouping-result" class="hidden" style="margin-top:12px;">
+      <div class="panel-head">
+        <div>
+          <h3>Gecombineerde groepering</h3>
+          <p id="combined-grouping-meta" class="subtitle"></p>
+        </div>
+      </div>
+      <div id="combined-grouping-list" class="hierarchy-list"></div>
+    </div>
   </section>
 
   <section id="work-panel" class="panel hidden">
@@ -331,7 +352,8 @@
     let modelRefreshTimer = null;
     let coloredSelectors = [];
     let selectedSearchElement = null;
-    let reliableSearchFilters = [];
+    let selectedGroupingParameters = [];
+    let combinedGroupingTree = null;
 
     const PROPERTY_BATCH_SIZE = 150;
     const PROPERTY_RETRIES = 1;
@@ -362,11 +384,12 @@
       workPanel: document.getElementById("work-panel"),
       selectionSearchPanel: document.getElementById("selection-search-panel"),
       reliableSearchPanel: document.getElementById("reliable-search-panel"),
-      usefulParameterList: document.getElementById("useful-parameter-list"),
-      reliableFilterList: document.getElementById("reliable-filter-list"),
-      addReliableFilter: document.getElementById("add-reliable-filter"),
-      runReliableSearch: document.getElementById("run-reliable-search"),
-      reliableSearchStatus: document.getElementById("reliable-search-status"),
+      groupingParameterList: document.getElementById("grouping-parameter-list"),
+      groupingSelectionSummary: document.getElementById("grouping-selection-summary"),
+      runCombinedGrouping: document.getElementById("run-combined-grouping"),
+      combinedGroupingResult: document.getElementById("combined-grouping-result"),
+      combinedGroupingMeta: document.getElementById("combined-grouping-meta"),
+      combinedGroupingList: document.getElementById("combined-grouping-list"),
       selectionSearchStatus: document.getElementById("selection-search-status"),
       selectionSearchList: document.getElementById("selection-search-list"),
       readSelection: document.getElementById("read-selection"),
@@ -802,7 +825,7 @@
       ui.recommendationSection.classList.remove("hidden");
       renderRecommendations();
       renderParameterList();
-      resetReliableSearch();
+      initializeGroupingParameterSelection();
     }
 
     function recommendedParameters() {
@@ -954,6 +977,24 @@
       }
     }
 
+    async function focusDetailsGhost(details) {
+      const scopeSelector = selectorFromDetails(analyzedElements);
+      const targetSelector = selectorFromDetails(details);
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        // Trimble Connect Ghost Mode visualiseert verborgen objecten als ghost-context.
+        // Daarom verbergen we de context i.p.v. ze transparant te kleuren.
+        await API.viewer.setObjectState(scopeSelector, { color: "reset", opacity: 1, visible: false });
+        await API.viewer.setObjectState(targetSelector, { color: "reset", opacity: 1, visible: true });
+        await API.viewer.setSelection(targetSelector, "set");
+        await API.viewer.setCamera(targetSelector, { animationTime: 450 });
+      } catch (error) {
+        console.warn("Ghost-focus mislukt:", error);
+        await focusDetails(details);
+      }
+    }
+
     async function isolateDetails(details, zoom) {
       const entities = isolateInputFromDetails(details);
       if (!entities.length) return;
@@ -1005,7 +1046,7 @@
 
     function isTechnicalOrQuantityParameter(parameter) {
       const text = normalizeText(parameter.key);
-      const technicalPatterns = [
+      const blocked = [
         /guid/, /globalid/, /uuid/, /runtime/, /entity id/, /object id/,
         /created/, /modified/, /timestamp/, /ownerhistory/,
         /bounding/, /coordinate/, /placement/, /location/, /position/,
@@ -1015,236 +1056,232 @@
         /perimeter/, /omtrek/, /weight/, /gewicht/, /mass/, /massa/,
         /quantity/, /quantities/, /basequantities/, /qto_/
       ];
-      return technicalPatterns.some(function(pattern) { return pattern.test(text); });
+      return blocked.some(function(pattern) { return pattern.test(text); });
     }
 
-    function usefulnessScore(parameter) {
+    function groupingUsefulnessScore(parameter) {
       if (!parameter || parameter.role === "Identificatie") return -999;
       if (isTechnicalOrQuantityParameter(parameter)) return -999;
 
       const text = normalizeText(parameter.key);
-      let score = parameter.recommendationScore || parameter.reliability || 0;
+      let score = parameter.reliability * 0.48 + parameter.groupability * 0.28 + parameter.coverage * 0.12;
 
-      if (/(material|materiaal)/.test(text)) score += 34;
-      if (/(type|reference|referentie|objecttype|object type|construction|family|classification|classificatie)/.test(text)) score += 30;
-      if (/(status|phase|fase|storey|verdieping|level|zone|system|systeem|assembly)/.test(text)) score += 18;
-      if (/pset_/.test(text)) score += 10;
-      if (/objectinformatie/.test(text) && /(productnaam|producttype|ifc-klasse)/.test(text)) score += 8;
+      // Calculatiegerichte prioriteiten
+      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text)) score += 38;
+      if (/(producttype|product type|objecttype|object type)/.test(text)) score += 34;
+      if (/(type|reference|referentie|construction|family|classification|classificatie)/.test(text)) score += 25;
+      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly)/.test(text)) score += 14;
+      if (/pset_/.test(text)) score += 8;
 
-      if (parameter.unique <= 1) score -= 70;
-      if (parameter.filled > 3 && parameter.unique / parameter.filled > 0.85) score -= 45;
-      if (parameter.coverage < 50) score -= 35;
+      // Productnaam blijft bruikbaar, maar kan unieke suffixen bevatten.
+      if (/productnaam/.test(text)) score += 10;
 
-      return score;
+      // Niet bruikbaar als er geen echte verdeling is.
+      if (parameter.unique <= 1) score -= 80;
+
+      // Bijna unieke waarden zijn slechte groepeerparameters.
+      if (parameter.filled > 3 && parameter.unique / parameter.filled > 0.80) score -= 50;
+
+      // Materiaal mag ook waardevol zijn met lagere globale dekking.
+      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text) && parameter.coverage >= 20) score += 18;
+      else if (parameter.coverage < 35) score -= 30;
+
+      return clamp(score, 0, 100);
     }
 
-    function reliableParametersForSearch() {
+    function topGroupingParameters() {
       return parameterResults
-        .filter(isReliableGroupingParameter)
         .filter(function(parameter) {
-          return usefulnessScore(parameter) > 0;
+          return parameter.filled > 1
+            && parameter.unique > 1
+            && parameter.role !== "Identificatie"
+            && !isTechnicalOrQuantityParameter(parameter);
         })
-        .slice()
+        .map(function(parameter) {
+          return { parameter: parameter, usefulness: groupingUsefulnessScore(parameter) };
+        })
+        .filter(function(item) { return item.usefulness > 0; })
         .sort(function(a, b) {
-          return usefulnessScore(b) - usefulnessScore(a)
-            || b.reliability - a.reliability
-            || a.key.localeCompare(b.key, "nl");
-        });
+          return b.usefulness - a.usefulness
+            || b.parameter.reliability - a.parameter.reliability
+            || a.parameter.key.localeCompare(b.parameter.key, "nl");
+        })
+        .slice(0, 10);
     }
 
-    function resetReliableSearch() {
-      reliableSearchFilters = [{ key: "", value: "" }];
-      ui.reliableSearchStatus.classList.add("hidden");
-      renderUsefulParameterList();
-      renderReliableFilters();
+    function initializeGroupingParameterSelection() {
+      const top = topGroupingParameters();
+      selectedGroupingParameters = top.slice(0, Math.min(3, top.length)).map(function(item) {
+        return item.parameter.key;
+      });
+      renderGroupingParameterList();
+      ui.combinedGroupingResult.classList.add("hidden");
     }
 
-    function renderUsefulParameterList() {
-      const parameters = reliableParametersForSearch().slice(0, 12);
-      ui.usefulParameterList.innerHTML = "";
+    function renderGroupingParameterList() {
+      const top = topGroupingParameters();
+      ui.groupingParameterList.innerHTML = "";
 
-      if (!parameters.length) {
-        ui.usefulParameterList.innerHTML = '<div class="empty">Geen nuttige betrouwbare parameters gevonden.</div>';
+      if (!top.length) {
+        ui.groupingParameterList.innerHTML = '<div class="empty">Geen geschikte groepeerparameters gevonden.</div>';
+        ui.runCombinedGrouping.disabled = true;
         return;
       }
 
-      parameters.forEach(function(parameter) {
+      top.forEach(function(item) {
+        const parameter = item.parameter;
+        const selectedIndex = selectedGroupingParameters.indexOf(parameter.key);
+
         const card = document.createElement("div");
-        card.className = "useful-parameter-card";
-        if (reliableSearchFilters[0] && reliableSearchFilters[0].key === parameter.key) {
-          card.classList.add("active");
-        }
+        card.className = "grouping-parameter-card" + (selectedIndex >= 0 ? " selected" : "");
 
         const head = document.createElement("div");
-        head.className = "useful-parameter-head";
+        head.className = "grouping-parameter-head";
+
         const name = document.createElement("div");
-        name.className = "useful-parameter-name";
+        name.className = "grouping-parameter-name";
         name.textContent = parameter.key;
-        const score = document.createElement("span");
-        score.className = "score " + scoreClass(parameter.reliability);
-        score.textContent = formatPercent(parameter.reliability);
+
+        const right = document.createElement("div");
+        if (selectedIndex >= 0) {
+          right.className = "grouping-parameter-order";
+          right.textContent = String(selectedIndex + 1);
+        } else {
+          right.className = "score " + scoreClass(item.usefulness);
+          right.textContent = round(item.usefulness, 0);
+        }
 
         head.appendChild(name);
-        head.appendChild(score);
+        head.appendChild(right);
 
         const meta = document.createElement("div");
         meta.className = "useful-parameter-meta";
-        meta.textContent = parameter.unique + " waarden · " + formatPercent(parameter.coverage) + " gevuld · nuttigheid " + round(usefulnessScore(parameter), 0);
+        meta.textContent =
+          "score " + round(item.usefulness, 0) +
+          " · " + parameter.unique + " waarden" +
+          " · " + formatPercent(parameter.coverage) + " gevuld" +
+          " · betrouwbaarheid " + formatPercent(parameter.reliability);
 
         card.appendChild(head);
         card.appendChild(meta);
 
         card.addEventListener("click", function() {
-          if (!reliableSearchFilters.length) reliableSearchFilters.push({ key: "", value: "" });
-          reliableSearchFilters[0].key = parameter.key;
-          reliableSearchFilters[0].value = "";
-          ui.reliableSearchStatus.classList.add("hidden");
-          renderUsefulParameterList();
-          renderReliableFilters();
+          const existing = selectedGroupingParameters.indexOf(parameter.key);
+
+          if (existing >= 0) {
+            selectedGroupingParameters.splice(existing, 1);
+          } else {
+            if (selectedGroupingParameters.length >= 3) return;
+            selectedGroupingParameters.push(parameter.key);
+          }
+
+          renderGroupingParameterList();
+          ui.combinedGroupingResult.classList.add("hidden");
         });
 
-        ui.usefulParameterList.appendChild(card);
-      });
-    }
-
-    function elementsMatchingFilters(filters, ignoredIndex) {
-      const complete = filters.filter(function(filter, index) {
-        return index !== ignoredIndex && filter.key && filter.value;
+        ui.groupingParameterList.appendChild(card);
       });
 
-      return analyzedElements.filter(function(element) {
-        return complete.every(function(filter) {
-          const item = element.values.get(filter.key);
-          return item && normalizeText(item.value) === normalizeText(filter.value);
-        });
-      });
-    }
-
-    function valuesForReliableFilter(filterIndex, key) {
-      if (!key) return [];
-      const scope = elementsMatchingFilters(reliableSearchFilters, filterIndex);
-      const counts = new Map();
-
-      scope.forEach(function(element) {
-        const item = element.values.get(key);
-        const value = item && String(item.value || "").trim();
-        if (!value || isSuspiciousValue(value)) return;
-        counts.set(value, (counts.get(value) || 0) + 1);
-      });
-
-      return Array.from(counts.entries()).sort(function(a, b) {
-        return b[1] - a[1] || a[0].localeCompare(b[0], "nl", { numeric: true });
-      });
-    }
-
-    function renderReliableFilters() {
-      const parameters = reliableParametersForSearch();
-      ui.reliableFilterList.innerHTML = "";
-
-      reliableSearchFilters.forEach(function(filter, index) {
-        const row = document.createElement("div");
-        row.className = "reliable-filter-row";
-
-        const parameterSelect = document.createElement("select");
-        const parameterPlaceholder = document.createElement("option");
-        parameterPlaceholder.value = "";
-        parameterPlaceholder.textContent = "Kies parameter...";
-        parameterSelect.appendChild(parameterPlaceholder);
-
-        parameters.forEach(function(parameter) {
-          const option = document.createElement("option");
-          option.value = parameter.key;
-          option.textContent = parameter.key + " · " + formatPercent(parameter.reliability);
-          option.selected = parameter.key === filter.key;
-          parameterSelect.appendChild(option);
-        });
-
-        parameterSelect.addEventListener("change", function() {
-          reliableSearchFilters[index].key = parameterSelect.value;
-          reliableSearchFilters[index].value = "";
-          ui.reliableSearchStatus.classList.add("hidden");
-          renderUsefulParameterList();
-          renderReliableFilters();
-        });
-
-        const valueSelect = document.createElement("select");
-        valueSelect.disabled = !filter.key;
-
-        const valuePlaceholder = document.createElement("option");
-        valuePlaceholder.value = "";
-        valuePlaceholder.textContent = filter.key ? "Kies waarde..." : "Kies eerst parameter...";
-        valueSelect.appendChild(valuePlaceholder);
-
-        if (filter.key) {
-          const values = valuesForReliableFilter(index, filter.key);
-          values.forEach(function(entry) {
-            const option = document.createElement("option");
-            option.value = entry[0];
-            option.textContent = entry[0] + " (" + entry[1] + ")";
-            option.selected = entry[0] === filter.value;
-            valueSelect.appendChild(option);
-          });
-        }
-
-        valueSelect.addEventListener("change", function() {
-          reliableSearchFilters[index].value = valueSelect.value;
-          ui.reliableSearchStatus.classList.add("hidden");
-          renderReliableFilters();
-        });
-
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "secondary small";
-        remove.textContent = "×";
-        remove.title = "Filter verwijderen";
-        remove.disabled = reliableSearchFilters.length === 1;
-        remove.addEventListener("click", function() {
-          reliableSearchFilters.splice(index, 1);
-          ui.reliableSearchStatus.classList.add("hidden");
-          renderUsefulParameterList();
-          renderReliableFilters();
-        });
-
-        row.appendChild(parameterSelect);
-        row.appendChild(valueSelect);
-        row.appendChild(remove);
-        ui.reliableFilterList.appendChild(row);
-      });
-
-      const completeCount = reliableSearchFilters.filter(function(filter) {
-        return filter.key && filter.value;
-      }).length;
-
-      ui.runReliableSearch.disabled = completeCount === 0;
-      ui.addReliableFilter.disabled = reliableSearchFilters.length >= 6;
-    }
-
-    function addReliableFilter() {
-      if (reliableSearchFilters.length >= 6) return;
-      reliableSearchFilters.push({ key: "", value: "" });
-      renderReliableFilters();
-    }
-
-    async function runReliableParameterSearch() {
-      const complete = reliableSearchFilters.filter(function(filter) {
-        return filter.key && filter.value;
-      });
-      if (!complete.length) return;
-
-      const matches = elementsMatchingFilters(complete, -1);
-      const description = complete.map(function(filter) {
-        return filter.key + " = " + filter.value;
-      }).join(" EN ");
-
-      ui.reliableSearchStatus.classList.remove("hidden");
-
-      if (!matches.length) {
-        ui.reliableSearchStatus.innerHTML = "<strong>Geen objecten gevonden</strong><span>" + description + "</span>";
-        return;
+      if (!selectedGroupingParameters.length) {
+        ui.groupingSelectionSummary.textContent = "Kies 1 tot 3 parameters. De volgorde waarin je ze selecteert bepaalt de hiërarchie.";
+      } else {
+        ui.groupingSelectionSummary.textContent =
+          "Geselecteerde groepering: " + selectedGroupingParameters.join(" → ");
       }
 
-      await focusDetails(matches);
-      ui.reliableSearchStatus.innerHTML = "<strong>" + matches.length + " object" + (matches.length === 1 ? "" : "en") + " gevonden</strong><span>" + description + ". De resultaten zijn geselecteerd en gefocust; de rest blijft transparant zichtbaar.</span>";
+      ui.runCombinedGrouping.disabled = selectedGroupingParameters.length === 0;
+    }
+
+    function valueForGrouping(element, parameterKey) {
+      const item = element.values.get(parameterKey);
+      const raw = item && String(item.value || "").trim();
+      return raw || EMPTY_VALUE;
+    }
+
+    function buildCombinedGroupingTree(elements, parameterKeys, level) {
+      if (level >= parameterKeys.length) return null;
+
+      const key = parameterKeys[level];
+      const groups = new Map();
+
+      elements.forEach(function(element) {
+        const value = valueForGrouping(element, key);
+        if (!groups.has(value)) groups.set(value, []);
+        groups.get(value).push(element);
+      });
+
+      return Array.from(groups.entries()).map(function(entry) {
+        const value = entry[0];
+        const groupedElements = entry[1];
+
+        return {
+          parameterKey: key,
+          value: value,
+          elements: groupedElements,
+          children: buildCombinedGroupingTree(groupedElements, parameterKeys, level + 1)
+        };
+      }).sort(function(a, b) {
+        if (a.value === EMPTY_VALUE) return 1;
+        if (b.value === EMPTY_VALUE) return -1;
+        return b.elements.length - a.elements.length
+          || a.value.localeCompare(b.value, "nl", { numeric: true });
+      });
+    }
+
+    function renderHierarchyNodes(nodes, container) {
+      if (!nodes) return;
+
+      nodes.forEach(function(node) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "hierarchy-node";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "hierarchy-node-button";
+
+        const strong = document.createElement("strong");
+        strong.textContent = node.value;
+
+        const meta = document.createElement("span");
+        meta.textContent = node.parameterKey + " · " + node.elements.length + " element" + (node.elements.length === 1 ? "" : "en");
+
+        button.appendChild(strong);
+        button.appendChild(meta);
+
+        button.addEventListener("click", async function() {
+          await focusDetailsGhost(node.elements);
+        });
+
+        wrapper.appendChild(button);
+
+        if (node.children && node.children.length) {
+          const children = document.createElement("div");
+          children.className = "hierarchy-children";
+          renderHierarchyNodes(node.children, children);
+          wrapper.appendChild(children);
+        }
+
+        container.appendChild(wrapper);
+      });
+    }
+
+    function runCombinedGrouping() {
+      if (!selectedGroupingParameters.length) return;
+
+      combinedGroupingTree = buildCombinedGroupingTree(
+        analyzedElements,
+        selectedGroupingParameters,
+        0
+      );
+
+      ui.combinedGroupingList.innerHTML = "";
+      renderHierarchyNodes(combinedGroupingTree, ui.combinedGroupingList);
+
+      ui.combinedGroupingMeta.textContent =
+        selectedGroupingParameters.join(" → ") +
+        " · " + analyzedElements.length + " geanalyseerde elementen";
+
+      ui.combinedGroupingResult.classList.remove("hidden");
     }
 
     function getSelectedRuntimeIds(selection) {
@@ -1495,10 +1532,10 @@
       button.textContent = "Zoek " + matches.length + " gelijke element" + (matches.length === 1 ? "" : "en");
       button.disabled = matches.length === 0;
       button.addEventListener("click", async function() {
-        await focusDetails(matches);
+        await focusDetailsGhost(matches);
         ui.selectionSearchStatus.innerHTML =
           "<strong>" + matches.length + " gelijke element" + (matches.length === 1 ? "" : "en") + " geselecteerd</strong>" +
-          "<span>" + typeInfo.source + " = " + typeInfo.value + ". De rest blijft transparant zichtbaar.</span>";
+          "<span>" + typeInfo.source + " = " + typeInfo.value + ". De overige objecten zijn als verborgen context ingesteld zodat Trimble Connect Ghost Mode ze als ghostlijnen kan tonen.</span>";
       });
 
       card.appendChild(strong);
@@ -1592,8 +1629,7 @@
 
     ui.refreshModel.addEventListener("click", refreshModelScope);
     ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
-    ui.addReliableFilter.addEventListener("click", addReliableFilter);
-    ui.runReliableSearch.addEventListener("click", runReliableParameterSearch);
+    ui.runCombinedGrouping.addEventListener("click", runCombinedGrouping);
     ui.runAnalysis.addEventListener("click", runAnalysis);
     ui.parameterFilter.addEventListener("input", renderParameterList);
     ui.sortParameters.addEventListener("click", function() {
