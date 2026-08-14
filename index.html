@@ -1796,11 +1796,13 @@
         const content = document.createElement("div");
         const title = document.createElement("div");
         title.className = "datatable-column-label";
-        title.textContent = column.label || column.field;
+        title.textContent = column.field;
 
         const meta = document.createElement("span");
         meta.className = "datatable-column-meta";
-        meta.textContent = column.field;
+        meta.textContent = column.label && column.label !== column.field
+          ? "Trimble-label: " + column.label
+          : "Originele Data Table-kolom";
 
         content.appendChild(title);
         content.appendChild(meta);
@@ -1827,20 +1829,10 @@
       ui.datatableStatus.textContent = "Beschikbare Data Table-kolommen ophalen...";
 
       try {
-        // Data Table kan pas kolommen teruggeven nadat de interne tabelclient
-        // effectief actief is. Zorg daarom eerst voor de actuele Trimble-selectie
-        // en open de tabel in Selected Objects-modus.
+        // Alleen de actuele Trimble-selectie instellen.
+        // De Data Table zelf blijft gesloten tijdens de kolomanalyse.
         const selector = selectorFromDetails(currentResultDetails);
         await API.viewer.setSelection(selector, "set");
-
-        try {
-          await API.dataTable.setConfig({
-            show: true,
-            mode: "selected"
-          });
-        } catch (configError) {
-          console.warn("Data Table vooraf openen mislukt:", configError);
-        }
 
         let columns = [];
         for (let attempt = 0; attempt < 4; attempt++) {
@@ -1866,8 +1858,8 @@
           ui.datatableOtherColumns.innerHTML =
             '<div class="empty">Trimble gaf nog geen beschikbare kolommen terug.</div>';
           ui.datatableStatus.textContent =
-            "De Data Table is geopend op Selected Objects, maar getAllColumns() gaf geen kolommen terug. " +
-            "Laat de Data Table kort laden en klik daarna nogmaals op Analyseer beschikbare kolommen.";
+            "Trimble gaf voor deze selectie nog geen beschikbare Data Table-kolommen terug. " +
+            "De Data Table is niet geopend. Klik eventueel nogmaals op Laad beschikbare Data Table-kolommen.";
           return;
         }
 
@@ -1926,9 +1918,12 @@
           return selectedDataTableFields.has(column.field);
         })
         .map(function(column) {
-          // Gebruik het originele Column-object van Trimble zelf.
-          // Zo blijven eventuele interne veldconfiguraties intact.
-          return Object.assign({}, column);
+          // Gebruik uitsluitend het exacte originele Trimble field.
+          // Geen eigen label, aggregation, grouping of custom metadata meesturen.
+          // Zo voorkomt Trimble dat er aangepaste (*)-kolommen ontstaan.
+          return {
+            field: column.field
+          };
         });
 
       if (!selectedColumns.length) return;
@@ -1949,7 +1944,8 @@
 
         ui.datatableStatus.textContent =
           "Data Table geopend voor " + currentResultDetails.length +
-          " geselecteerde objecten met " + selectedColumns.length + " gekozen kolommen.";
+          " geselecteerde objecten met " + selectedColumns.length +
+          " originele Trimble field-kolommen.";
       } catch (error) {
         console.error("Data Table openen mislukt:", error);
         ui.datatableStatus.textContent =
