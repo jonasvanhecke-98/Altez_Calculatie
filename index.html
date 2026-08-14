@@ -168,6 +168,13 @@
     .search-result-card strong { display: block; margin-bottom: 4px; font-size: 13px; }
     .search-result-card span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
     .search-result-card button { margin-top: 8px; }
+    .useful-parameter-list { display: grid; gap: 8px; margin: 10px 0 12px; }
+    .useful-parameter-card { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; cursor: pointer; }
+    .useful-parameter-card:hover { border-color: var(--blue); background: #f5fbfe; }
+    .useful-parameter-card.active { border: 2px solid var(--blue); background: #f5fbfe; }
+    .useful-parameter-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .useful-parameter-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
+    .useful-parameter-meta { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
     @media (max-width: 520px) {
       .reliable-filter-row { grid-template-columns: 1fr; }
       .reliable-filter-row button { width: 100%; }
@@ -253,10 +260,13 @@
     <div class="panel-head">
       <div>
         <h2>Zoeken op betrouwbare parameter</h2>
-        <p class="subtitle">Bouw een zoekopdracht met één of meerdere betrouwbare parameters. Extra filters worden standaard met EN gecombineerd.</p>
+        <p class="subtitle">Kies eerst een nuttige betrouwbare parameter. Technische importdata, geometrie en hoeveelheden worden bewust lager gezet of uitgesloten.</p>
       </div>
       <span class="badge">Filters</span>
     </div>
+
+    <h3>Beste nuttige parameters</h3>
+    <div id="useful-parameter-list" class="useful-parameter-list"></div>
 
     <div id="reliable-filter-list" class="reliable-filter-list"></div>
 
@@ -352,6 +362,7 @@
       workPanel: document.getElementById("work-panel"),
       selectionSearchPanel: document.getElementById("selection-search-panel"),
       reliableSearchPanel: document.getElementById("reliable-search-panel"),
+      usefulParameterList: document.getElementById("useful-parameter-list"),
       reliableFilterList: document.getElementById("reliable-filter-list"),
       addReliableFilter: document.getElementById("add-reliable-filter"),
       runReliableSearch: document.getElementById("run-reliable-search"),
@@ -992,16 +1003,108 @@
       }
     }
 
+    function isTechnicalOrQuantityParameter(parameter) {
+      const text = normalizeText(parameter.key);
+      const technicalPatterns = [
+        /guid/, /globalid/, /uuid/, /runtime/, /entity id/, /object id/,
+        /created/, /modified/, /timestamp/, /ownerhistory/,
+        /bounding/, /coordinate/, /placement/, /location/, /position/,
+        /geometry/, /geometrie/, /mesh/, /vertex/, /face/, /normal/,
+        /length/, /lengte/, /width/, /breedte/, /height/, /hoogte/,
+        /thickness/, /dikte/, /area/, /oppervlak/, /volume/, /inhoud/,
+        /perimeter/, /omtrek/, /weight/, /gewicht/, /mass/, /massa/,
+        /quantity/, /quantities/, /basequantities/, /qto_/
+      ];
+      return technicalPatterns.some(function(pattern) { return pattern.test(text); });
+    }
+
+    function usefulnessScore(parameter) {
+      if (!parameter || parameter.role === "Identificatie") return -999;
+      if (isTechnicalOrQuantityParameter(parameter)) return -999;
+
+      const text = normalizeText(parameter.key);
+      let score = parameter.recommendationScore || parameter.reliability || 0;
+
+      if (/(material|materiaal)/.test(text)) score += 34;
+      if (/(type|reference|referentie|objecttype|object type|construction|family|classification|classificatie)/.test(text)) score += 30;
+      if (/(status|phase|fase|storey|verdieping|level|zone|system|systeem|assembly)/.test(text)) score += 18;
+      if (/pset_/.test(text)) score += 10;
+      if (/objectinformatie/.test(text) && /(productnaam|producttype|ifc-klasse)/.test(text)) score += 8;
+
+      if (parameter.unique <= 1) score -= 70;
+      if (parameter.filled > 3 && parameter.unique / parameter.filled > 0.85) score -= 45;
+      if (parameter.coverage < 50) score -= 35;
+
+      return score;
+    }
+
     function reliableParametersForSearch() {
-      return recommendedParameters().filter(function(parameter) {
-        return parameter.filled > 0 && parameter.role !== "Identificatie";
-      });
+      return parameterResults
+        .filter(isReliableGroupingParameter)
+        .filter(function(parameter) {
+          return usefulnessScore(parameter) > 0;
+        })
+        .slice()
+        .sort(function(a, b) {
+          return usefulnessScore(b) - usefulnessScore(a)
+            || b.reliability - a.reliability
+            || a.key.localeCompare(b.key, "nl");
+        });
     }
 
     function resetReliableSearch() {
       reliableSearchFilters = [{ key: "", value: "" }];
       ui.reliableSearchStatus.classList.add("hidden");
+      renderUsefulParameterList();
       renderReliableFilters();
+    }
+
+    function renderUsefulParameterList() {
+      const parameters = reliableParametersForSearch().slice(0, 12);
+      ui.usefulParameterList.innerHTML = "";
+
+      if (!parameters.length) {
+        ui.usefulParameterList.innerHTML = '<div class="empty">Geen nuttige betrouwbare parameters gevonden.</div>';
+        return;
+      }
+
+      parameters.forEach(function(parameter) {
+        const card = document.createElement("div");
+        card.className = "useful-parameter-card";
+        if (reliableSearchFilters[0] && reliableSearchFilters[0].key === parameter.key) {
+          card.classList.add("active");
+        }
+
+        const head = document.createElement("div");
+        head.className = "useful-parameter-head";
+        const name = document.createElement("div");
+        name.className = "useful-parameter-name";
+        name.textContent = parameter.key;
+        const score = document.createElement("span");
+        score.className = "score " + scoreClass(parameter.reliability);
+        score.textContent = formatPercent(parameter.reliability);
+
+        head.appendChild(name);
+        head.appendChild(score);
+
+        const meta = document.createElement("div");
+        meta.className = "useful-parameter-meta";
+        meta.textContent = parameter.unique + " waarden · " + formatPercent(parameter.coverage) + " gevuld · nuttigheid " + round(usefulnessScore(parameter), 0);
+
+        card.appendChild(head);
+        card.appendChild(meta);
+
+        card.addEventListener("click", function() {
+          if (!reliableSearchFilters.length) reliableSearchFilters.push({ key: "", value: "" });
+          reliableSearchFilters[0].key = parameter.key;
+          reliableSearchFilters[0].value = "";
+          ui.reliableSearchStatus.classList.add("hidden");
+          renderUsefulParameterList();
+          renderReliableFilters();
+        });
+
+        ui.usefulParameterList.appendChild(card);
+      });
     }
 
     function elementsMatchingFilters(filters, ignoredIndex) {
@@ -1060,6 +1163,7 @@
           reliableSearchFilters[index].key = parameterSelect.value;
           reliableSearchFilters[index].value = "";
           ui.reliableSearchStatus.classList.add("hidden");
+          renderUsefulParameterList();
           renderReliableFilters();
         });
 
@@ -1097,6 +1201,7 @@
         remove.addEventListener("click", function() {
           reliableSearchFilters.splice(index, 1);
           ui.reliableSearchStatus.classList.add("hidden");
+          renderUsefulParameterList();
           renderReliableFilters();
         });
 
@@ -1171,6 +1276,46 @@
         .replace(/elementedcase$/, "");
     }
 
+    function normalizeProductNameForType(value) {
+      let text = String(value || "").trim();
+      if (!text) return "";
+
+      text = text
+        .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/ig, "")
+        .replace(/\b[0-9a-f]{10,}\b/ig, "")
+        .replace(/([_\-\s])\d{5,}$/g, "")
+        .replace(/([_\-\s])[A-Z0-9]{8,}$/ig, "")
+        .replace(/\s{2,}/g, " ")
+        .replace(/[_\-\s]+$/g, "")
+        .trim();
+
+      return text;
+    }
+
+    function matchCountForCandidate(key, value, ifcClass, normalizeProductName) {
+      if (!key || !value) return 0;
+      const target = normalizeProductName ? normalizeProductNameForType(value) : String(value).trim();
+      if (!target) return 0;
+
+      return analyzedElements.filter(function(element) {
+        const item = element.values.get(key);
+        if (!item) return false;
+
+        const candidateValue = normalizeProductName
+          ? normalizeProductNameForType(item.value)
+          : String(item.value || "").trim();
+
+        if (normalizeText(candidateValue) !== normalizeText(target)) return false;
+
+        if (key !== "Objectinformatie → IFC-klasse" && ifcClass) {
+          const elementClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
+          if (elementClass && normalizeText(elementClass) !== normalizeText(ifcClass)) return false;
+        }
+
+        return true;
+      }).length;
+    }
+
     function scoreTypeCandidate(item, parameter, ifcClass) {
       const keyText = normalizeText(item.key);
       const nameText = normalizeText(item.name);
@@ -1178,91 +1323,98 @@
       const token = classToken(ifcClass);
       let score = 0;
 
-      if (/(producttype|product type|objecttype|object type)/.test(nameText)) score += 130;
-      if (/^(type|reference|referentie|type name|typename)$/.test(nameText)) score += 115;
-      if (/(walltype|roof type|rooftype|slabtype|floor type|floortype|membertype|beamtype|columntype|doortype|windowtype)/.test(nameText)) score += 125;
-      if (/(constructiontype|elementtype|family and type|familytype|type mark|typemark)/.test(nameText)) score += 100;
-      if (/pset_/.test(setText)) score += 18;
+      if (/(producttype|product type|objecttype|object type)/.test(nameText)) score += 135;
+      if (/^(type|reference|referentie|type name|typename)$/.test(nameText)) score += 120;
+      if (/(walltype|roof type|rooftype|slabtype|floor type|floortype|membertype|beamtype|columntype|doortype|windowtype)/.test(nameText)) score += 130;
+      if (/(constructiontype|elementtype|family and type|familytype|type mark|typemark)/.test(nameText)) score += 105;
+      if (/pset_/.test(setText)) score += 22;
       if (/common/.test(setText)) score += 12;
-      if (token && (setText.includes(token) || nameText.includes(token))) score += 42;
-      if (parameter && parameter.role === "Groepering") score += 28;
-      if (parameter) score += clamp(parameter.recommendationScore, 0, 100) * 0.22;
-      if (parameter && parameter.unique > 1 && parameter.unique <= 50) score += 16;
+      if (token && (setText.includes(token) || nameText.includes(token))) score += 44;
+      if (parameter && parameter.role === "Groepering") score += 30;
+      if (parameter) score += clamp(parameter.recommendationScore, 0, 100) * 0.2;
 
       if (/(guid|globalid|objectid|uuid|entity id|runtime)/.test(keyText)) score -= 250;
       if (/(quantity|quantities|basequantities|length|width|height|area|volume|weight|mass)/.test(keyText)) score -= 120;
       if (/(fire|brand|loadbearing|isexternal|external|thermal|acoustic|status|phase|storey|level)/.test(nameText)) score -= 45;
       if (parameter && parameter.role === "Identificatie") score -= 200;
-      if (parameter && parameter.filled > 3 && parameter.unique / parameter.filled > 0.9) score -= 90;
 
       return score;
     }
 
     function determineSelectedType(element) {
       const ifcClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
-      const productType = getSelectedValue(element, "Objectinformatie", "Producttype");
-      const productName = getSelectedValue(element, "Objectinformatie", "Productnaam");
-
-      if (productType) {
-        return {
-          ifcClass: ifcClass,
-          key: "Objectinformatie → Producttype",
-          value: productType,
-          source: "Product Type",
-          confidence: "hoog"
-        };
-      }
-
-      if (productName) {
-        return {
-          ifcClass: ifcClass,
-          key: "Objectinformatie → Productnaam",
-          value: productName,
-          source: "Product Name",
-          confidence: "hoog"
-        };
-      }
-
       const candidates = [];
-      element.values.forEach(function(item, key) {
-        const value = cleanTypeValue(item.value);
-        if (!value || key === "Objectinformatie → IFC-klasse") return;
 
-        const parameter = parameterResults.find(function(p) { return p.key === key; });
-        const score = scoreTypeCandidate(item, parameter, ifcClass);
-        if (score <= 0) return;
+      function addCandidate(key, value, source, baseScore, normalizeProductName) {
+        const cleanValue = cleanTypeValue(value);
+        if (!cleanValue) return;
+        const matchCount = matchCountForCandidate(key, cleanValue, ifcClass, normalizeProductName);
+        const normalized = normalizeProductName ? normalizeProductNameForType(cleanValue) : cleanValue;
+        if (!normalized) return;
+
+        let score = baseScore;
+        if (matchCount >= 2) score += 45;
+        if (matchCount >= 5) score += 20;
+        if (matchCount >= 20) score += 10;
+        if (matchCount === 1) score -= 55;
 
         candidates.push({
           ifcClass: ifcClass,
           key: key,
-          value: value,
-          source: item.setName + " → " + item.name,
-          confidence: score >= 110 ? "hoog" : score >= 70 ? "middel" : "fallback",
+          value: normalized,
+          rawValue: cleanValue,
+          source: source,
+          matchCount: matchCount,
+          normalizeProductName: !!normalizeProductName,
           score: score
         });
-      });
-
-      candidates.sort(function(a, b) { return b.score - a.score; });
-      if (candidates.length) return candidates[0];
-
-      if (ifcClass) {
-        return {
-          ifcClass: ifcClass,
-          key: "Objectinformatie → IFC-klasse",
-          value: ifcClass,
-          source: "Alleen IFC-klasse",
-          confidence: "laag"
-        };
       }
 
-      return null;
+      const productType = getSelectedValue(element, "Objectinformatie", "Producttype");
+      addCandidate("Objectinformatie → Producttype", productType, "Product Type", 150, false);
+
+      const productName = getSelectedValue(element, "Objectinformatie", "Productnaam");
+      addCandidate("Objectinformatie → Productnaam", productName, "Product Name", 95, true);
+
+      element.values.forEach(function(item, key) {
+        if (key === "Objectinformatie → IFC-klasse" ||
+            key === "Objectinformatie → Productnaam" ||
+            key === "Objectinformatie → Producttype") return;
+
+        const value = cleanTypeValue(item.value);
+        if (!value) return;
+
+        const parameter = parameterResults.find(function(p) { return p.key === key; });
+        const baseScore = scoreTypeCandidate(item, parameter, ifcClass);
+        if (baseScore <= 0) return;
+
+        addCandidate(key, value, item.setName + " → " + item.name, baseScore, false);
+      });
+
+      if (ifcClass) {
+        addCandidate("Objectinformatie → IFC-klasse", ifcClass, "Alleen IFC-klasse", 5, false);
+      }
+
+      candidates.sort(function(a, b) {
+        return b.score - a.score
+          || b.matchCount - a.matchCount
+          || a.source.localeCompare(b.source, "nl");
+      });
+
+      return candidates.length ? candidates[0] : null;
     }
 
     function findSameTypeElements(typeInfo) {
       if (!typeInfo) return [];
       return analyzedElements.filter(function(element) {
         const item = element.values.get(typeInfo.key);
-        if (!item || normalizeText(item.value) !== normalizeText(typeInfo.value)) return false;
+        if (!item) return false;
+
+        const candidateValue = typeInfo.normalizeProductName
+          ? normalizeProductNameForType(item.value)
+          : String(item.value || "").trim();
+
+        if (normalizeText(candidateValue) !== normalizeText(typeInfo.value)) return false;
 
         if (typeInfo.key !== "Objectinformatie → IFC-klasse" && typeInfo.ifcClass) {
           const elementClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
@@ -1277,7 +1429,7 @@
       if (!API) return;
 
       ui.selectionSearchList.innerHTML = "";
-      ui.selectionSearchStatus.innerHTML = "<strong>Selectie inlezen...</strong><span>IFC-klasse, Product Type/Product Name en geschikte Pset-/type-eigenschappen worden gecontroleerd.</span>";
+      ui.selectionSearchStatus.innerHTML = "<strong>Selectie inlezen...</strong><span>Product Type, Product Name zonder unieke code en geschikte Pset-/type-eigenschappen worden met elkaar vergeleken.</span>";
 
       try {
         const selection = await API.viewer.getSelection();
@@ -1318,7 +1470,7 @@
       const typeInfo = determineSelectedType(selectedSearchElement);
 
       if (!typeInfo) {
-        ui.selectionSearchStatus.innerHTML = "<strong>Geen bruikbaar type herkend</strong><span>Er werd geen geldige IFC-klasse, Product Name/Product Type of geschikte type-eigenschap gevonden.</span>";
+        ui.selectionSearchStatus.innerHTML = "<strong>Geen bruikbaar type herkend</strong><span>Er werd geen geldige Product Type, Product Name, Pset-type-eigenschap of IFC-klasse gevonden.</span>";
         return;
       }
 
@@ -1327,7 +1479,7 @@
         "<strong>Type herkend: " + typeInfo.value + "</strong>" +
         "<span>IFC-klasse: " + (typeInfo.ifcClass || "niet ingevuld") +
         " · gebruikt veld: " + typeInfo.source +
-        " · herkenning: " + typeInfo.confidence + ".</span>";
+        " · " + matches.length + " overeenkomstige element" + (matches.length === 1 ? "" : "en") + ".</span>";
 
       const card = document.createElement("div");
       card.className = "search-result-card";
