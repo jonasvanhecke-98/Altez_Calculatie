@@ -1284,6 +1284,30 @@
       }
     }
 
+    function valueCountsForParameter(parameter, scopeElements) {
+      const counts = new Map();
+
+      (scopeElements || []).forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+
+        if (!value || isSuspiciousValue(value)) return;
+
+        if (!counts.has(value)) counts.set(value, []);
+        counts.get(value).push(element);
+      });
+
+      return Array.from(counts.entries()).map(function(entry) {
+        return {
+          value: entry[0],
+          elements: entry[1]
+        };
+      }).sort(function(a, b) {
+        return b.elements.length - a.elements.length
+          || a.value.localeCompare(b.value, "nl", { numeric: true });
+      });
+    }
+
     function currentQuickScope() {
       if (!quickFilters.length) return analyzedElements;
 
@@ -1299,6 +1323,8 @@
       const scope = currentQuickScope();
       const values = valueCountsForParameter(parameter, scope);
 
+      ui.quickQuantities.innerHTML = "";
+      ui.quickQuantities.classList.add("hidden");
       ui.quickParameters.classList.add("hidden");
       ui.quickValues.classList.remove("hidden");
       ui.quickResult.classList.add("hidden");
@@ -1420,6 +1446,8 @@
       visibleQuickParameterCount = 10;
 
       ui.quickPath.classList.add("hidden");
+      ui.quickQuantities.innerHTML = "";
+      ui.quickQuantities.classList.add("hidden");
       ui.quickParameters.classList.remove("hidden");
       ui.quickValues.classList.add("hidden");
       ui.quickResult.classList.add("hidden");
@@ -1950,6 +1978,8 @@
         }
 
         const matches = findSameTypeElements(typeInfo);
+
+        renderQuantities(ui.selectionQuantities, matches);
 
         ui.selectionStatus.innerHTML =
           "<strong>Type herkend: " + typeInfo.value + "</strong>" +
