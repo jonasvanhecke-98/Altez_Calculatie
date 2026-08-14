@@ -530,7 +530,7 @@
           <h3 id="quick-value-title">Kies waarde</h3>
           <p id="quick-value-subtitle" class="subtitle"></p>
         </div>
-        <button id="back-to-parameters" class="secondary small compact-button" type="button">← Terug</button>
+        <button id="back-to-parameters" class="secondary small compact-button" type="button">← Vorige stap</button>
       </div>
       <div id="quick-value-list" class="quick-choice-list"></div>
     </div>
@@ -543,6 +543,7 @@
           <button id="quick-focus" type="button">Focus</button>
           <button id="quick-refine" class="secondary" type="button">+ Verder verfijnen</button>
         </div>
+        <button id="quick-edit-last" class="ghost small" type="button" style="margin-top:8px;">← Laatste keuze aanpassen</button>
       </div>
     </div>
 
@@ -694,6 +695,7 @@
       quickResultDetail: document.getElementById("quick-result-detail"),
       quickFocus: document.getElementById("quick-focus"),
       quickRefine: document.getElementById("quick-refine"),
+      quickEditLast: document.getElementById("quick-edit-last"),
       quickRefinePanel: document.getElementById("quick-refine-panel"),
       quickRefineParameters: document.getElementById("quick-refine-parameters"),
 
@@ -1537,6 +1539,62 @@
       });
     }
 
+    function reopenLastQuickStep() {
+      if (!quickFilters.length) {
+        resetQuickFlow();
+        return;
+      }
+
+      const last = quickFilters.pop();
+      quickCurrentMatches = currentQuickScope();
+
+      const parameter = parameterResults.find(function(item) {
+        return item.key === last.key;
+      });
+
+      renderQuickPath();
+
+      if (parameter) {
+        quickPendingParameter = parameter;
+        renderQuickValues(parameter);
+      } else {
+        resetQuickFlow();
+      }
+    }
+
+    function goBackOneQuickStep() {
+      // If the user is choosing values, go back to the parameter choice
+      // for the current level without throwing away earlier filters.
+      if (!ui.quickValues.classList.contains("hidden")) {
+        ui.quickValues.classList.add("hidden");
+
+        if (quickFilters.length) {
+          ui.quickParameters.classList.add("hidden");
+          ui.quickRefinePanel.classList.remove("hidden");
+          renderRefineParameterChoices();
+        } else {
+          ui.quickParameters.classList.remove("hidden");
+          ui.quickRefinePanel.classList.add("hidden");
+        }
+        return;
+      }
+
+      // If a result is shown, remove only the last filter and reopen that step.
+      if (!ui.quickResult.classList.contains("hidden")) {
+        reopenLastQuickStep();
+        return;
+      }
+
+      // If refine parameter choice is shown, go back to the current result.
+      if (!ui.quickRefinePanel.classList.contains("hidden")) {
+        ui.quickRefinePanel.classList.add("hidden");
+        ui.quickResult.classList.remove("hidden");
+        return;
+      }
+
+      resetQuickFlow();
+    }
+
     function resetQuickFlow() {
       quickFilters = [];
       quickPendingParameter = null;
@@ -1995,20 +2053,16 @@
       if (!targetSelector.modelObjectIds.length) return;
 
       try {
-        // Vaste focusweergave voor ALLE functies:
-        // 1. alles opnieuw zichtbaar;
-        // 2. alle overige modelobjecten sterk transparant;
-        // 3. doelobjecten volledig zichtbaar;
-        // 4. doelobjecten selecteren;
-        // 5. erop inzoomen.
+        // Belangrijk: forceer de volledige modelscope NIET op visible:true.
+        // Anders worden objecten die de gebruiker/Trimble eerder verborgen had
+        // (zoals grids, hulplijnen of referentielijnen) opnieuw zichtbaar.
+        // We passen alleen de transparantie aan op wat al zichtbaar is.
         await API.viewer.setObjectState(scopeSelector, {
-          color: "reset",
-          opacity: 0.12,
-          visible: true
+          opacity: 0.12
         });
 
+        // De doelobjecten mogen wel expliciet zichtbaar zijn.
         await API.viewer.setObjectState(targetSelector, {
-          color: "reset",
           opacity: 1,
           visible: true
         });
@@ -2487,18 +2541,10 @@
       ui.manualPanel.classList.add("hidden");
     });
 
-    ui.backToParameters.addEventListener("click", function() {
-      if (quickFilters.length) {
-        quickFilters.pop();
-        quickCurrentMatches = currentQuickScope();
-        if (quickFilters.length) {
-          renderQuickResult();
-        } else {
-          resetQuickFlow();
-        }
-      } else {
-        resetQuickFlow();
-      }
+    ui.backToParameters.addEventListener("click", goBackOneQuickStep);
+
+    ui.quickEditLast.addEventListener("click", function() {
+      reopenLastQuickStep();
     });
 
     ui.quickFocus.addEventListener("click", function() {
