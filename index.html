@@ -153,6 +153,14 @@
     .group-actions button { min-height: 29px; padding: 5px 4px; font-size: 10px; }
 
     .footer-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .selection-search { margin-top: 10px; }
+    .selection-search-list { display: grid; gap: 8px; margin-top: 10px; }
+    .selection-search-row { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfb; }
+    .selection-search-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .selection-search-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: bold; }
+    .selection-search-value { margin-top: 4px; color: var(--blue-dark); font-size: 12px; overflow-wrap: anywhere; }
+    .selection-search-meta { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .selection-search-row button { margin-top: 7px; }
 
     @media (max-width: 420px) {
       .button-row.three { grid-template-columns: 1fr; }
@@ -212,6 +220,22 @@
     <div id="quality-summary" class="quality-summary warn"></div>
   </section>
 
+  <section id="selection-search-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Zoeken vanuit selectie</h2>
+        <p class="subtitle">Selecteer één object in het model. Kies daarna een eigenschap om alle objecten met dezelfde waarde te vinden.</p>
+      </div>
+      <span class="badge">Omgekeerd zoeken</span>
+    </div>
+    <div id="selection-search-status" class="scope-box">
+      <strong>Nog geen object ingelezen</strong>
+      <span>Selecteer één object in Trimble Connect en klik op onderstaande knop.</span>
+    </div>
+    <button id="read-selection" type="button">Lees geselecteerd object</button>
+    <div id="selection-search-list" class="selection-search-list"></div>
+  </section>
+
   <section id="work-panel" class="panel hidden">
     <div class="tabs">
       <button class="tab active" data-tab="smart" type="button">Slim groeperen</button>
@@ -264,6 +288,7 @@
     let parameterSortDescending = true;
     let modelRefreshTimer = null;
     let coloredSelectors = [];
+    let selectedSearchElement = null;
 
     const PROPERTY_BATCH_SIZE = 150;
     const PROPERTY_RETRIES = 1;
@@ -292,6 +317,10 @@
       progressBar: document.getElementById("progress-bar"),
       summaryPanel: document.getElementById("summary-panel"),
       workPanel: document.getElementById("work-panel"),
+      selectionSearchPanel: document.getElementById("selection-search-panel"),
+      selectionSearchStatus: document.getElementById("selection-search-status"),
+      selectionSearchList: document.getElementById("selection-search-list"),
+      readSelection: document.getElementById("read-selection"),
       analysisContext: document.getElementById("analysis-context"),
       analysisScore: document.getElementById("analysis-score"),
       metricElements: document.getElementById("metric-elements"),
@@ -718,6 +747,7 @@
 
       ui.summaryPanel.classList.remove("hidden");
       ui.workPanel.classList.remove("hidden");
+      ui.selectionSearchPanel.classList.remove("hidden");
       ui.activeGrouping.classList.add("hidden");
       ui.recommendationSection.classList.remove("hidden");
       renderRecommendations();
@@ -922,6 +952,143 @@
       }
     }
 
+    function getSelectedRuntimeIds(selection) {
+      const models = normalizeModelObjects(selection);
+      const result = [];
+      models.forEach(function(model) {
+        getObjects(model).forEach(function(object) {
+          const id = getRuntimeId(object);
+          if (id !== null && id !== undefined) result.push({ modelId: model.modelId, runtimeId: id });
+        });
+      });
+      return result;
+    }
+
+    async function readCurrentSelectionForSearch() {
+      if (!API) return;
+      ui.selectionSearchList.innerHTML = "";
+      ui.selectionSearchStatus.innerHTML = "<strong>Selectie inlezen...</strong><span>Eigenschappen van het geselecteerde object worden opgehaald.</span>";
+
+      try {
+        const selection = await API.viewer.getSelection();
+        const selected = getSelectedRuntimeIds(selection);
+        if (selected.length !== 1) {
+          selectedSearchElement = null;
+          ui.selectionSearchStatus.innerHTML = "<strong>Selecteer precies één object</strong><span>Momenteel zijn " + selected.length + " objecten geselecteerd.</span>";
+          return;
+        }
+
+        const target = selected[0];
+        let element = analyzedElements.find(function(item) {
+          return String(item.modelId) === String(target.modelId) && String(item.runtimeId) === String(target.runtimeId);
+        });
+
+        if (!element) {
+          const properties = await getPropertyBatch(target.modelId, [target.runtimeId]);
+          if (!properties.length) throw new Error("Geen properties gevonden voor het geselecteerde object.");
+          element = {
+            uid: String(target.modelId) + "|" + String(target.runtimeId),
+            modelId: target.modelId,
+            runtimeId: target.runtimeId,
+            values: flattenObjectProperties(properties[0])
+          };
+        }
+
+        selectedSearchElement = element;
+        renderSelectionSearchOptions();
+      } catch (error) {
+        console.error("Selectie inlezen mislukt:", error);
+        ui.selectionSearchStatus.innerHTML = "<strong>Selectie kon niet worden ingelezen</strong><span>" + (error.message || "Onbekende fout") + "</span>";
+      }
+    }
+
+    function selectionSearchCandidates() {
+      if (!selectedSearchElement) return [];
+      const candidates = [];
+      selectedSearchElement.values.forEach(function(item, key) {
+        const value = String(item.value || "").trim();
+        if (!value || isSuspiciousValue(value)) return;
+        const parameter = parameterResults.find(function(p) { return p.key === key; });
+        if (!parameter || parameter.role === "Identificatie") return;
+
+        const matches = analyzedElements.filter(function(element) {
+          const other = element.values.get(key);
+          return other && normalizeText(other.value) === normalizeText(value);
+        });
+
+        if (!matches.length) return;
+        candidates.push({
+          key: key,
+          value: value,
+          parameter: parameter,
+          matches: matches
+        });
+      });
+
+      return candidates.sort(function(a, b) {
+        const roleA = a.parameter.role === "Groepering" ? 1 : 0;
+        const roleB = b.parameter.role === "Groepering" ? 1 : 0;
+        return roleB - roleA
+          || b.parameter.recommendationScore - a.parameter.recommendationScore
+          || b.matches.length - a.matches.length;
+      });
+    }
+
+    function renderSelectionSearchOptions() {
+      const candidates = selectionSearchCandidates();
+      ui.selectionSearchStatus.innerHTML = "<strong>1 object ingelezen</strong><span>" + candidates.length + " bruikbare eigenschappen gevonden. Eigenschappen die geschikt zijn om te groeperen staan bovenaan.</span>";
+      ui.selectionSearchList.innerHTML = "";
+
+      if (!candidates.length) {
+        ui.selectionSearchList.innerHTML = '<div class="empty">Geen bruikbare eigenschappen gevonden waarmee in de geanalyseerde modelmomentopname kan worden gezocht.</div>';
+        return;
+      }
+
+      candidates.forEach(function(candidate) {
+        const row = document.createElement("div");
+        row.className = "selection-search-row";
+
+        const top = document.createElement("div");
+        top.className = "selection-search-top";
+        const name = document.createElement("div");
+        name.className = "selection-search-name";
+        name.textContent = candidate.key;
+        const score = document.createElement("span");
+        score.className = "score " + scoreClass(candidate.parameter.reliability);
+        score.textContent = formatPercent(candidate.parameter.reliability);
+        top.appendChild(name);
+        top.appendChild(score);
+
+        const value = document.createElement("div");
+        value.className = "selection-search-value";
+        value.textContent = candidate.value;
+
+        const meta = document.createElement("div");
+        meta.className = "selection-search-meta";
+        meta.textContent = candidate.parameter.role + " · " + candidate.matches.length + " overeenkomstige object" + (candidate.matches.length === 1 ? "" : "en");
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "small";
+        button.textContent = "Zoek alle met deze eigenschap";
+        button.addEventListener("click", function() {
+          findMatchingDetails(candidate);
+        });
+
+        row.appendChild(top);
+        row.appendChild(value);
+        row.appendChild(meta);
+        row.appendChild(button);
+        ui.selectionSearchList.appendChild(row);
+      });
+    }
+
+    async function findMatchingDetails(candidate) {
+      if (!candidate || !candidate.matches.length) return;
+      await focusDetails(candidate.matches);
+      ui.selectionSearchStatus.innerHTML = "<strong>" + candidate.matches.length + " object" + (candidate.matches.length === 1 ? "" : "en") + " gevonden</strong><span>" + candidate.key + " = " + candidate.value + ". De gevonden objecten zijn geselecteerd en gefocust; de rest blijft transparant zichtbaar.</span>";
+    }
+
     function renderParameterList() {
       const query = normalizeText(ui.parameterFilter.value);
       const parameters = parameterResults.filter(function(parameter) {
@@ -1006,6 +1173,7 @@
     }
 
     ui.refreshModel.addEventListener("click", refreshModelScope);
+    ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
     ui.runAnalysis.addEventListener("click", runAnalysis);
     ui.parameterFilter.addEventListener("input", renderParameterList);
     ui.sortParameters.addEventListener("click", function() {
