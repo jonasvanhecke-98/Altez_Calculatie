@@ -206,7 +206,7 @@
       <div class="metric"><span id="metric-elements" class="metric-value">0</span><span class="metric-label">elementen</span></div>
       <div class="metric"><span id="metric-parameters" class="metric-value">0</span><span class="metric-label">parameters</span></div>
       <div class="metric" title="Minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden."><span id="metric-reliable" class="metric-value">0</span><span class="metric-label">betrouwbare groepeerparameters</span></div>
-      <div class="metric" title="Parameters met ontbrekende, inconsistente of verdachte waarden."><span id="metric-issues" class="metric-value">0</span><span class="metric-label">parameters te controleren</span></div>
+      <div class="metric" title="Parameters met te weinig dekking, wisselend datatype, verdachte, constante of bijna unieke waarden."><span id="metric-issues" class="metric-value">0</span><span class="metric-label">parameters te controleren</span></div>
     </div>
 
     <div id="quality-summary" class="quality-summary warn"></div>
@@ -714,7 +714,7 @@
       const summaryClass = scoreClass(overall);
       ui.qualitySummary.className = "quality-summary " + summaryClass;
       ui.qualitySummary.textContent = reliable.length + " betrouwbare groepeerparameters: minstens 80% betrouwbaarheid en 80% dekking, met meerdere bruikbare waarden. "
-        + issues.length + " parameters te controleren door ontbrekende, inconsistente of verdachte waarden.";
+        + issues.length + " parameters te controleren door te weinig dekking, wisselend datatype, verdachte, constante of bijna unieke waarden.";
 
       ui.summaryPanel.classList.remove("hidden");
       ui.workPanel.classList.remove("hidden");
