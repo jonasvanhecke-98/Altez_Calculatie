@@ -681,7 +681,7 @@
     </div>
   </section>
 
-  <p class="footer-note">Focus isoleert de resultaatobjecten echt: alle geladen modelobjecten worden verborgen en alleen de actuele selectie blijft zichtbaar. Daardoor gebruiken Data Table “Selected Objects” en “Visible Objects” dezelfde objectset.</p>
+  <p class="footer-note">Focus gebruikt nu Trimble Connects native “Show only selected objects”: de resultaatobjecten blijven zichtbaar en geselecteerd, alle andere objecten worden echt verborgen. Daardoor sluit Data Table “Visible Objects” aan op dezelfde set.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script>
@@ -2253,7 +2253,7 @@
               const columnDef = { field: actual.field };
 
               if (isDataTableQuantityColumn(actual) || isTrimbleCalculatedGeometryColumn(actual)) {
-                columnDef.aggregated = "SUM";
+                columnDef.aggregated = true;
               }
 
               resolvedColumns.push(columnDef);
@@ -2310,72 +2310,35 @@
     }
 
     async function focusDetailsGhost(details) {
-      const scopeSelector = selectorFromDetails(analyzedElements);
       const targetSelector = selectorFromDetails(details);
 
       if (!targetSelector.modelObjectIds.length) return;
 
       try {
-        // Robuuste isolate-volgorde:
-        // 1) zet de volledige geanalyseerde modelscope eerst terug zichtbaar;
-        // 2) maak de doelobjecten expliciet zichtbaar;
-        // 3) verberg daarna per model alleen de NIET-geselecteerde objecten.
-        //
-        // Zo vermijden we dat Trimble de doelobjecten mee verbergt wanneer
-        // visibility op een brede selector wordt toegepast.
-        await API.viewer.setObjectState(scopeSelector, {
-          color: "reset",
-          opacity: 1,
-          visible: true
+        // Gebruik de native Trimble Connect isolate-functie.
+        // Dit is equivalent aan "Show only selected objects" in de viewer.
+        // Daardoor blijven de doelobjecten echt zichtbaar en zijn alle andere
+        // objecten echt verborgen, wat ook correct doorwerkt naar
+        // Data Table -> Visible Objects.
+        const modelEntities = targetSelector.modelObjectIds.map(function(model) {
+          return {
+            modelId: model.modelId,
+            entityIds: (model.objectRuntimeIds || []).slice()
+          };
+        }).filter(function(model) {
+          return model.entityIds.length > 0;
         });
 
-        await API.viewer.setObjectState(targetSelector, {
-          color: "reset",
-          opacity: 1,
-          visible: true
-        });
+        if (!modelEntities.length) return;
 
-        // Bouw per model de complementset: alle geanalyseerde objecten min selectie.
-        const selectedByModel = new Map();
-        targetSelector.modelObjectIds.forEach(function(model) {
-          selectedByModel.set(
-            String(model.modelId),
-            new Set((model.objectRuntimeIds || []).map(String))
-          );
-        });
-
-        const hiddenModelObjectIds = [];
-
-        scopeSelector.modelObjectIds.forEach(function(model) {
-          const selectedIds = selectedByModel.get(String(model.modelId)) || new Set();
-
-          const toHide = (model.objectRuntimeIds || []).filter(function(id) {
-            return !selectedIds.has(String(id));
-          });
-
-          if (toHide.length) {
-            hiddenModelObjectIds.push({
-              modelId: model.modelId,
-              objectRuntimeIds: toHide
-            });
-          }
-        });
-
-        if (hiddenModelObjectIds.length) {
-          await API.viewer.setObjectState(
-            { modelObjectIds: hiddenModelObjectIds },
-            { visible: false }
-          );
-        }
-
-        // Doelobjecten nogmaals expliciet zichtbaar zetten als laatste visibility-stap.
-        await API.viewer.setObjectState(targetSelector, {
-          color: "reset",
-          opacity: 1,
-          visible: true
-        });
-
+        // Selectie eerst zetten, daarna native isoleren.
         await API.viewer.setSelection(targetSelector, "set");
+
+        const isolated = await API.viewer.isolateEntities(modelEntities);
+
+        if (isolated === false) {
+          throw new Error("Trimble isolateEntities gaf false terug.");
+        }
 
         try {
           await API.viewer.setCamera(targetSelector, { animationTime: 450 });
@@ -2385,20 +2348,10 @@
 
         await wait(120);
       } catch (error) {
-        console.warn("Isoleren/focussen mislukt:", error);
+        console.warn("Native isolate/focus mislukt:", error);
 
         try {
-          // Veilige fallback: niets verbergen, wel selectie + zoom.
-          await API.viewer.setObjectState(scopeSelector, {
-            color: "reset",
-            opacity: 1,
-            visible: true
-          });
-          await API.viewer.setObjectState(targetSelector, {
-            color: "reset",
-            opacity: 1,
-            visible: true
-          });
+          // Veilige fallback: selectie + zoom, zonder extra visibility-wijzigingen.
           await API.viewer.setSelection(targetSelector, "set");
           await API.viewer.setCamera(targetSelector, { animationTime: 450 });
         } catch (fallbackError) {
