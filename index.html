@@ -663,7 +663,7 @@
 
       <div class="datatable-column-group">
         <h3>Trimble geometrie</h3>
-        <p class="subtitle">CalculatedGeometryValues van Trimble Connect, apart weergegeven als consistente geometrische fallback.</p>
+        <p class="subtitle">Alleen CalculatedGeometryValues.Area en CalculatedGeometryValues.Volume van Trimble Connect.</p>
         <div id="datatable-trimble-geometry-columns" class="datatable-column-list"></div>
       </div>
 
@@ -681,7 +681,7 @@
     </div>
   </section>
 
-  <p class="footer-note">Altez maakt de selectie; daarna kies je zelf welke geanalyseerde kolommen naar de Trimble Connect Data Table gaan.</p>
+  <p class="footer-note">Focus isoleert de resultaatobjecten echt: alle geladen modelobjecten worden verborgen en alleen de actuele selectie blijft zichtbaar. Daardoor gebruiken Data Table “Selected Objects” en “Visible Objects” dezelfde objectset.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script>
@@ -1688,7 +1688,19 @@
 
     function isTrimbleCalculatedGeometryColumn(column) {
       const text = normalizeColumnText(column);
-      return /calculatedgeometryvalues|calculated geometry values/.test(text);
+
+      if (!/calculatedgeometryvalues|calculated geometry values/.test(text)) {
+        return false;
+      }
+
+      const propertyName = normalizeText(
+        column && column.name
+          ? column.name
+          : String(column && column.field ? column.field : "").split(".").pop()
+      ).replace(/[\s_-]+/g, "");
+
+      // Onder Trimble geometrie alleen de twee bruikbare basiswaarden tonen.
+      return propertyName === "area" || propertyName === "volume";
     }
 
     function dataTableQuantityPriority(column) {
@@ -2202,7 +2214,15 @@
               return existing.field === actual.field;
             })) {
               // Exact het echte field gebruiken dat Trimble zelf heeft teruggegeven.
-              resolvedColumns.push({ field: actual.field });
+              // Quantity-/maatkolommen krijgen automatisch SUM zodat totalen
+              // in de Data Table meteen zichtbaar zijn.
+              const columnDef = { field: actual.field };
+
+              if (isDataTableQuantityColumn(actual) || isTrimbleCalculatedGeometryColumn(actual)) {
+                columnDef.aggregated = "SUM";
+              }
+
+              resolvedColumns.push(columnDef);
             }
           } else {
             unresolved.push(logicalField);
@@ -2256,22 +2276,23 @@
     }
 
     async function focusDetailsGhost(details) {
-      const scopeSelector = selectorFromDetails(analyzedElements);
       const targetSelector = selectorFromDetails(details);
 
       if (!targetSelector.modelObjectIds.length) return;
 
       try {
-        // Belangrijk: forceer de volledige modelscope NIET op visible:true.
-        // Anders worden objecten die de gebruiker/Trimble eerder verborgen had
-        // (zoals grids, hulplijnen of referentielijnen) opnieuw zichtbaar.
-        // We passen alleen de transparantie aan op wat al zichtbaar is.
-        await API.viewer.setObjectState(scopeSelector, {
-          opacity: 0.12
+        // Echte isolate-weergave voor Data Table "Visible Objects":
+        // selector = undefined betekent volgens de Trimble Workspace API:
+        // pas de visibility state toe op ALLE objecten in ALLE geladen modellen.
+        //
+        // Daarna maken we uitsluitend de resultaatobjecten opnieuw zichtbaar.
+        // Zo zijn "Selected Objects" en "Visible Objects" dezelfde objectset.
+        await API.viewer.setObjectState(undefined, {
+          visible: false
         });
 
-        // De doelobjecten mogen wel expliciet zichtbaar zijn.
         await API.viewer.setObjectState(targetSelector, {
+          color: "reset",
           opacity: 1,
           visible: true
         });
@@ -2283,8 +2304,13 @@
         } catch (cameraError) {
           console.warn("Camera focus mislukt:", cameraError);
         }
+
+        // Kleine vertraging zodat Trimble zijn visibility-index kan bijwerken
+        // voordat de Data Table eventueel op Visible Objects wordt gezet.
+        await wait(120);
       } catch (error) {
-        console.warn("Focusweergave mislukt:", error);
+        console.warn("Isoleren/focussen mislukt:", error);
+
         try {
           await API.viewer.setSelection(targetSelector, "set");
           await API.viewer.setCamera(targetSelector, { animationTime: 450 });
