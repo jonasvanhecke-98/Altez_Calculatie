@@ -458,6 +458,41 @@
     @media (max-width: 520px) {
       .datatable-actions { grid-template-columns: 1fr; }
     }
+
+    .same-type-refine {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+    .same-type-refine h3 { margin-bottom: 6px; }
+    .same-type-refine-list { display: grid; gap: 7px; margin-top: 8px; }
+    .same-type-refine-card {
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+    }
+    .same-type-refine-card strong {
+      display: block;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .same-type-refine-card span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    .same-type-refine-values { display: grid; gap: 5px; margin-top: 7px; }
+    .same-type-refine-values button {
+      min-height: 30px;
+      padding: 6px 8px;
+      font-size: 11px;
+      text-align: left;
+    }
 </style>
 </head>
 <body>
@@ -615,7 +650,7 @@
       <div class="datatable-builder-head">
         <div>
           <h3>Aanbevolen eigenschappen</h3>
-          <p class="subtitle">Type, materiaal, classificatie, verdieping en andere bruikbare eigenschappen staan bovenaan.</p>
+          <p class="subtitle">Naam, omschrijving, product-/objecttype en specifieke Wall/Roof/Slab/Member Types staan bovenaan. Materiaal, classificatie en bouwlaag volgen daarna.</p>
         </div>
       </div>
       <div id="datatable-property-columns" class="datatable-column-list"></div>
@@ -1654,124 +1689,47 @@
       return 5;
     }
 
+    function dataTablePropertyReason(column) {
+      const text = normalizeColumnText(column);
+
+      if (/(product name|productnaam|\bname\b)/.test(text)) return "Naam / productidentiteit";
+      if (/(product description|description|omschrijving)/.test(text)) return "Omschrijving";
+      if (/(producttype|product type|objecttype|object type)/.test(text)) return "Type";
+      if (/(walltype|wall type|rooftype|roof type|slabtype|slab type|floor type|floortype|membertype|member type|beamtype|beam type|columntype|column type|doortype|door type|windowtype|window type)/.test(text)) return "Specifiek IFC-type";
+      if (/(reference|referentie)/.test(text)) return "Referentie";
+      if (/(material|materiaal)/.test(text)) return "Materiaal";
+      if (/(classification|classificatie)/.test(text)) return "Classificatie";
+      if (/(storey|verdieping|level|bouwlaag)/.test(text)) return "Bouwlaag";
+      if (/(system|systeem|assembly|phase|fase|status|zone)/.test(text)) return "Context";
+      if (/pset_/.test(text)) return "IFC/Pset eigenschap";
+
+      return "Overige bruikbare eigenschap";
+    }
+
     function dataTablePropertyScore(column) {
       const text = normalizeColumnText(column);
       let score = 0;
 
-      if (/(material|materiaal)/.test(text)) score += 100;
-      if (/(producttype|product type|objecttype|object type|walltype|rooftype|roof type|slabtype|membertype)/.test(text)) score += 95;
-      if (/(reference|referentie|classification|classificatie|construction|family|type)/.test(text)) score += 75;
-      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly|status)/.test(text)) score += 60;
+      if (/(product name|productnaam)/.test(text)) score += 160;
+      if (/(product description|description|omschrijving)/.test(text)) score += 150;
+      if (/(^|[.\s])name($|[.\s])/.test(text)) score += 140;
+
+      if (/(producttype|product type|objecttype|object type)/.test(text)) score += 145;
+      if (/(walltype|wall type|rooftype|roof type|slabtype|slab type|floor type|floortype|membertype|member type|beamtype|beam type|columntype|column type|doortype|door type|windowtype|window type)/.test(text)) score += 150;
+      if (/(reference|referentie)/.test(text)) score += 125;
+
+      if (/(material|materiaal)/.test(text)) score += 120;
+      if (/(classification|classificatie)/.test(text)) score += 105;
+      if (/(storey|verdieping|level|bouwlaag)/.test(text)) score += 90;
+      if (/(system|systeem|assembly|phase|fase|status|zone)/.test(text)) score += 65;
       if (/pset_/.test(text)) score += 20;
 
-      if (/(guid|globalid|uuid|runtime|entity id|object id|model id|coordinate|placement|bounding|geometry)/.test(text)) score -= 150;
-      if (isDataTableQuantityColumn(column)) score -= 200;
+      if (/(typetag|type tag|\btag\b|mark|type mark|typemark)/.test(text)) score -= 170;
+      if (/(guid|globalid|uuid|runtime|entity id|object id|model id|source id)/.test(text)) score -= 250;
+      if (/(coordinate|placement|bounding|geometry|geometrie|mesh|vertex|normal)/.test(text)) score -= 220;
+      if (isDataTableQuantityColumn(column)) score -= 250;
 
       return score;
-    }
-
-    function isBlockedDataTableColumn(column) {
-      const text = normalizeColumnText(column);
-
-      // Harde uitsluiting van import-/systeemvelden die geen bruikbare IFC-inhoud zijn.
-      const blocked = [
-        /^none\./,
-        /\bnone\./,
-        /discrimination/,
-        /globalid/,
-        /\bguid\b/,
-        /\buuid\b/,
-        /runtime/,
-        /entity id/,
-        /object id/,
-        /model id/,
-        /source id/,
-        /ownerhistory/,
-        /created/,
-        /modified/,
-        /timestamp/,
-        /coordinate/,
-        /placement/,
-        /bounding/,
-        /vertex/,
-        /mesh/,
-        /normal/,
-        /importplugin/,
-        /import plugin/,
-        /importer/,
-        /viewer metadata/,
-        /conversion metadata/
-      ];
-
-      return blocked.some(function(pattern) {
-        return pattern.test(text);
-      });
-    }
-
-    function normalizedPropertyCandidates(element) {
-      const candidates = new Set();
-
-      if (!element || !element.values) return candidates;
-
-      element.values.forEach(function(item) {
-        const setName = String(item.setName || "").trim();
-        const name = String(item.name || "").trim();
-        const value = String(item.value ?? "").trim();
-
-        if (!name || !value) return;
-
-        const combinations = [
-          setName + "." + name,
-          setName + " → " + name,
-          setName + ":" + name,
-          name
-        ];
-
-        combinations.forEach(function(candidate) {
-          const normalized = normalizeText(candidate)
-            .replace(/\s*→\s*/g, ".")
-            .replace(/\s*:\s*/g, ".")
-            .replace(/\s+/g, " ")
-            .trim();
-
-          if (normalized) candidates.add(normalized);
-        });
-      });
-
-      return candidates;
-    }
-
-    function columnHasValueInCurrentSelection(column) {
-      if (!column || !column.field || !currentResultDetails.length) return false;
-
-      const field = normalizeText(column.field)
-        .replace(/\s*→\s*/g, ".")
-        .replace(/\s*:\s*/g, ".")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      const label = normalizeText(column.label || "")
-        .replace(/\s*→\s*/g, ".")
-        .replace(/\s*:\s*/g, ".")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      return currentResultDetails.some(function(element) {
-        const candidates = normalizedPropertyCandidates(element);
-
-        if (candidates.has(field) || (label && candidates.has(label))) return true;
-
-        // Trimble kan een veld technisch prefixen. Daarom ook suffix-match,
-        // maar alleen op volledige propertynamen om valse matches te beperken.
-        return Array.from(candidates).some(function(candidate) {
-          return field.endsWith("." + candidate)
-            || candidate.endsWith("." + field)
-            || (label && (
-              label.endsWith("." + candidate)
-              || candidate.endsWith("." + label)
-            ));
-        });
-      });
     }
 
     function classifyDataTableColumns(columns) {
@@ -1859,7 +1817,8 @@
         const meta = document.createElement("span");
         meta.className = "datatable-column-meta";
         meta.textContent =
-          "Data Table field: " + column.field +
+          dataTablePropertyReason(column) +
+          " · Data Table field: " + column.field +
           (typeof column.filled === "number"
             ? " · " + column.filled + "/" + currentResultDetails.length + " gevuld"
             : "");
@@ -2422,6 +2381,196 @@
       });
     }
 
+    function refinementCandidateScore(parameter, baseElements) {
+      if (!parameter) return -999;
+      if (isBlockedParameter(parameter.setName, parameter.name)) return -999;
+
+      const text = normalizeText(parameter.key);
+      let score = parameter.usefulness || 0;
+
+      if (/(material|materiaal)/.test(text)) score += 48;
+      if (/(objecttype|object type|producttype|product type|walltype|wall type|rooftype|roof type|slabtype|slab type|membertype|member type|beamtype|beam type|columntype|column type)/.test(text)) score += 44;
+      if (/(reference|referentie|classification|classificatie)/.test(text)) score += 26;
+      if (/(storey|verdieping|level|zone|system|systeem|assembly)/.test(text)) score += 12;
+
+      const counts = new Map();
+      let filled = 0;
+
+      baseElements.forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+        if (!value || isSuspiciousValue(value)) return;
+        filled += 1;
+        counts.set(value, (counts.get(value) || 0) + 1);
+      });
+
+      if (counts.size < 2) return -999;
+
+      const coverage = baseElements.length ? filled / baseElements.length : 0;
+      if (coverage < 0.50) score -= 35;
+
+      const largest = Math.max.apply(null, Array.from(counts.values()));
+      const largestRatio = baseElements.length ? largest / baseElements.length : 1;
+
+      if (counts.size <= 12) score += 18;
+      if (largestRatio < 0.92) score += 20;
+      if (largestRatio < 0.80) score += 12;
+      if (counts.size / Math.max(1, filled) > 0.75) score -= 45;
+
+      return score;
+    }
+
+    function getBestSameTypeRefinements(baseElements, excludedKeys) {
+      const excluded = new Set(excludedKeys || []);
+
+      return parameterResults
+        .filter(function(parameter) {
+          return !excluded.has(parameter.key);
+        })
+        .map(function(parameter) {
+          return {
+            parameter: parameter,
+            score: refinementCandidateScore(parameter, baseElements)
+          };
+        })
+        .filter(function(item) { return item.score > 0; })
+        .sort(function(a, b) {
+          return b.score - a.score
+            || b.parameter.usefulness - a.parameter.usefulness
+            || a.parameter.key.localeCompare(b.parameter.key, "nl");
+        })
+        .slice(0, 5);
+    }
+
+    function buildRefinementValues(parameter, baseElements) {
+      const groups = new Map();
+
+      baseElements.forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+        if (!value || isSuspiciousValue(value)) return;
+
+        if (!groups.has(value)) groups.set(value, []);
+        groups.get(value).push(element);
+      });
+
+      return Array.from(groups.entries())
+        .map(function(entry) {
+          return { value: entry[0], elements: entry[1] };
+        })
+        .sort(function(a, b) {
+          return b.elements.length - a.elements.length
+            || a.value.localeCompare(b.value, "nl", { numeric: true });
+        });
+    }
+
+    function renderSameTypeRefinements(baseElements, excludedKeys, level) {
+      const container = document.createElement("div");
+      container.className = "same-type-refine";
+
+      if (level >= 2) {
+        const note = document.createElement("span");
+        note.textContent = "Maximale verfijning bereikt.";
+        container.appendChild(note);
+        return container;
+      }
+
+      const candidates = getBestSameTypeRefinements(baseElements, excludedKeys);
+
+      if (!candidates.length) {
+        const note = document.createElement("span");
+        note.textContent = "Geen zinvolle verdere opsplitsing gevonden.";
+        container.appendChild(note);
+        return container;
+      }
+
+      const title = document.createElement("h3");
+      title.textContent = "Verfijn dit type";
+      container.appendChild(title);
+
+      const intro = document.createElement("p");
+      intro.className = "subtitle";
+      intro.textContent = "De hoofdgroep is nog breed. Kies indien nodig een extra eigenschap om verder op te splitsen.";
+      container.appendChild(intro);
+
+      const list = document.createElement("div");
+      list.className = "same-type-refine-list";
+
+      candidates.forEach(function(candidate) {
+        const values = buildRefinementValues(candidate.parameter, baseElements);
+        if (values.length < 2) return;
+
+        const card = document.createElement("div");
+        card.className = "same-type-refine-card";
+
+        const strong = document.createElement("strong");
+        strong.textContent = candidate.parameter.key;
+
+        const meta = document.createElement("span");
+        meta.textContent =
+          values.length + " waarden · verfijnscore " + round(candidate.score, 0);
+
+        const valueList = document.createElement("div");
+        valueList.className = "same-type-refine-values";
+
+        values.slice(0, 12).forEach(function(entry) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "secondary";
+          button.textContent = entry.value + " (" + entry.elements.length + ")";
+
+          button.addEventListener("click", function() {
+            focusDetailsGhost(entry.elements);
+
+            rememberCurrentResult(
+              entry.elements,
+              candidate.parameter.key + " = " + entry.value
+            );
+
+            ui.selectionStatus.innerHTML =
+              "<strong>" + entry.elements.length + " elementen geselecteerd</strong>" +
+              "<span>Verfijnd op " + candidate.parameter.key + " = " + entry.value + ".</span>";
+
+            ui.selectionResult.innerHTML = "";
+
+            const resultCard = document.createElement("div");
+            resultCard.className = "selection-result";
+
+            const resultStrong = document.createElement("strong");
+            resultStrong.textContent =
+              entry.elements.length + " elementen in verfijnde groep";
+
+            const resultDetail = document.createElement("span");
+            resultDetail.textContent =
+              candidate.parameter.key + " = " + entry.value;
+
+            resultCard.appendChild(resultStrong);
+            resultCard.appendChild(resultDetail);
+
+            resultCard.appendChild(
+              renderSameTypeRefinements(
+                entry.elements,
+                (excludedKeys || []).concat([candidate.parameter.key]),
+                level + 1
+              )
+            );
+
+            ui.selectionResult.appendChild(resultCard);
+          });
+
+          valueList.appendChild(button);
+        });
+
+        card.appendChild(strong);
+        card.appendChild(meta);
+        card.appendChild(valueList);
+        list.appendChild(card);
+      });
+
+      container.appendChild(list);
+      return container;
+    }
+
     async function readCurrentSelectionForSearch() {
       if (!API) return;
 
@@ -2494,7 +2643,7 @@
         strong.textContent =
           matches.length + " element" +
           (matches.length === 1 ? "" : "en") +
-          " van hetzelfde type";
+          " in hoofdgroep";
 
         const detail = document.createElement("span");
         detail.textContent =
@@ -2504,19 +2653,29 @@
         button.type = "button";
         button.style.marginTop = "8px";
         button.textContent =
-          "Zoek " + matches.length + " gelijke element" +
-          (matches.length === 1 ? "" : "en");
+          "Focus hoofdgroep (" + matches.length + ")";
 
         button.disabled = matches.length === 0;
 
         button.addEventListener("click", function() {
-          // Exact dezelfde functie als alle andere Focus-knoppen.
           focusDetailsGhost(matches);
+          rememberCurrentResult(
+            matches,
+            typeInfo.source + " = " + typeInfo.value
+          );
         });
 
         card.appendChild(strong);
         card.appendChild(detail);
         card.appendChild(button);
+
+        card.appendChild(
+          renderSameTypeRefinements(
+            matches,
+            [typeInfo.key],
+            0
+          )
+        );
 
         ui.selectionResult.appendChild(card);
       } catch (error) {
