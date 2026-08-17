@@ -1329,6 +1329,7 @@
     let quickCurrentMatches = [];
     let visibleQuickParameterCount = 10;
     let currentResultDetails = [];
+    let selectedSearchSeedElement = null;
     let dataTableColumns = [];
     let selectedDataTableFields = new Set();
 
@@ -1829,6 +1830,54 @@
         label.appendChild(checkbox);
         label.appendChild(content);
         container.appendChild(label);
+      });
+    }
+
+    function isBlockedDataTableColumn(column) {
+      if (!column) return true;
+
+      const setName = String(column.setName || "").trim();
+      const name = String(column.name || "").trim();
+      const field = normalizeText(column.field || "");
+      const label = normalizeText(column.label || "");
+      const combined = field + " " + label;
+
+      // Gebruik dezelfde centrale IFC-filter als de rest van de tool.
+      if (setName && name && isBlockedParameter(setName, name)) return true;
+
+      // Extra Data Table-systeem-/importvelden uitsluiten.
+      const blockedPatterns = [
+        /none\.discrimination/,
+        /\bdiscrimination\b/,
+        /^none\./,
+        /\bnone\./,
+        /globalid/,
+        /\bguid\b/,
+        /\buuid\b/,
+        /runtime/,
+        /entity id/,
+        /object id/,
+        /model id/,
+        /source id/,
+        /ownerhistory/,
+        /created/,
+        /modified/,
+        /timestamp/,
+        /coordinate/,
+        /placement/,
+        /bounding/,
+        /vertex/,
+        /mesh/,
+        /normal/,
+        /importplugin/,
+        /import plugin/,
+        /importer/,
+        /viewer metadata/,
+        /conversion metadata/
+      ];
+
+      return blockedPatterns.some(function(pattern) {
+        return pattern.test(combined);
       });
     }
 
@@ -2385,9 +2434,20 @@
       if (!parameter) return -999;
       if (isBlockedParameter(parameter.setName, parameter.name)) return -999;
 
+      // Belangrijk: een verfijnparameter mag alleen voorgesteld worden
+      // wanneer die property ook werkelijk aanwezig en ingevuld is op het
+      // object dat de gebruiker oorspronkelijk heeft aangeklikt.
+      if (!selectedSearchSeedElement || !selectedSearchSeedElement.values) return -999;
+
+      const seedItem = selectedSearchSeedElement.values.get(parameter.key);
+      const seedValue = seedItem && String(seedItem.value || "").trim();
+
+      if (!seedValue || isSuspiciousValue(seedValue)) return -999;
+
       const text = normalizeText(parameter.key);
       let score = parameter.usefulness || 0;
 
+      // Bouwkundige verfijningen krijgen voorrang.
       if (/(material|materiaal)/.test(text)) score += 48;
       if (/(objecttype|object type|producttype|product type|walltype|wall type|rooftype|roof type|slabtype|slab type|membertype|member type|beamtype|beam type|columntype|column type)/.test(text)) score += 44;
       if (/(reference|referentie|classification|classificatie)/.test(text)) score += 26;
@@ -2399,22 +2459,38 @@
       baseElements.forEach(function(element) {
         const item = element.values.get(parameter.key);
         const value = item && String(item.value || "").trim();
+
         if (!value || isSuspiciousValue(value)) return;
+
         filled += 1;
         counts.set(value, (counts.get(value) || 0) + 1);
       });
 
+      // Geen opsplitsing = geen verfijning.
       if (counts.size < 2) return -999;
 
-      const coverage = baseElements.length ? filled / baseElements.length : 0;
-      if (coverage < 0.50) score -= 35;
+      // De waarde van het oorspronkelijk geselecteerde element moet
+      // ook werkelijk voorkomen in de huidige hoofd-/subgroep.
+      if (!counts.has(seedValue)) return -999;
+
+      const coverage = baseElements.length
+        ? filled / baseElements.length
+        : 0;
+
+      // Alleen parameters tonen die echt relevant zijn voor deze groep.
+      // Dit voorkomt properties die slechts op enkele toevallige objecten voorkomen.
+      if (coverage < 0.70) return -999;
 
       const largest = Math.max.apply(null, Array.from(counts.values()));
-      const largestRatio = baseElements.length ? largest / baseElements.length : 1;
+      const largestRatio = baseElements.length
+        ? largest / baseElements.length
+        : 1;
 
       if (counts.size <= 12) score += 18;
       if (largestRatio < 0.92) score += 20;
       if (largestRatio < 0.80) score += 12;
+
+      // Bijna unieke waarden zijn niet nuttig als verfijning.
       if (counts.size / Math.max(1, filled) > 0.75) score -= 45;
 
       return score;
@@ -2497,8 +2573,22 @@
       list.className = "same-type-refine-list";
 
       candidates.forEach(function(candidate) {
-        const values = buildRefinementValues(candidate.parameter, baseElements);
+        let values = buildRefinementValues(candidate.parameter, baseElements);
         if (values.length < 2) return;
+
+        const seedItem = selectedSearchSeedElement
+          ? selectedSearchSeedElement.values.get(candidate.parameter.key)
+          : null;
+        const seedValue = seedItem && String(seedItem.value || "").trim();
+
+        // De waarde die bij de oorspronkelijk aangeklikte wand/dak/etc. hoort,
+        // komt bovenaan. Zo is meteen duidelijk welke verfijning bij dat object hoort.
+        values = values.slice().sort(function(a, b) {
+          if (seedValue && a.value === seedValue) return -1;
+          if (seedValue && b.value === seedValue) return 1;
+          return b.elements.length - a.elements.length
+            || a.value.localeCompare(b.value, "nl", { numeric: true });
+        });
 
         const card = document.createElement("div");
         card.className = "same-type-refine-card";
@@ -2517,7 +2607,10 @@
           const button = document.createElement("button");
           button.type = "button";
           button.className = "secondary";
-          button.textContent = entry.value + " (" + entry.elements.length + ")";
+          button.textContent =
+            entry.value +
+            " (" + entry.elements.length + ")" +
+            (seedValue && entry.value === seedValue ? " · geselecteerd object" : "");
 
           button.addEventListener("click", function() {
             focusDetailsGhost(entry.elements);
@@ -2614,6 +2707,8 @@
             values: flattenObjectProperties(properties[0])
           };
         }
+
+        selectedSearchSeedElement = element;
 
         const typeInfo = determineSelectedType(element);
 
