@@ -657,7 +657,7 @@
 
       <div class="datatable-column-group">
         <h3>Hoeveelheden</h3>
-        <p class="subtitle">Alle ingevulde quantity-achtige IFC-properties: Qto/BaseQuantities eerst, daarna andere Area/Volume/Length/... properties ongeacht de propertyset.</p>
+        <p class="subtitle">Alle ingevulde quantity-achtige IFC-properties: Alleen geometrische maatparameters uit alle propertysets. Engelse namen krijgen prioriteit (Length, Width, Height, Thickness, Perimeter, Area, Volume); Nederlandse varianten worden als fallback ondersteund. Gewicht en dichtheid worden niet getoond.</p>
         <div id="datatable-quantity-columns" class="datatable-column-list"></div>
       </div>
 
@@ -1681,9 +1681,43 @@
     }
 
     function isDataTableQuantityColumn(column) {
-      const text = normalizeColumnText(column);
+      const full = normalizeColumnText(column);
+      const propertyName = normalizeText(
+        column && column.name
+          ? column.name
+          : String(column && column.field ? column.field : "").split(".").pop()
+      ).replace(/[\s_-]+/g, "");
 
-      return /(qto_|basequantit|ifcelementquantity|calculatedgeometryvalues|calculated geometry values|area|oppervlak|surface|volume|inhoud|length|lengte|width|breedte|height|hoogte|thickness|dikte|perimeter|omtrek|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(text);
+      // Prioriteit: Engelse propertynamen.
+      // Nederlandse varianten worden als extra fallback ondersteund.
+      const allowedNames = [
+        // English
+        "length", "totallength", "netlength", "grosslength",
+        "width", "height", "thickness", "depth",
+        "perimeter", "circumference",
+        "area", "netarea", "grossarea", "sidearea", "netsidearea", "grosssidearea",
+        "surfacearea", "footprintarea", "grossfootprintarea", "netfootprintarea",
+        "volume", "netvolume", "grossvolume",
+
+        // Dutch fallback
+        "lengte", "totalelengte", "nettolengte", "brutolengte",
+        "breedte", "hoogte", "dikte", "diepte",
+        "omtrek",
+        "oppervlakte", "nettooppervlakte", "brutooppervlakte",
+        "zijoppervlakte", "nettozijoppervlakte", "brutozijoppervlakte",
+        "voetafdrukoppervlakte",
+        "inhoud", "nettoinhoud", "brutoinhoud"
+      ];
+
+      if (allowedNames.includes(propertyName)) return true;
+
+      // Expliciete IFC Quantity sets mogen ook mee, maar alleen als de
+      // propertynaam zelf op een geometrische maat wijst.
+      if (/qto_|basequantit|ifcelementquantity/.test(full)) {
+        return /(length|width|height|thickness|depth|perimeter|area|surface|footprint|volume|lengte|breedte|hoogte|dikte|diepte|omtrek|oppervlakte|inhoud)/.test(propertyName);
+      }
+
+      return false;
     }
 
     function isTrimbleCalculatedGeometryColumn(column) {
@@ -2276,21 +2310,65 @@
     }
 
     async function focusDetailsGhost(details) {
+      const scopeSelector = selectorFromDetails(analyzedElements);
       const targetSelector = selectorFromDetails(details);
 
       if (!targetSelector.modelObjectIds.length) return;
 
       try {
-        // Echte isolate-weergave voor Data Table "Visible Objects":
-        // selector = undefined betekent volgens de Trimble Workspace API:
-        // pas de visibility state toe op ALLE objecten in ALLE geladen modellen.
+        // Robuuste isolate-volgorde:
+        // 1) zet de volledige geanalyseerde modelscope eerst terug zichtbaar;
+        // 2) maak de doelobjecten expliciet zichtbaar;
+        // 3) verberg daarna per model alleen de NIET-geselecteerde objecten.
         //
-        // Daarna maken we uitsluitend de resultaatobjecten opnieuw zichtbaar.
-        // Zo zijn "Selected Objects" en "Visible Objects" dezelfde objectset.
-        await API.viewer.setObjectState(undefined, {
-          visible: false
+        // Zo vermijden we dat Trimble de doelobjecten mee verbergt wanneer
+        // visibility op een brede selector wordt toegepast.
+        await API.viewer.setObjectState(scopeSelector, {
+          color: "reset",
+          opacity: 1,
+          visible: true
         });
 
+        await API.viewer.setObjectState(targetSelector, {
+          color: "reset",
+          opacity: 1,
+          visible: true
+        });
+
+        // Bouw per model de complementset: alle geanalyseerde objecten min selectie.
+        const selectedByModel = new Map();
+        targetSelector.modelObjectIds.forEach(function(model) {
+          selectedByModel.set(
+            String(model.modelId),
+            new Set((model.objectRuntimeIds || []).map(String))
+          );
+        });
+
+        const hiddenModelObjectIds = [];
+
+        scopeSelector.modelObjectIds.forEach(function(model) {
+          const selectedIds = selectedByModel.get(String(model.modelId)) || new Set();
+
+          const toHide = (model.objectRuntimeIds || []).filter(function(id) {
+            return !selectedIds.has(String(id));
+          });
+
+          if (toHide.length) {
+            hiddenModelObjectIds.push({
+              modelId: model.modelId,
+              objectRuntimeIds: toHide
+            });
+          }
+        });
+
+        if (hiddenModelObjectIds.length) {
+          await API.viewer.setObjectState(
+            { modelObjectIds: hiddenModelObjectIds },
+            { visible: false }
+          );
+        }
+
+        // Doelobjecten nogmaals expliciet zichtbaar zetten als laatste visibility-stap.
         await API.viewer.setObjectState(targetSelector, {
           color: "reset",
           opacity: 1,
@@ -2305,13 +2383,22 @@
           console.warn("Camera focus mislukt:", cameraError);
         }
 
-        // Kleine vertraging zodat Trimble zijn visibility-index kan bijwerken
-        // voordat de Data Table eventueel op Visible Objects wordt gezet.
         await wait(120);
       } catch (error) {
         console.warn("Isoleren/focussen mislukt:", error);
 
         try {
+          // Veilige fallback: niets verbergen, wel selectie + zoom.
+          await API.viewer.setObjectState(scopeSelector, {
+            color: "reset",
+            opacity: 1,
+            visible: true
+          });
+          await API.viewer.setObjectState(targetSelector, {
+            color: "reset",
+            opacity: 1,
+            visible: true
+          });
           await API.viewer.setSelection(targetSelector, "set");
           await API.viewer.setCamera(targetSelector, { animationTime: 450 });
         } catch (fallbackError) {
