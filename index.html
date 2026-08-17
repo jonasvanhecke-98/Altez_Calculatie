@@ -1733,6 +1733,69 @@
       return score;
     }
 
+    function normalizedPropertyCandidates(element) {
+      const candidates = new Set();
+
+      if (!element || !element.values) return candidates;
+
+      element.values.forEach(function(item) {
+        const setName = String(item.setName || "").trim();
+        const name = String(item.name || "").trim();
+        const value = String(item.value ?? "").trim();
+
+        if (!setName || !name || !value) return;
+
+        [
+          setName + "." + name,
+          setName + " → " + name,
+          setName + ":" + name,
+          name
+        ].forEach(function(candidate) {
+          const normalized = normalizeText(candidate)
+            .replace(/\s*→\s*/g, ".")
+            .replace(/\s*:\s*/g, ".")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          if (normalized) candidates.add(normalized);
+        });
+      });
+
+      return candidates;
+    }
+
+    function columnHasValueInCurrentSelection(column) {
+      if (!column || !column.field || !currentResultDetails.length) return false;
+
+      const field = normalizeText(column.field)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const label = normalizeText(column.label || "")
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return currentResultDetails.some(function(element) {
+        const candidates = normalizedPropertyCandidates(element);
+
+        if (candidates.has(field)) return true;
+        if (label && candidates.has(label)) return true;
+
+        return Array.from(candidates).some(function(candidate) {
+          return field.endsWith("." + candidate)
+            || candidate.endsWith("." + field)
+            || (label && (
+              label.endsWith("." + candidate)
+              || candidate.endsWith("." + label)
+            ));
+        });
+      });
+    }
+
     function classifyDataTableColumns(columns) {
       const unique = new Map();
 
@@ -2515,6 +2578,9 @@
             || b.parameter.usefulness - a.parameter.usefulness
             || a.parameter.key.localeCompare(b.parameter.key, "nl");
         })
+        // Toon meerdere relevante verfijneigenschappen,
+        // maar alleen wanneer ze werkelijk aanwezig zijn op het
+        // oorspronkelijk geselecteerde object.
         .slice(0, 5);
     }
 
@@ -2561,34 +2627,36 @@
       }
 
       const title = document.createElement("h3");
-      title.textContent = "Verfijn dit type";
+      title.textContent = "Mogelijke verfijningen";
       container.appendChild(title);
 
       const intro = document.createElement("p");
       intro.className = "subtitle";
-      intro.textContent = "De hoofdgroep is nog breed. Kies indien nodig een extra eigenschap om verder op te splitsen.";
+      intro.textContent =
+        "Alleen waarden die werkelijk aanwezig zijn op het oorspronkelijk geselecteerde object worden getoond.";
       container.appendChild(intro);
 
       const list = document.createElement("div");
       list.className = "same-type-refine-list";
 
       candidates.forEach(function(candidate) {
-        let values = buildRefinementValues(candidate.parameter, baseElements);
-        if (values.length < 2) return;
-
         const seedItem = selectedSearchSeedElement
           ? selectedSearchSeedElement.values.get(candidate.parameter.key)
           : null;
+
         const seedValue = seedItem && String(seedItem.value || "").trim();
 
-        // De waarde die bij de oorspronkelijk aangeklikte wand/dak/etc. hoort,
-        // komt bovenaan. Zo is meteen duidelijk welke verfijning bij dat object hoort.
-        values = values.slice().sort(function(a, b) {
-          if (seedValue && a.value === seedValue) return -1;
-          if (seedValue && b.value === seedValue) return 1;
-          return b.elements.length - a.elements.length
-            || a.value.localeCompare(b.value, "nl", { numeric: true });
+        if (!seedValue || isSuspiciousValue(seedValue)) return;
+
+        // Zoek alleen de subgroep die overeenkomt met de waarde
+        // van het oorspronkelijk geselecteerde object.
+        const matchingElements = baseElements.filter(function(element) {
+          const item = element.values.get(candidate.parameter.key);
+          const value = item && String(item.value || "").trim();
+          return value && normalizeText(value) === normalizeText(seedValue);
         });
+
+        if (!matchingElements.length) return;
 
         const card = document.createElement("div");
         card.className = "same-type-refine-card";
@@ -2598,62 +2666,58 @@
 
         const meta = document.createElement("span");
         meta.textContent =
-          values.length + " waarden · verfijnscore " + round(candidate.score, 0);
+          "Aanwezige waarde op geselecteerd object · verfijnscore " +
+          round(candidate.score, 0);
 
         const valueList = document.createElement("div");
         valueList.className = "same-type-refine-values";
 
-        values.slice(0, 12).forEach(function(entry) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "secondary";
-          button.textContent =
-            entry.value +
-            " (" + entry.elements.length + ")" +
-            (seedValue && entry.value === seedValue ? " · geselecteerd object" : "");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary";
+        button.textContent =
+          seedValue + " (" + matchingElements.length + " elementen)";
 
-          button.addEventListener("click", function() {
-            focusDetailsGhost(entry.elements);
+        button.addEventListener("click", function() {
+          focusDetailsGhost(matchingElements);
 
-            rememberCurrentResult(
-              entry.elements,
-              candidate.parameter.key + " = " + entry.value
-            );
+          rememberCurrentResult(
+            matchingElements,
+            candidate.parameter.key + " = " + seedValue
+          );
 
-            ui.selectionStatus.innerHTML =
-              "<strong>" + entry.elements.length + " elementen geselecteerd</strong>" +
-              "<span>Verfijnd op " + candidate.parameter.key + " = " + entry.value + ".</span>";
+          ui.selectionStatus.innerHTML =
+            "<strong>" + matchingElements.length + " elementen geselecteerd</strong>" +
+            "<span>Verfijnd op " + candidate.parameter.key + " = " + seedValue + ".</span>";
 
-            ui.selectionResult.innerHTML = "";
+          ui.selectionResult.innerHTML = "";
 
-            const resultCard = document.createElement("div");
-            resultCard.className = "selection-result";
+          const resultCard = document.createElement("div");
+          resultCard.className = "selection-result";
 
-            const resultStrong = document.createElement("strong");
-            resultStrong.textContent =
-              entry.elements.length + " elementen in verfijnde groep";
+          const resultStrong = document.createElement("strong");
+          resultStrong.textContent =
+            matchingElements.length + " elementen in verfijnde groep";
 
-            const resultDetail = document.createElement("span");
-            resultDetail.textContent =
-              candidate.parameter.key + " = " + entry.value;
+          const resultDetail = document.createElement("span");
+          resultDetail.textContent =
+            candidate.parameter.key + " = " + seedValue;
 
-            resultCard.appendChild(resultStrong);
-            resultCard.appendChild(resultDetail);
+          resultCard.appendChild(resultStrong);
+          resultCard.appendChild(resultDetail);
 
-            resultCard.appendChild(
-              renderSameTypeRefinements(
-                entry.elements,
-                (excludedKeys || []).concat([candidate.parameter.key]),
-                level + 1
-              )
-            );
+          resultCard.appendChild(
+            renderSameTypeRefinements(
+              matchingElements,
+              (excludedKeys || []).concat([candidate.parameter.key]),
+              level + 1
+            )
+          );
 
-            ui.selectionResult.appendChild(resultCard);
-          });
-
-          valueList.appendChild(button);
+          ui.selectionResult.appendChild(resultCard);
         });
 
+        valueList.appendChild(button);
         card.appendChild(strong);
         card.appendChild(meta);
         card.appendChild(valueList);
