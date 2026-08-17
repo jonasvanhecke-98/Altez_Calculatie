@@ -2162,43 +2162,130 @@
       };
     }
 
+    function normalizeFieldToken(value) {
+      return normalizeText(value)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/[\/\\]+/g, ".")
+        .replace(/[\s_-]+/g, "")
+        .replace(/\.+/g, ".")
+        .trim();
+    }
+
+    function splitLogicalIfcField(field) {
+      const normalized = normalizeDataTableFieldText(field);
+      const dot = normalized.lastIndexOf(".");
+
+      if (dot < 0) {
+        return {
+          setName: "",
+          propertyName: normalized,
+          setToken: "",
+          propertyToken: normalizeFieldToken(normalized)
+        };
+      }
+
+      const setName = normalized.slice(0, dot);
+      const propertyName = normalized.slice(dot + 1);
+
+      return {
+        setName: setName,
+        propertyName: propertyName,
+        setToken: normalizeFieldToken(setName),
+        propertyToken: normalizeFieldToken(propertyName)
+      };
+    }
+
     function resolveActualTrimbleColumn(logicalField, availableColumns) {
       const logical = splitLogicalIfcField(logicalField);
       const logicalFull = normalizeDataTableFieldText(logicalField);
+      const logicalToken = normalizeFieldToken(logicalField);
 
       const scored = (availableColumns || []).map(function(column) {
-        const actualField = normalizeDataTableFieldText(column.field || "");
-        const actualLabel = normalizeDataTableFieldText(column.label || "");
-        const combined = actualField + " " + actualLabel;
+        const actualFieldRaw = String(column.field || "");
+        const actualLabelRaw = String(column.label || "");
+
+        const actualField = normalizeDataTableFieldText(actualFieldRaw);
+        const actualLabel = normalizeDataTableFieldText(actualLabelRaw);
+
+        const actualFieldToken = normalizeFieldToken(actualFieldRaw);
+        const actualLabelToken = normalizeFieldToken(actualLabelRaw);
+
         let score = 0;
 
-        if (actualField === logicalFull) score += 1000;
-        if (actualLabel === logicalFull) score += 950;
+        // Exacte matches blijven veruit het sterkst.
+        if (actualField === logicalFull) score += 1200;
+        if (actualLabel === logicalFull) score += 1150;
+        if (actualFieldToken === logicalToken) score += 1100;
+        if (actualLabelToken === logicalToken) score += 1050;
 
-        // Veel Trimble fields hebben een interne prefix. Een exacte suffixmatch
-        // op de oorspronkelijke PropertySet.PropertyName is daarom sterk.
-        if (actualField.endsWith("." + logicalFull)) score += 900;
-        if (actualLabel.endsWith("." + logicalFull)) score += 850;
+        // Trimble kan interne prefixes gebruiken.
+        if (actualField.endsWith("." + logicalFull)) score += 1000;
+        if (actualLabel.endsWith("." + logicalFull)) score += 950;
+        if (actualFieldToken.endsWith(logicalToken)) score += 900;
+        if (actualLabelToken.endsWith(logicalToken)) score += 850;
 
-        if (logical.setName && actualField.includes(logical.setName)) score += 250;
-        if (logical.setName && actualLabel.includes(logical.setName)) score += 220;
+        // Sterke match op propertyset + propertynaam.
+        if (
+          logical.setToken &&
+          logical.propertyToken &&
+          actualFieldToken.includes(logical.setToken) &&
+          actualFieldToken.includes(logical.propertyToken)
+        ) score += 780;
 
-        if (logical.propertyName && actualField.endsWith("." + logical.propertyName)) score += 180;
-        if (logical.propertyName && actualLabel.endsWith("." + logical.propertyName)) score += 160;
+        if (
+          logical.setToken &&
+          logical.propertyToken &&
+          actualLabelToken.includes(logical.setToken) &&
+          actualLabelToken.includes(logical.propertyToken)
+        ) score += 740;
 
-        if (logical.propertyName && combined.includes(logical.propertyName)) score += 70;
+        // Belangrijk voor velden zoals IfcWallType.Name:
+        // als de propertynaam exact "Name" is, moet ook de type/propertyset
+        // overeenkomen zodat we niet per ongeluk een generieke Name kiezen.
+        if (
+          logical.propertyToken &&
+          actualFieldToken.endsWith(logical.propertyToken)
+        ) score += 180;
 
-        return { column: column, score: score };
+        if (
+          logical.propertyToken &&
+          actualLabelToken.endsWith(logical.propertyToken)
+        ) score += 160;
+
+        if (logical.setToken && actualFieldToken.includes(logical.setToken)) score += 260;
+        if (logical.setToken && actualLabelToken.includes(logical.setToken)) score += 240;
+
+        return {
+          column: column,
+          score: score
+        };
       }).filter(function(item) {
         return item.score > 0;
       }).sort(function(a, b) {
         return b.score - a.score;
       });
 
-      // Alleen voldoende sterke matches accepteren om opnieuw verkeerde (*)-kolommen
-      // of "geen data beschikbaar" te vermijden.
-      if (!scored.length || scored[0].score < 300) return null;
-      return scored[0].column;
+      // Voor generieke properties zoals Name/Description enkel een match toelaten
+      // als de propertyset/typecontext ook echt overeenkomt.
+      if (!scored.length) return null;
+
+      const best = scored[0];
+      const genericProperty = /^(name|description|type|reference)$/.test(logical.propertyToken);
+
+      if (genericProperty) {
+        const bestFieldToken = normalizeFieldToken(best.column.field || "");
+        const bestLabelToken = normalizeFieldToken(best.column.label || "");
+
+        const contextMatches =
+          !logical.setToken ||
+          bestFieldToken.includes(logical.setToken) ||
+          bestLabelToken.includes(logical.setToken);
+
+        if (!contextMatches) return null;
+      }
+
+      return best.score >= 300 ? best.column : null;
     }
 
     async function openCurrentSelectionInDataTable() {
@@ -2284,9 +2371,7 @@
           (resolvedColumns.length === 1 ? "" : "men") +
           " gekoppeld voor " + currentResultDetails.length + " geselecteerde objecten" +
           (unresolved.length
-            ? " · " + unresolved.length + " gekozen IFC-property" +
-              (unresolved.length === 1 ? "" : "s") +
-              " niet toegevoegd omdat er geen veilige match was."
+            ? " · Niet gekoppeld: " + unresolved.join(", ")
             : ".");
       } catch (error) {
         console.error("Data Table openen mislukt:", error);
