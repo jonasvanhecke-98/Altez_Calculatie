@@ -493,6 +493,43 @@
       font-size: 11px;
       text-align: left;
     }
+
+    .quick-choice-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px;
+      align-items: stretch;
+    }
+
+    .quick-choice-row .quick-choice {
+      margin: 0;
+    }
+
+    .quick-choice-actions {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 5px;
+      align-items: stretch;
+    }
+
+    .quick-choice-actions button {
+      width: auto;
+      min-width: 72px;
+    }
+
+    @media (max-width: 520px) {
+      .quick-choice-row {
+        grid-template-columns: 1fr;
+      }
+
+      .quick-choice-actions {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .quick-choice-actions button {
+        width: 100%;
+      }
+    }
 </style>
 </head>
 <body>
@@ -681,7 +718,7 @@
     </div>
   </section>
 
-  <p class="footer-note">Focus gebruikt nu Trimble Connects native “Show only selected objects”: de resultaatobjecten blijven zichtbaar en geselecteerd, alle andere objecten worden echt verborgen. Daardoor sluit Data Table “Visible Objects” aan op dezelfde set.</p>
+  <p class="footer-note">Selecteer laat de viewer ongemoeid. Focus houdt de context zichtbaar maar sterk transparant. Open selectie in Data Table isoleert de huidige selectie echt, zodat Selected Objects en Visible Objects dezelfde objectset gebruiken.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script>
@@ -1474,6 +1511,9 @@
       ui.quickValueList.innerHTML = "";
 
       values.forEach(function(entry) {
+        const row = document.createElement("div");
+        row.className = "quick-choice-row";
+
         const button = document.createElement("button");
         button.type = "button";
         button.className = "quick-choice";
@@ -1497,7 +1537,41 @@
           renderQuickResult();
         });
 
-        ui.quickValueList.appendChild(button);
+        const selectButton = document.createElement("button");
+        selectButton.type = "button";
+        selectButton.className = "secondary small";
+        selectButton.textContent = "Selecteer";
+        selectButton.addEventListener("click", async function(event) {
+          event.stopPropagation();
+          await selectOnly(entry.elements);
+          rememberCurrentResult(
+            entry.elements,
+            parameter.key + " = " + entry.value
+          );
+        });
+
+        const focusButton = document.createElement("button");
+        focusButton.type = "button";
+        focusButton.className = "small";
+        focusButton.textContent = "Focus";
+        focusButton.addEventListener("click", async function(event) {
+          event.stopPropagation();
+          await focusDetailsGhost(entry.elements);
+          rememberCurrentResult(
+            entry.elements,
+            parameter.key + " = " + entry.value
+          );
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "quick-choice-actions";
+        actions.appendChild(selectButton);
+        actions.appendChild(focusButton);
+
+        row.appendChild(button);
+        row.appendChild(actions);
+
+        ui.quickValueList.appendChild(row);
       });
     }
 
@@ -2294,7 +2368,10 @@
 
       try {
         const selector = selectorFromDetails(currentResultDetails);
-        await API.viewer.setSelection(selector, "set");
+
+        // Voor de Data Table gebruiken we echte isolate:
+        // zo zijn zowel Selected Objects als Visible Objects exact dezelfde objectset.
+        await isolateDetailsForDataTable(currentResultDetails);
 
         // Nu pas de Data Table openen. Eerst zonder custom columns zodat Trimble
         // zijn echte beschikbare fields voor de geselecteerde objecten kan laden.
@@ -2339,7 +2416,24 @@
               // in de Data Table meteen zichtbaar zijn.
               const columnDef = { field: actual.field };
 
-              if (isDataTableQuantityColumn(actual) || isTrimbleCalculatedGeometryColumn(actual)) {
+              // Bepaal of dit een hoeveelheid is op basis van de ORIGINELE
+              // IFC-property die de gebruiker heeft aangevinkt.
+              // De echte Trimble field-naam kan intern/gecodeerd zijn en bevat
+              // niet altijd woorden zoals Area, Volume of Length.
+              const logicalColumn = dataTableColumns.find(function(column) {
+                return column.field === logicalField;
+              });
+
+              if (
+                logicalColumn &&
+                (
+                  isDataTableQuantityColumn(logicalColumn) ||
+                  isTrimbleCalculatedGeometryColumn(logicalColumn)
+                )
+              ) {
+                // Trimble Data Table gebruikt aggregated:true.
+                // De enige beschikbare aggregatiefunctie is SUM en het totaal
+                // verschijnt ook in de footer.
                 columnDef.aggregated = true;
               }
 
@@ -2366,10 +2460,17 @@
           }
         });
 
+        const aggregatedCount = resolvedColumns.filter(function(column) {
+          return column.aggregated === true;
+        }).length;
+
         ui.datatableStatus.textContent =
           resolvedColumns.length + " echte Trimble-kolom" +
           (resolvedColumns.length === 1 ? "" : "men") +
           " gekoppeld voor " + currentResultDetails.length + " geselecteerde objecten" +
+          " · " + aggregatedCount + " hoeveelheid" +
+          (aggregatedCount === 1 ? "" : "kolommen") +
+          " automatisch op SOM gezet" +
           (unresolved.length
             ? " · Niet gekoppeld: " + unresolved.join(", ")
             : ".");
@@ -2394,17 +2495,61 @@
       ui.datatableStatus.textContent = "Kolomselectie gewist.";
     }
 
+    async function selectOnly(details) {
+      const targetSelector = selectorFromDetails(details);
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        await API.viewer.setSelection(targetSelector, "set");
+      } catch (error) {
+        console.warn("Selectie instellen mislukt:", error);
+      }
+    }
+
     async function focusDetailsGhost(details) {
+      const scopeSelector = selectorFromDetails(analyzedElements);
       const targetSelector = selectorFromDetails(details);
 
       if (!targetSelector.modelObjectIds.length) return;
 
       try {
-        // Gebruik de native Trimble Connect isolate-functie.
-        // Dit is equivalent aan "Show only selected objects" in de viewer.
-        // Daardoor blijven de doelobjecten echt zichtbaar en zijn alle andere
-        // objecten echt verborgen, wat ook correct doorwerkt naar
-        // Data Table -> Visible Objects.
+        // Visuele focusmodus:
+        // - doelobjecten volledig zichtbaar;
+        // - overige geanalyseerde objecten blijven zichtbaar maar sterk transparant;
+        // - selectie + camera-focus.
+        //
+        // Dit bootst Ghost Mode visueel na zonder objecten echt te verbergen.
+        await API.viewer.setObjectState(scopeSelector, {
+          color: "reset",
+          opacity: 0.08,
+          visible: true
+        });
+
+        await API.viewer.setObjectState(targetSelector, {
+          color: "reset",
+          opacity: 1,
+          visible: true
+        });
+
+        await API.viewer.setSelection(targetSelector, "set");
+
+        try {
+          await API.viewer.setCamera(targetSelector, { animationTime: 450 });
+        } catch (cameraError) {
+          console.warn("Camera focus mislukt:", cameraError);
+        }
+      } catch (error) {
+        console.warn("Visuele focus mislukt:", error);
+        await selectOnly(details);
+      }
+    }
+
+    async function isolateDetailsForDataTable(details) {
+      const targetSelector = selectorFromDetails(details);
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        // Echte isolate voor Data Table / Visible Objects.
         const modelEntities = targetSelector.modelObjectIds.map(function(model) {
           return {
             modelId: model.modelId,
@@ -2414,34 +2559,19 @@
           return model.entityIds.length > 0;
         });
 
-        if (!modelEntities.length) return;
-
-        // Selectie eerst zetten, daarna native isoleren.
         await API.viewer.setSelection(targetSelector, "set");
 
         const isolated = await API.viewer.isolateEntities(modelEntities);
-
         if (isolated === false) {
           throw new Error("Trimble isolateEntities gaf false terug.");
         }
 
-        try {
-          await API.viewer.setCamera(targetSelector, { animationTime: 450 });
-        } catch (cameraError) {
-          console.warn("Camera focus mislukt:", cameraError);
-        }
-
         await wait(120);
       } catch (error) {
-        console.warn("Native isolate/focus mislukt:", error);
+        console.warn("Isoleren voor Data Table mislukt:", error);
 
-        try {
-          // Veilige fallback: selectie + zoom, zonder extra visibility-wijzigingen.
-          await API.viewer.setSelection(targetSelector, "set");
-          await API.viewer.setCamera(targetSelector, { animationTime: 450 });
-        } catch (fallbackError) {
-          console.warn("Focus fallback mislukt:", fallbackError);
-        }
+        // Veilige fallback: probeer enkel selectie te behouden.
+        await selectOnly(details);
       }
     }
 
