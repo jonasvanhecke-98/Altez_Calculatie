@@ -657,8 +657,14 @@
 
       <div class="datatable-column-group">
         <h3>Hoeveelheden</h3>
-        <p class="subtitle">Qto/BaseQuantities eerst, daarna andere lengte-, oppervlakte- en volumekolommen. CalculatedGeometryValues staat lager.</p>
+        <p class="subtitle">Alle ingevulde quantity-achtige IFC-properties: Qto/BaseQuantities eerst, daarna andere Area/Volume/Length/... properties ongeacht de propertyset.</p>
         <div id="datatable-quantity-columns" class="datatable-column-list"></div>
+      </div>
+
+      <div class="datatable-column-group">
+        <h3>Trimble geometrie</h3>
+        <p class="subtitle">CalculatedGeometryValues van Trimble Connect, apart weergegeven als consistente geometrische fallback.</p>
+        <div id="datatable-trimble-geometry-columns" class="datatable-column-list"></div>
       </div>
 
       <div class="datatable-column-group">
@@ -752,6 +758,7 @@
       datatableBuilder: document.getElementById("datatable-builder"),
       datatablePropertyColumns: document.getElementById("datatable-property-columns"),
       datatableQuantityColumns: document.getElementById("datatable-quantity-columns"),
+      datatableTrimbleGeometryColumns: document.getElementById("datatable-trimble-geometry-columns"),
       datatableOtherColumns: document.getElementById("datatable-other-columns"),
       openDatatable: document.getElementById("open-datatable"),
       clearDatatableColumns: document.getElementById("clear-datatable-columns"),
@@ -1675,19 +1682,22 @@
 
     function isDataTableQuantityColumn(column) {
       const text = normalizeColumnText(column);
-      return /(qto_|basequantit|calculatedgeometryvalues|calculated geometry values|length|lengte|area|oppervlak|surface|volume|inhoud|perimeter|omtrek|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(text);
+
+      return /(qto_|basequantit|ifcelementquantity|calculatedgeometryvalues|calculated geometry values|area|oppervlak|surface|volume|inhoud|length|lengte|width|breedte|height|hoogte|thickness|dikte|perimeter|omtrek|weight|gewicht|mass|massa|count|aantal|quantity|hoeveelheid)/.test(text);
+    }
+
+    function isTrimbleCalculatedGeometryColumn(column) {
+      const text = normalizeColumnText(column);
+      return /calculatedgeometryvalues|calculated geometry values/.test(text);
     }
 
     function dataTableQuantityPriority(column) {
       const text = normalizeColumnText(column);
 
       if (/qto_|basequantit/.test(text)) return 1;
-      if (/(ifcelementquantity|quantity set|quantityset)/.test(text)) return 2;
-      if (/(length|lengte|area|oppervlak|surface|volume|inhoud|perimeter|omtrek|weight|gewicht|mass|massa)/.test(text) &&
-          !/calculatedgeometryvalues|calculated geometry values/.test(text)) return 3;
+      if (/ifcelementquantity/.test(text)) return 2;
       if (/calculatedgeometryvalues|calculated geometry values/.test(text)) return 4;
-
-      return 5;
+      return 3;
     }
 
     function dataTablePropertyReason(column) {
@@ -1802,9 +1812,6 @@
       (columns || []).forEach(function(column) {
         if (!column || !column.field) return;
         if (isBlockedDataTableColumn(column)) return;
-
-        // Alleen kolommen tonen waarvan de huidige geselecteerde objecten
-        // effectief een overeenkomstige, ingevulde modelproperty hebben.
         if (!columnHasValueInCurrentSelection(column)) return;
 
         if (!unique.has(column.field)) unique.set(column.field, column);
@@ -1812,8 +1819,18 @@
 
       const all = Array.from(unique.values());
 
+      const trimbleGeometry = all
+        .filter(isTrimbleCalculatedGeometryColumn)
+        .sort(function(a, b) {
+          return normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      const trimbleFields = new Set(trimbleGeometry.map(function(c) { return c.field; }));
+
       const quantities = all
-        .filter(isDataTableQuantityColumn)
+        .filter(function(column) {
+          return !trimbleFields.has(column.field) && isDataTableQuantityColumn(column);
+        })
         .sort(function(a, b) {
           return dataTableQuantityPriority(a) - dataTableQuantityPriority(b)
             || normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
@@ -1823,7 +1840,9 @@
 
       const properties = all
         .filter(function(column) {
-          return !quantityFields.has(column.field) && dataTablePropertyScore(column) > 0;
+          return !trimbleFields.has(column.field)
+            && !quantityFields.has(column.field)
+            && dataTablePropertyScore(column) > 0;
         })
         .sort(function(a, b) {
           return dataTablePropertyScore(b) - dataTablePropertyScore(a)
@@ -1834,7 +1853,9 @@
 
       const others = all
         .filter(function(column) {
-          return !quantityFields.has(column.field) && !propertyFields.has(column.field);
+          return !trimbleFields.has(column.field)
+            && !quantityFields.has(column.field)
+            && !propertyFields.has(column.field);
         })
         .sort(function(a, b) {
           return normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
@@ -1843,6 +1864,7 @@
       return {
         properties: properties,
         quantities: quantities,
+        trimbleGeometry: trimbleGeometry,
         others: others
       };
     }
@@ -1905,10 +1927,9 @@
       const label = normalizeText(column.label || "");
       const combined = field + " " + label;
 
-      // Gebruik dezelfde centrale IFC-filter als de rest van de tool.
-      if (setName && name && isBlockedParameter(setName, name)) return true;
-
-      // Extra Data Table-systeem-/importvelden uitsluiten.
+      // Alleen echte systeem-/importvelden blokkeren.
+      // Geometry/quantity-achtige properties worden hier bewust NIET geblokkeerd,
+      // zodat Area/Volume/Length enz. altijd beschikbaar kunnen zijn in de Data Table-kiezer.
       const blockedPatterns = [
         /none\.discrimination/,
         /\bdiscrimination\b/,
@@ -2026,6 +2047,12 @@
           selectedDataTableFields.add(column.field);
         });
 
+        // Trimble CalculatedGeometryValues ook aanbieden, maar niet alles blind aanvinken.
+        // Alleen de eerste 4 geometriekolommen worden voorgeselecteerd.
+        classified.trimbleGeometry.slice(0, 4).forEach(function(column) {
+          selectedDataTableFields.add(column.field);
+        });
+
         renderDataTableColumnRows(
           ui.datatablePropertyColumns,
           classified.properties
@@ -2033,6 +2060,10 @@
         renderDataTableColumnRows(
           ui.datatableQuantityColumns,
           classified.quantities
+        );
+        renderDataTableColumnRows(
+          ui.datatableTrimbleGeometryColumns,
+          classified.trimbleGeometry
         );
         renderDataTableColumnRows(
           ui.datatableOtherColumns,
