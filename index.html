@@ -2499,6 +2499,7 @@
 
           return {
             field: logicalField,
+            actualField: actual.field,
             label: logicalColumn && logicalColumn.label
               ? logicalColumn.label
               : logicalField
@@ -2663,10 +2664,58 @@
       return score;
     }
 
+    function readablePropertyLabel(property) {
+      if (!property) return "Kolom";
+
+      const setName = String(property.setName || "").trim();
+      const name = String(property.name || "").trim();
+
+      // Voor de Excel-export willen we de leesbare IFC-/custom propertynaam,
+      // nooit Trimble's interne prop_xxx identifier.
+      if (setName && name) return setName + " → " + name;
+      return name || setName || property.field || "Kolom";
+    }
+
+    function looksLikeInternalTrimblePropertyName(value) {
+      const text = String(value || "");
+      return /(?:^|[+.])prop_[a-z0-9]+/i.test(text)
+        || /\+prop_[a-z0-9]+/i.test(text);
+    }
+
+    function findKnownActiveExportMapping(actualColumn) {
+      const actualField = String(actualColumn && actualColumn.field || "");
+
+      return activeDataTableExportColumns.find(function(mapping) {
+        return mapping && mapping.actualField && mapping.actualField === actualField;
+      }) || null;
+    }
+
     function resolveExportColumns(actualColumns, details) {
       const propertyCatalog = buildExportPropertyCatalog(details);
 
       return (actualColumns || []).map(function(actualColumn) {
+        // Wanneer de Data Table vanuit deze tool werd samengesteld kennen we
+        // de exacte koppeling logical IFC field <-> Trimble field. Gebruik die
+        // altijd eerst; dit lost custom propertysets met prop_xxx velden op.
+        const knownMapping = findKnownActiveExportMapping(actualColumn);
+        if (knownMapping) {
+          const logicalProperty = propertyCatalog.find(function(property) {
+            return property.field === knownMapping.field;
+          });
+
+          return {
+            field: knownMapping.field,
+            label: logicalProperty
+              ? readablePropertyLabel(logicalProperty)
+              : (knownMapping.label || knownMapping.field),
+            actualField: actualColumn.field || "",
+            matched: true,
+            aggregated: actualColumn.aggregated === true,
+            grouped: actualColumn.grouped === true,
+            sortDirection: actualColumn.sortDirection || ""
+          };
+        }
+
         const actualToken = normalizeFieldToken(
           String(actualColumn.label || "") + " " + String(actualColumn.field || "")
         );
@@ -2687,24 +2736,134 @@
           return false;
         });
 
-        const best = propertyCatalog.map(function(property) {
+        const ranked = propertyCatalog.map(function(property) {
           return {
             property: property,
             score: scoreExportPropertyMatch(property, actualColumn)
           };
         }).sort(function(a, b) {
           return b.score - a.score;
-        })[0];
+        });
+
+        const best = ranked[0];
+        const matchedProperty = objectAlias
+          ? objectAlias
+          : best && best.score >= 300 ? best.property : null;
+
+        let label;
+        if (matchedProperty) {
+          label = readablePropertyLabel(matchedProperty);
+        } else {
+          label = actualColumn.label || actualColumn.field || "Kolom";
+        }
+
+        // Laat een interne prop_xxx naam nooit als nette titel doorgaan.
+        // Als de match onzeker is, maak de titel minstens leesbaarder door
+        // '+' als scheiding van propertyset te tonen.
+        if (!matchedProperty && looksLikeInternalTrimblePropertyName(label)) {
+          label = String(label).replace(/\+/g, " → ");
+        }
 
         return {
-          field: objectAlias
-            ? objectAlias.field
-            : best && best.score >= 300 ? best.property.field : "",
-          label: actualColumn.label || actualColumn.field || "Kolom",
+          field: matchedProperty ? matchedProperty.field : "",
+          label: label,
           actualField: actualColumn.field || "",
-          matched: Boolean(objectAlias || (best && best.score >= 300))
+          matched: Boolean(matchedProperty),
+          aggregated: actualColumn.aggregated === true,
+          grouped: actualColumn.grouped === true,
+          sortDirection: actualColumn.sortDirection || ""
         };
       });
+    }
+
+    function parseExcelNumericValue(value) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return { numeric: true, value: value, unit: "" };
+      }
+
+      const text = String(value ?? "").trim();
+      if (!text) return { numeric: false, value: "", unit: "" };
+
+      // Ondersteunt 40.77, 40,77, 1 234,56 en optionele eenheden.
+      const match = text.match(/^([+-]?(?:\d{1,3}(?:[ .]\d{3})+|\d+)?(?:[.,]\d+)?|[+-]?[.,]\d+)\s*(mm|cm|m|m2|m²|m3|m³|kg|t|ton|kn|pa|kpa|mpa|%)?$/i);
+      if (!match) return { numeric: false, value: text, unit: "" };
+
+      let numberText = match[1].replace(/\s+/g, "");
+
+      // Europese duizendtallen + decimale komma.
+      if (numberText.includes(",") && numberText.includes(".")) {
+        if (numberText.lastIndexOf(",") > numberText.lastIndexOf(".")) {
+          numberText = numberText.replace(/\./g, "").replace(",", ".");
+        } else {
+          numberText = numberText.replace(/,/g, "");
+        }
+      } else if (numberText.includes(",")) {
+        numberText = numberText.replace(",", ".");
+      }
+
+      const numericValue = Number(numberText);
+      if (!Number.isFinite(numericValue)) {
+        return { numeric: false, value: text, unit: "" };
+      }
+
+      return {
+        numeric: true,
+        value: numericValue,
+        unit: String(match[2] || "").trim()
+      };
+    }
+
+    function excelNumberFormatForUnit(unit) {
+      const normalized = normalizeText(unit);
+      if (!normalized) return "0.00";
+      if (normalized === "%") return '0.00" %"';
+      return '0.00" ' + String(unit).replace(/"/g, "") + '"';
+    }
+
+    function shouldExportAsNumber(column, rawValue) {
+      if (!column) return false;
+      if (column.aggregated) return true;
+
+      const property = dataTableColumns.find(function(item) {
+        return item.field === column.field;
+      });
+
+      if (property && (
+        isDataTableQuantityColumn(property) ||
+        isTrimbleCalculatedGeometryColumn(property)
+      )) return true;
+
+      const name = normalizeFieldToken(column.label + " " + column.field);
+      if (/(length|width|height|thickness|depth|perimeter|area|surface|volume|lengte|breedte|hoogte|dikte|diepte|omtrek|oppervlakte|inhoud)/.test(name)) {
+        return parseExcelNumericValue(rawValue).numeric;
+      }
+
+      return false;
+    }
+
+    function compareExportRowsByGroupedColumns(a, b, exportColumns) {
+      const grouped = exportColumns.map(function(column, index) {
+        return { column: column, index: index };
+      }).filter(function(item) {
+        return item.column.grouped;
+      });
+
+      if (!grouped.length) return a.originalIndex - b.originalIndex;
+
+      for (const item of grouped) {
+        const av = a.values[item.index];
+        const bv = b.values[item.index];
+        const cmp = String(av ?? "").localeCompare(String(bv ?? ""), "nl", {
+          numeric: true,
+          sensitivity: "base"
+        });
+
+        if (cmp !== 0) {
+          return normalizeText(item.column.sortDirection) === "descending" ? -cmp : cmp;
+        }
+      }
+
+      return a.originalIndex - b.originalIndex;
     }
 
     function safeExcelFileName(value) {
@@ -2754,34 +2913,118 @@
           return column.label;
         });
 
-        let rows = details.map(function(element) {
-          return exportColumns.map(function(column) {
+        let rowObjects = details.map(function(element, originalIndex) {
+          const rawValues = exportColumns.map(function(column) {
             return column.matched ? getDataTableExportValue(element, column.field) : "";
           });
+
+          return {
+            originalIndex: originalIndex,
+            values: rawValues
+          };
         });
 
         const tableFilter = normalizeText(config.filter || "");
         if (tableFilter) {
-          rows = rows.filter(function(row) {
-            return row.some(function(value) {
+          rowObjects = rowObjects.filter(function(row) {
+            return row.values.some(function(value) {
               return normalizeText(value).includes(tableFilter);
             });
           });
         }
 
-        const worksheet = XLSX.utils.aoa_to_sheet([headers].concat(rows));
+        // De Workspace API geeft de getoonde Data Table-rijen zelf niet terug.
+        // We bewaren daarom de door Trimble teruggegeven objectvolgorde. Wanneer
+        // gegroepeerde kolommen een sortDirection hebben, nemen we die wel over.
+        if (exportColumns.some(function(column) { return column.grouped; })) {
+          rowObjects.sort(function(a, b) {
+            return compareExportRowsByGroupedColumns(a, b, exportColumns);
+          });
+        }
+
+        const typedRows = rowObjects.map(function(row) {
+          return row.values.map(function(rawValue, columnIndex) {
+            const column = exportColumns[columnIndex];
+            if (!shouldExportAsNumber(column, rawValue)) return rawValue;
+
+            const parsed = parseExcelNumericValue(rawValue);
+            return parsed.numeric ? parsed.value : rawValue;
+          });
+        });
+
+        const hasTotals = exportColumns.some(function(column) {
+          return column.aggregated;
+        });
+
+        const totalRow = hasTotals
+          ? exportColumns.map(function(column, columnIndex) {
+              if (columnIndex === 0) return "Totaal";
+              if (!column.aggregated) return "";
+
+              return typedRows.reduce(function(sum, row) {
+                const value = row[columnIndex];
+                return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+              }, 0);
+            })
+          : null;
+
+        const sheetRows = [headers].concat(typedRows);
+        if (totalRow) sheetRows.push(totalRow);
+
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+
         worksheet["!autofilter"] = {
           ref: XLSX.utils.encode_range({
             s: { r: 0, c: 0 },
-            e: { r: rows.length, c: Math.max(0, headers.length - 1) }
+            e: { r: typedRows.length, c: Math.max(0, headers.length - 1) }
           })
         };
+
+        worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
+
+        // Numerieke cellen als echte Excel-getallen schrijven. Excel toont ze
+        // daardoor volgens de lokale instellingen (NL/BE met decimale komma).
+        exportColumns.forEach(function(column, columnIndex) {
+          let detectedUnit = "";
+
+          rowObjects.some(function(row) {
+            const parsed = parseExcelNumericValue(row.values[columnIndex]);
+            if (parsed.numeric && parsed.unit) {
+              detectedUnit = parsed.unit;
+              return true;
+            }
+            return false;
+          });
+
+          for (let rowIndex = 1; rowIndex <= typedRows.length; rowIndex++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+            const cell = worksheet[cellAddress];
+            if (cell && typeof cell.v === "number") {
+              cell.t = "n";
+              cell.z = excelNumberFormatForUnit(detectedUnit);
+            }
+          }
+
+          if (totalRow && column.aggregated) {
+            const totalAddress = XLSX.utils.encode_cell({
+              r: typedRows.length + 1,
+              c: columnIndex
+            });
+            const totalCell = worksheet[totalAddress];
+            if (totalCell && typeof totalCell.v === "number") {
+              totalCell.t = "n";
+              totalCell.z = excelNumberFormatForUnit(detectedUnit);
+            }
+          }
+        });
+
         worksheet["!cols"] = headers.map(function(header, columnIndex) {
           let width = String(header || "").length;
-          rows.forEach(function(row) {
-            width = Math.max(width, String(row[columnIndex] || "").length);
+          typedRows.forEach(function(row) {
+            width = Math.max(width, String(row[columnIndex] ?? "").length);
           });
-          return { wch: Math.min(45, Math.max(12, width + 2)) };
+          if (totalRow) width = Math.max(width, String(totalRow[columnIndex] ?? "").length);
+          return { wch: Math.min(55, Math.max(12, width + 2)) };
         });
 
         const workbook = XLSX.utils.book_new();
@@ -2795,13 +3038,14 @@
         ].join("-");
         const fileName = safeExcelFileName(projectName) + " - Data Table - " + dateStamp + ".xlsx";
 
-        XLSX.writeFile(workbook, fileName, { compression: true });
+        XLSX.writeFile(workbook, fileName, { compression: true, cellStyles: true });
         ui.excelExportStatus.textContent =
-          rows.length + " object" + (rows.length === 1 ? "" : "en") + " en " +
+          typedRows.length + " object" + (typedRows.length === 1 ? "" : "en") + " en " +
           exportColumns.length + " kolom" + (exportColumns.length === 1 ? "" : "men") +
           " naar Excel geëxporteerd" +
+          (hasTotals ? " · SOM-totalen toegevoegd" : "") +
           (unmatchedColumns.length
-            ? " · " + unmatchedColumns.length + " Trimble-systeemkolom kon niet als objectproperty worden uitgelezen en is leeg gelaten."
+            ? " · " + unmatchedColumns.length + " Trimble-systeemkolom kon niet veilig aan een objectproperty worden gekoppeld en is leeg gelaten."
             : ".");
       } catch (error) {
         console.error("Excel-export mislukt:", error);
