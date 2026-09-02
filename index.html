@@ -2549,7 +2549,7 @@
         ) {
           result = item.value === null || item.value === undefined
             ? ""
-            : String(item.value).trim();
+            : String(item.value);
         }
       });
 
@@ -2959,12 +2959,74 @@
           });
         }
 
-        // De Workspace API geeft de getoonde Data Table-rijen zelf niet terug.
-        // We bewaren daarom de door Trimble teruggegeven objectvolgorde. Wanneer
-        // gegroepeerde kolommen een sortDirection hebben, nemen we die wel over.
-        if (exportColumns.some(function(column) { return column.grouped; })) {
-          rowObjects.sort(function(a, b) {
-            return compareExportRowsByGroupedColumns(a, b, exportColumns);
+        // Indien Trimble groepeert, bouwen we dezelfde zichtbare groepsstructuur
+        // opnieuw op. De volgorde wordt NIET alfabetisch hersorteerd: de eerste
+        // voorkomensvolgorde uit de Data Table-scope blijft behouden. Ook spaties
+        // en originele tekstwaarden worden letterlijk behouden.
+        const groupedColumnIndexes = exportColumns
+          .map(function(column, index) { return column.grouped ? index : -1; })
+          .filter(function(index) { return index >= 0; });
+
+        if (groupedColumnIndexes.length) {
+          const groups = new Map();
+
+          rowObjects.forEach(function(row) {
+            const keyParts = groupedColumnIndexes.map(function(index) {
+              const value = row.values[index];
+              return value === null || value === undefined ? "" : String(value);
+            });
+            const key = JSON.stringify(keyParts);
+
+            if (!groups.has(key)) {
+              groups.set(key, {
+                originalIndex: row.originalIndex,
+                rows: []
+              });
+            }
+            groups.get(key).rows.push(row);
+          });
+
+          rowObjects = Array.from(groups.values()).map(function(group) {
+            const firstRow = group.rows[0];
+            const values = exportColumns.map(function(column, columnIndex) {
+              if (column.syntheticCount) return group.rows.length;
+
+              if (column.grouped) {
+                return firstRow.values[columnIndex];
+              }
+
+              if (column.aggregated) {
+                let sum = 0;
+                let foundNumeric = false;
+                let unit = "";
+
+                group.rows.forEach(function(row) {
+                  const parsed = parseExcelNumericValue(row.values[columnIndex]);
+                  if (parsed.numeric) {
+                    sum += parsed.value;
+                    foundNumeric = true;
+                    if (!unit && parsed.unit) unit = parsed.unit;
+                  }
+                });
+
+                return foundNumeric ? sum : "";
+              }
+
+              // Voor niet-gegroepeerde, niet-geaggregeerde kolommen toont Excel
+              // alleen een waarde als die binnen de volledige groep identiek is.
+              // Zo vermijden we willekeurig de eerste objectwaarde als groepswaarde.
+              const firstValue = firstRow.values[columnIndex];
+              const allEqual = group.rows.every(function(row) {
+                return row.values[columnIndex] === firstValue;
+              });
+              return allEqual ? firstValue : "";
+            });
+
+            return {
+              originalIndex: group.originalIndex,
+              values: values,
+              groupedCount: group.rows.length
+            };
           });
         }
 
@@ -3066,7 +3128,8 @@
 
         XLSX.writeFile(workbook, fileName, { compression: true, cellStyles: true });
         ui.excelExportStatus.textContent =
-          typedRows.length + " object" + (typedRows.length === 1 ? "" : "en") + " en " +
+          typedRows.length + (groupedColumnIndexes.length ? " groep" : " object") +
+          (typedRows.length === 1 ? "" : (groupedColumnIndexes.length ? "en" : "en")) + " en " +
           exportColumns.length + " kolom" + (exportColumns.length === 1 ? "" : "men") +
           " naar Excel geëxporteerd" +
           (hasTotals ? " · SOM-totalen toegevoegd" : "") +
