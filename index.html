@@ -718,9 +718,22 @@
     </div>
   </section>
 
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Data Table exporteren</h2>
+        <p class="subtitle">Exporteert de actuele Trimble Data Table naar Excel, ook wanneer je de tabel volledig buiten deze tool hebt samengesteld.</p>
+      </div>
+      <span class="badge">Excel</span>
+    </div>
+    <button id="export-datatable-excel" class="ghost" type="button" disabled>Exporteer huidige Data Table naar Excel</button>
+    <div id="excel-export-status" class="datatable-status"></div>
+  </section>
+
   <p class="footer-note">Selecteer laat de viewer ongemoeid. Focus houdt de context zichtbaar maar sterk transparant. Open selectie in Data Table isoleert de huidige selectie echt, zodat Selected Objects en Visible Objects dezelfde objectset gebruiken.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script>
     "use strict";
 
@@ -798,6 +811,8 @@
       datatableTrimbleGeometryColumns: document.getElementById("datatable-trimble-geometry-columns"),
       datatableOtherColumns: document.getElementById("datatable-other-columns"),
       openDatatable: document.getElementById("open-datatable"),
+      exportDatatableExcel: document.getElementById("export-datatable-excel"),
+      excelExportStatus: document.getElementById("excel-export-status"),
       clearDatatableColumns: document.getElementById("clear-datatable-columns"),
       datatableStatus: document.getElementById("datatable-status"),
     };
@@ -909,6 +924,7 @@
         ui.connection.textContent = "Verbonden met project: " + projectName;
         ui.connection.classList.add("good");
         ui.refreshModel.disabled = false;
+        ui.exportDatatableExcel.disabled = false;
         await refreshModelScope();
       } catch (error) {
         console.error("Trimble Connect-verbinding mislukt:", error);
@@ -1376,6 +1392,7 @@
     let selectedSearchSeedElement = null;
     let dataTableColumns = [];
     let selectedDataTableFields = new Set();
+    let activeDataTableExportColumns = [];
 
     function closeAllActionPanels() {
       ui.quickPanel.classList.add("hidden");
@@ -1744,6 +1761,7 @@
       ui.datatableBuilder.classList.add("hidden");
       ui.datatableStatus.textContent = "";
       selectedDataTableFields = new Set();
+      activeDataTableExportColumns = [];
       ui.openDatatable.disabled = true;
     }
 
@@ -2010,9 +2028,11 @@
           else selectedDataTableFields.delete(column.field);
 
           ui.openDatatable.disabled = selectedDataTableFields.size === 0;
+          activeDataTableExportColumns = [];
           ui.datatableStatus.textContent =
             selectedDataTableFields.size + " kolom" +
-            (selectedDataTableFields.size === 1 ? "" : "men") + " geselecteerd.";
+            (selectedDataTableFields.size === 1 ? "" : "men") +
+            " geselecteerd. Open de Data Table opnieuw om deze kolommen te activeren.";
         });
 
         const content = document.createElement("div");
@@ -2156,6 +2176,7 @@
         const classified = classifyDataTableColumns(dataTableColumns);
 
         selectedDataTableFields = new Set();
+        activeDataTableExportColumns = [];
 
         classified.properties.slice(0, 5).forEach(function(column) {
           selectedDataTableFields.add(column.field);
@@ -2460,6 +2481,32 @@
           }
         });
 
+        const exportedActualFields = new Set(resolvedColumns.map(function(column) {
+          return column.field;
+        }));
+        const usedActualFields = new Set();
+
+        activeDataTableExportColumns = Array.from(selectedDataTableFields).map(function(logicalField) {
+          const actual = resolveActualTrimbleColumn(logicalField, availableColumns);
+          if (!actual || !exportedActualFields.has(actual.field) || usedActualFields.has(actual.field)) {
+            return null;
+          }
+          usedActualFields.add(actual.field);
+
+          const logicalColumn = dataTableColumns.find(function(column) {
+            return column.field === logicalField;
+          });
+
+          return {
+            field: logicalField,
+            label: logicalColumn && logicalColumn.label
+              ? logicalColumn.label
+              : logicalField
+          };
+        }).filter(Boolean);
+
+        ui.exportDatatableExcel.disabled = false;
+
         const aggregatedCount = resolvedColumns.filter(function(column) {
           return column.aggregated === true;
         }).length;
@@ -2482,8 +2529,292 @@
       }
     }
 
+    function getDataTableExportValue(element, logicalField) {
+      if (!element || !element.values) return "";
+
+      const logical = splitLogicalIfcField(logicalField);
+      let result = "";
+
+      element.values.forEach(function(item) {
+        if (result) return;
+        if (!item) return;
+
+        const setToken = normalizeFieldToken(item.setName || "");
+        const propertyToken = normalizeFieldToken(item.name || "");
+
+        if (
+          setToken === logical.setToken &&
+          propertyToken === logical.propertyToken
+        ) {
+          result = item.value === null || item.value === undefined
+            ? ""
+            : String(item.value).trim();
+        }
+      });
+
+      return result;
+    }
+
+    async function getCurrentDataTableObjectScope(mode) {
+      const normalizedMode = normalizeText(mode || "all");
+
+      if (normalizedMode === "selected") {
+        return normalizeModelObjects(await API.viewer.getSelection());
+      }
+
+      if (normalizedMode === "visible") {
+        return normalizeModelObjects(
+          await API.viewer.getObjects(undefined, { visible: true })
+        );
+      }
+
+      return normalizeModelObjects(await API.viewer.getObjects());
+    }
+
+    async function readDetailsForDataTableExport(scope) {
+      const details = [];
+      const total = countModelObjects(scope);
+      let completed = 0;
+
+      for (const model of scope) {
+        const ids = getObjects(model)
+          .map(getRuntimeId)
+          .filter(function(id) { return id !== null && id !== undefined; });
+
+        for (const batch of splitIntoBatches(ids, PROPERTY_BATCH_SIZE)) {
+          const properties = await getPropertyBatch(model.modelId, batch);
+
+          properties.forEach(function(objectProperties) {
+            const runtimeId =
+              objectProperties.id ??
+              objectProperties.runtimeId ??
+              objectProperties.objectRuntimeId;
+
+            if (runtimeId === null || runtimeId === undefined) return;
+
+            details.push({
+              uid: String(model.modelId) + "|" + String(runtimeId),
+              modelId: model.modelId,
+              runtimeId: runtimeId,
+              values: flattenObjectProperties(objectProperties)
+            });
+          });
+
+          completed += batch.length;
+          ui.excelExportStatus.textContent =
+            "Data Table uitlezen: " + Math.min(completed, total) + "/" + total + " objecten...";
+        }
+      }
+
+      return details;
+    }
+
+    function buildExportPropertyCatalog(details) {
+      const catalog = new Map();
+
+      details.forEach(function(element) {
+        if (!element || !element.values) return;
+        element.values.forEach(function(item) {
+          if (!item || !item.name) return;
+          const field = String(item.setName || "Algemeen").trim() + "." + String(item.name).trim();
+          if (!catalog.has(field)) {
+            catalog.set(field, {
+              field: field,
+              label: String(item.setName || "Algemeen").trim() + " → " + String(item.name).trim(),
+              setName: String(item.setName || "Algemeen").trim(),
+              name: String(item.name).trim()
+            });
+          }
+        });
+      });
+
+      return Array.from(catalog.values());
+    }
+
+    function scoreExportPropertyMatch(property, actualColumn) {
+      const actualField = normalizeDataTableFieldText(actualColumn.field || "");
+      const actualLabel = normalizeDataTableFieldText(actualColumn.label || "");
+      const actualFieldToken = normalizeFieldToken(actualColumn.field || "");
+      const actualLabelToken = normalizeFieldToken(actualColumn.label || "");
+      const logicalField = normalizeDataTableFieldText(property.field);
+      const logicalToken = normalizeFieldToken(property.field);
+      const setToken = normalizeFieldToken(property.setName);
+      const propertyToken = normalizeFieldToken(property.name);
+      let score = 0;
+
+      if (actualField === logicalField) score += 1200;
+      if (actualLabel === logicalField) score += 1150;
+      if (actualFieldToken === logicalToken) score += 1100;
+      if (actualLabelToken === logicalToken) score += 1050;
+      if (actualFieldToken.endsWith(logicalToken)) score += 900;
+      if (actualLabelToken.endsWith(logicalToken)) score += 850;
+      if (setToken && propertyToken && actualFieldToken.includes(setToken) && actualFieldToken.includes(propertyToken)) score += 780;
+      if (setToken && propertyToken && actualLabelToken.includes(setToken) && actualLabelToken.includes(propertyToken)) score += 740;
+      if (actualFieldToken === propertyToken) score += 420;
+      if (actualLabelToken === propertyToken) score += 400;
+      if (actualFieldToken.endsWith(propertyToken)) score += 180;
+      if (actualLabelToken.endsWith(propertyToken)) score += 160;
+
+      if (/^(name|description|type|reference)$/.test(propertyToken)) {
+        const hasContext = actualFieldToken.includes(setToken) || actualLabelToken.includes(setToken);
+        if (!hasContext) score = 0;
+      }
+
+      return score;
+    }
+
+    function resolveExportColumns(actualColumns, details) {
+      const propertyCatalog = buildExportPropertyCatalog(details);
+
+      return (actualColumns || []).map(function(actualColumn) {
+        const actualToken = normalizeFieldToken(
+          String(actualColumn.label || "") + " " + String(actualColumn.field || "")
+        );
+        const objectAlias = propertyCatalog.find(function(property) {
+          const setToken = normalizeFieldToken(property.setName);
+          const nameToken = normalizeFieldToken(property.name);
+          if (setToken !== normalizeFieldToken("Objectinformatie")) return false;
+
+          if (/(productname|productnaam|objectname|objectnaam)/.test(actualToken)) {
+            return nameToken === normalizeFieldToken("Productnaam");
+          }
+          if (/(producttype|objecttype)/.test(actualToken)) {
+            return nameToken === normalizeFieldToken("Producttype");
+          }
+          if (/(ifcclass|ifcklasse|entitytype)/.test(actualToken)) {
+            return nameToken === normalizeFieldToken("IFC-klasse");
+          }
+          return false;
+        });
+
+        const best = propertyCatalog.map(function(property) {
+          return {
+            property: property,
+            score: scoreExportPropertyMatch(property, actualColumn)
+          };
+        }).sort(function(a, b) {
+          return b.score - a.score;
+        })[0];
+
+        return {
+          field: objectAlias
+            ? objectAlias.field
+            : best && best.score >= 300 ? best.property.field : "",
+          label: actualColumn.label || actualColumn.field || "Kolom",
+          actualField: actualColumn.field || "",
+          matched: Boolean(objectAlias || (best && best.score >= 300))
+        };
+      });
+    }
+
+    function safeExcelFileName(value) {
+      const cleaned = String(value || "Altez Data Table")
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return (cleaned || "Altez Data Table").slice(0, 120);
+    }
+
+    async function exportCurrentDataTableToExcel() {
+      if (typeof XLSX === "undefined") {
+        ui.excelExportStatus.textContent =
+          "De Excel-module kon niet worden geladen. Controleer de internetverbinding en probeer opnieuw.";
+        return;
+      }
+
+      if (!API || !API.dataTable) {
+        ui.excelExportStatus.textContent = "De Trimble Data Table is momenteel niet beschikbaar.";
+        return;
+      }
+
+      ui.exportDatatableExcel.disabled = true;
+      ui.excelExportStatus.textContent = "Actuele Data Table-configuratie uitlezen...";
+
+      try {
+        const config = await API.dataTable.getConfig();
+        const activeColumns = config && config.columnSet && Array.isArray(config.columnSet.columns)
+          ? config.columnSet.columns
+          : [];
+
+        if (!activeColumns.length) {
+          throw new Error("De huidige Data Table bevat geen uitleesbare kolommen.");
+        }
+
+        const scope = await getCurrentDataTableObjectScope(config.mode);
+        if (!countModelObjects(scope)) {
+          throw new Error("Binnen de Data Table-modus '" + (config.mode || "All") + "' zijn geen objecten gevonden.");
+        }
+
+        const details = await readDetailsForDataTableExport(scope);
+        const exportColumns = resolveExportColumns(activeColumns, details);
+        const unmatchedColumns = exportColumns.filter(function(column) { return !column.matched; });
+
+        const headers = exportColumns.map(function(column) {
+          return column.label;
+        });
+
+        let rows = details.map(function(element) {
+          return exportColumns.map(function(column) {
+            return column.matched ? getDataTableExportValue(element, column.field) : "";
+          });
+        });
+
+        const tableFilter = normalizeText(config.filter || "");
+        if (tableFilter) {
+          rows = rows.filter(function(row) {
+            return row.some(function(value) {
+              return normalizeText(value).includes(tableFilter);
+            });
+          });
+        }
+
+        const worksheet = XLSX.utils.aoa_to_sheet([headers].concat(rows));
+        worksheet["!autofilter"] = {
+          ref: XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: rows.length, c: Math.max(0, headers.length - 1) }
+          })
+        };
+        worksheet["!cols"] = headers.map(function(header, columnIndex) {
+          let width = String(header || "").length;
+          rows.forEach(function(row) {
+            width = Math.max(width, String(row[columnIndex] || "").length);
+          });
+          return { wch: Math.min(45, Math.max(12, width + 2)) };
+        });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data Table");
+
+        const now = new Date();
+        const dateStamp = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, "0"),
+          String(now.getDate()).padStart(2, "0")
+        ].join("-");
+        const fileName = safeExcelFileName(projectName) + " - Data Table - " + dateStamp + ".xlsx";
+
+        XLSX.writeFile(workbook, fileName, { compression: true });
+        ui.excelExportStatus.textContent =
+          rows.length + " object" + (rows.length === 1 ? "" : "en") + " en " +
+          exportColumns.length + " kolom" + (exportColumns.length === 1 ? "" : "men") +
+          " naar Excel geëxporteerd" +
+          (unmatchedColumns.length
+            ? " · " + unmatchedColumns.length + " Trimble-systeemkolom kon niet als objectproperty worden uitgelezen en is leeg gelaten."
+            : ".");
+      } catch (error) {
+        console.error("Excel-export mislukt:", error);
+        ui.excelExportStatus.textContent =
+          "Excel-export mislukt: " + (error.message || "onbekende fout");
+      } finally {
+        ui.exportDatatableExcel.disabled = false;
+      }
+    }
+
     function clearDataTableColumnSelection() {
       selectedDataTableFields = new Set();
+      activeDataTableExportColumns = [];
 
       document.querySelectorAll(
         "#datatable-builder input[type='checkbox']"
@@ -3305,6 +3636,7 @@
 
     ui.analyzeDatatableColumns.addEventListener("click", analyzeDataTableColumns);
     ui.openDatatable.addEventListener("click", openCurrentSelectionInDataTable);
+    ui.exportDatatableExcel.addEventListener("click", exportCurrentDataTableToExcel);
     ui.clearDatatableColumns.addEventListener("click", clearDataTableColumnSelection);
 
     connectToTrimble();
