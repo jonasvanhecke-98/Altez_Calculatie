@@ -2690,10 +2690,34 @@
       }) || null;
     }
 
+    function isBuiltInCountColumn(column) {
+      const field = normalizeFieldToken(column && column.field || "");
+      const label = normalizeFieldToken(column && column.label || "");
+      const combined = field + " " + label;
+
+      // Trimble Data Table heeft een ingebouwde kolom Aantal/Count die geen
+      // objectproperty is. Die moet daarom synthetisch worden geëxporteerd.
+      return /(^|\.)(count|aantal)(\.|$)/.test(field)
+        || /(^|\.)(count|aantal)(\.|$)/.test(label)
+        || /objectcount|itemcount|rowcount|numberofobjects|numberofitems/.test(combined);
+    }
+
     function resolveExportColumns(actualColumns, details) {
       const propertyCatalog = buildExportPropertyCatalog(details);
 
       return (actualColumns || []).map(function(actualColumn) {
+        if (isBuiltInCountColumn(actualColumn)) {
+          return {
+            field: "__trimble_count__",
+            label: actualColumn.label || "Aantal",
+            actualField: actualColumn.field || "",
+            matched: true,
+            syntheticCount: true,
+            aggregated: actualColumn.aggregated === true,
+            grouped: actualColumn.grouped === true,
+            sortDirection: actualColumn.sortDirection || ""
+          };
+        }
         // Wanneer de Data Table vanuit deze tool werd samengesteld kennen we
         // de exacte koppeling logical IFC field <-> Trimble field. Gebruik die
         // altijd eerst; dit lost custom propertysets met prop_xxx velden op.
@@ -2822,6 +2846,7 @@
 
     function shouldExportAsNumber(column, rawValue) {
       if (!column) return false;
+      if (column.syntheticCount) return true;
       if (column.aggregated) return true;
 
       const property = dataTableColumns.find(function(item) {
@@ -2915,6 +2940,7 @@
 
         let rowObjects = details.map(function(element, originalIndex) {
           const rawValues = exportColumns.map(function(column) {
+            if (column.syntheticCount) return 1;
             return column.matched ? getDataTableExportValue(element, column.field) : "";
           });
 
@@ -2953,13 +2979,13 @@
         });
 
         const hasTotals = exportColumns.some(function(column) {
-          return column.aggregated;
+          return column.aggregated || column.syntheticCount;
         });
 
         const totalRow = hasTotals
           ? exportColumns.map(function(column, columnIndex) {
-              if (columnIndex === 0) return "Totaal";
-              if (!column.aggregated) return "";
+              if (columnIndex === 0 && !column.syntheticCount) return "Totaal";
+              if (!column.aggregated && !column.syntheticCount) return "";
 
               return typedRows.reduce(function(sum, row) {
                 const value = row[columnIndex];
@@ -3005,7 +3031,7 @@
             }
           }
 
-          if (totalRow && column.aggregated) {
+          if (totalRow && (column.aggregated || column.syntheticCount)) {
             const totalAddress = XLSX.utils.encode_cell({
               r: typedRows.length + 1,
               c: columnIndex
