@@ -507,7 +507,7 @@
 
     .quick-choice-actions {
       display: grid;
-      grid-template-columns: auto auto;
+      grid-template-columns: auto;
       gap: 5px;
       align-items: stretch;
     }
@@ -523,7 +523,7 @@
       }
 
       .quick-choice-actions {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
       }
 
       .quick-choice-actions button {
@@ -612,7 +612,7 @@
         <strong id="quick-result-title"></strong>
         <span id="quick-result-detail"></span>
         <div class="button-row" style="margin-top:8px;">
-          <button id="quick-focus" type="button">Focus</button>
+          <button id="quick-select" type="button">Selecteer</button>
           <button id="quick-refine" class="secondary" type="button">+ Verder verfijnen</button>
         </div>
         <button id="quick-edit-last" class="ghost small" type="button" style="margin-top:8px;">← Laatste keuze aanpassen</button>
@@ -662,7 +662,7 @@
       </select>
     </div>
 
-    <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en focus</button>
+    <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en selecteer</button>
     <div id="manual-status" class="scope-box hidden"></div>
   </section>
 
@@ -730,7 +730,7 @@
     <div id="excel-export-status" class="datatable-status"></div>
   </section>
 
-  <p class="footer-note">Selecteer laat de viewer ongemoeid. Focus houdt de context zichtbaar maar sterk transparant. Open selectie in Data Table isoleert de huidige selectie echt, zodat Selected Objects en Visible Objects dezelfde objectset gebruiken.</p>
+  <p class="footer-note">Selecteer wijzigt alleen de Trimble-selectie: geen zoom, geen grijs/transparant maken en geen objecten zichtbaar of verborgen zetten. Open selectie in Data Table isoleert de huidige selectie wel bewust, zodat Selected Objects en Visible Objects dezelfde objectset gebruiken.</p>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -784,7 +784,7 @@
       quickResult: document.getElementById("quick-result"),
       quickResultTitle: document.getElementById("quick-result-title"),
       quickResultDetail: document.getElementById("quick-result-detail"),
-      quickFocus: document.getElementById("quick-focus"),
+      quickSelect: document.getElementById("quick-select"),
       quickRefine: document.getElementById("quick-refine"),
       quickEditLast: document.getElementById("quick-edit-last"),
       quickRefinePanel: document.getElementById("quick-refine-panel"),
@@ -1567,23 +1567,9 @@
           );
         });
 
-        const focusButton = document.createElement("button");
-        focusButton.type = "button";
-        focusButton.className = "small";
-        focusButton.textContent = "Focus";
-        focusButton.addEventListener("click", async function(event) {
-          event.stopPropagation();
-          await focusDetailsGhost(entry.elements);
-          rememberCurrentResult(
-            entry.elements,
-            parameter.key + " = " + entry.value
-          );
-        });
-
         const actions = document.createElement("div");
         actions.className = "quick-choice-actions";
         actions.appendChild(selectButton);
-        actions.appendChild(focusButton);
 
         row.appendChild(button);
         row.appendChild(actions);
@@ -1618,7 +1604,7 @@
       const last = quickFilters[quickFilters.length - 1];
 
       ui.quickResultTitle.textContent =
-        quickCurrentMatches.length + " elementen geselecteerd";
+        quickCurrentMatches.length + " elementen gevonden";
 
       ui.quickResultDetail.textContent =
         quickFilters.map(function(filter) {
@@ -3170,44 +3156,6 @@
       }
     }
 
-    async function focusDetailsGhost(details) {
-      const scopeSelector = selectorFromDetails(analyzedElements);
-      const targetSelector = selectorFromDetails(details);
-
-      if (!targetSelector.modelObjectIds.length) return;
-
-      try {
-        // Visuele focusmodus:
-        // - doelobjecten volledig zichtbaar;
-        // - overige geanalyseerde objecten blijven zichtbaar maar sterk transparant;
-        // - selectie + camera-focus.
-        //
-        // Dit bootst Ghost Mode visueel na zonder objecten echt te verbergen.
-        await API.viewer.setObjectState(scopeSelector, {
-          color: "reset",
-          opacity: 0.08,
-          visible: true
-        });
-
-        await API.viewer.setObjectState(targetSelector, {
-          color: "reset",
-          opacity: 1,
-          visible: true
-        });
-
-        await API.viewer.setSelection(targetSelector, "set");
-
-        try {
-          await API.viewer.setCamera(targetSelector, { animationTime: 450 });
-        } catch (cameraError) {
-          console.warn("Camera focus mislukt:", cameraError);
-        }
-      } catch (error) {
-        console.warn("Visuele focus mislukt:", error);
-        await selectOnly(details);
-      }
-    }
-
     async function isolateDetailsForDataTable(details) {
       const targetSelector = selectorFromDetails(details);
       if (!targetSelector.modelObjectIds.length) return;
@@ -3654,8 +3602,8 @@
         button.textContent =
           seedValue + " (" + matchingElements.length + " elementen)";
 
-        button.addEventListener("click", function() {
-          focusDetailsGhost(matchingElements);
+        button.addEventListener("click", async function() {
+          await selectOnly(matchingElements);
 
           rememberCurrentResult(
             matchingElements,
@@ -3788,12 +3736,12 @@
         button.type = "button";
         button.style.marginTop = "8px";
         button.textContent =
-          "Focus hoofdgroep (" + matches.length + ")";
+          "Selecteer hoofdgroep (" + matches.length + ")";
 
         button.disabled = matches.length === 0;
 
-        button.addEventListener("click", function() {
-          focusDetailsGhost(matches);
+        button.addEventListener("click", async function() {
+          await selectOnly(matches);
           rememberCurrentResult(
             matches,
             typeInfo.source + " = " + typeInfo.value
@@ -3892,7 +3840,7 @@
         return;
       }
 
-      await focusDetailsGhost(matches);
+      await selectOnly(matches);
 
       rememberCurrentResult(
         matches,
@@ -3948,9 +3896,9 @@
       reopenLastQuickStep();
     });
 
-    ui.quickFocus.addEventListener("click", function() {
+    ui.quickSelect.addEventListener("click", async function() {
       if (quickCurrentMatches.length) {
-        focusDetailsGhost(quickCurrentMatches);
+        await selectOnly(quickCurrentMatches);
       }
     });
 
