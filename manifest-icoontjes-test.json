@@ -1,0 +1,9 @@
+
+{
+  "title": "Altez Calculatie - Bouwdeeliconen TEST",
+  "url": "https://jonasvanhecke-98.github.io/Altez_Calculatie/test-icoontjes.html",
+  "icon": "https://jonasvanhecke-98.github.io/Altez_Calculatie/Rekenmachine.png",
+  "description": "Testversie met automatische IFC-bouwdeelherkenning en slimme groeperingen.",
+  "enabled": true,
+  "extensionType": ["3dviewer"]
+}
