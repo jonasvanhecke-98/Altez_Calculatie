@@ -1,0 +1,4335 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Altez Calculatie – Gerichte selecties</title>
+  <style>
+    :root {
+      --blue: #0063a3;
+      --blue-dark: #004f83;
+      --ink: #252525;
+      --muted: #667078;
+      --line: #d8dadd;
+      --bg: #f3f4f5;
+      --panel: #ffffff;
+      --good: #19733b;
+      --warn: #a35b00;
+      --bad: #b42318;
+      --soft-blue: #eaf3f8;
+      --soft-good: #eaf6ee;
+      --soft-warn: #fff4dd;
+      --soft-bad: #fdecea;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 4px; font-size: 21px; }
+    h2 { margin-bottom: 9px; font-size: 17px; }
+    h3 { margin-bottom: 7px; font-size: 14px; }
+
+    button, input, select { width: 100%; font: inherit; }
+
+    button {
+      min-height: 39px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 5px;
+      color: white;
+      background: var(--blue);
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--blue-dark); }
+    button:disabled { cursor: not-allowed; background: #9ba3a8; }
+    button.secondary { color: var(--ink); background: #e7e9eb; }
+    button.secondary:hover { background: #d8dcdf; }
+    button.ghost { color: var(--blue); background: white; border: 1px solid var(--blue); }
+    button.small { min-height: 30px; padding: 6px 8px; font-size: 12px; }
+
+    input, select {
+      min-height: 39px;
+      padding: 8px 10px;
+      border: 1px solid #aeb2b7;
+      border-radius: 5px;
+      color: var(--ink);
+      background: white;
+    }
+
+    .app-header { margin-bottom: 14px; }
+    .eyebrow { display: block; margin-bottom: 4px; color: var(--blue); font-size: 11px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
+    .subtitle { margin-bottom: 9px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .connection { font-size: 12px; color: var(--muted); }
+    .connection.good { color: var(--good); }
+    .connection.bad { color: var(--bad); }
+
+    .panel {
+      margin-bottom: 13px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .panel-head > div:first-child { min-width: 0; }
+
+    .badge {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      padding: 4px 7px;
+      border-radius: 99px;
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .scope-box {
+      margin: 10px 0;
+      padding: 10px;
+      border-left: 4px solid var(--blue);
+      background: var(--soft-blue);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .scope-box strong { display: block; margin-bottom: 2px; }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .progress { display: none; margin-top: 10px; }
+    .progress.visible { display: block; }
+    .progress-text { margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+    .progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #e3e6e8; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--blue); transition: width .2s ease; }
+
+    .hidden { display: none !important; }
+    .empty {
+      padding: 14px;
+      border: 1px dashed #b8bec3;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .metric {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
+    .metric-value { display: block; margin-bottom: 2px; font-size: 21px; font-weight: bold; }
+    .metric-label { color: var(--muted); font-size: 11px; }
+
+    .score {
+      min-width: 42px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .score.good { color: var(--good); background: var(--soft-good); }
+    .score.warn { color: var(--warn); background: var(--soft-warn); }
+    .score.bad { color: var(--bad); background: var(--soft-bad); }
+
+    .parameter-cards {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .parameter-card {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+      cursor: pointer;
+    }
+
+    .parameter-card:hover,
+    .parameter-card.active {
+      border-color: var(--blue);
+      background: #f5fbfe;
+    }
+
+    .parameter-card.active { border-width: 2px; }
+
+    .parameter-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .parameter-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .parameter-meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .value-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .value-list {
+      display: grid;
+      gap: 7px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .value-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
+    .value-text {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .value-count {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .value-actions {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .refine-box {
+      margin-top: 12px;
+      padding: 12px;
+      border: 2px solid var(--blue);
+      border-radius: 7px;
+      background: #f5fbfe;
+    }
+
+    .filter-list { display: grid; gap: 8px; margin: 9px 0; }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .filter-row button { width: auto; min-width: 38px; }
+
+    .result-count {
+      margin: 8px 0;
+      color: var(--blue-dark);
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .selection-result {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+
+    .selection-result strong { display: block; margin-bottom: 3px; font-size: 13px; }
+    .selection-result span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+    .manual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .footer-note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 520px) {
+      .filter-row,
+      .manual-grid,
+      .button-row { grid-template-columns: 1fr; }
+
+      .filter-row button { width: 100%; }
+    }
+  
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .compact-button {
+      width: auto;
+      white-space: nowrap;
+    }
+
+    .quick-choice-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 9px;
+    }
+
+    .quick-choice {
+      width: 100%;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .quick-choice:hover {
+      border-color: var(--blue);
+      background: #f5fbfe;
+    }
+
+    .quick-choice strong {
+      display: block;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .quick-choice span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .selection-path {
+      margin-bottom: 10px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 520px) {
+      .action-grid { grid-template-columns: 1fr; }
+    }
+
+    .datatable-builder {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .datatable-builder-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .datatable-builder-head button {
+      width: auto;
+    }
+
+    .datatable-column-group {
+      margin-top: 10px;
+    }
+
+    .datatable-column-group h3 {
+      margin-bottom: 6px;
+    }
+
+    .datatable-column-list {
+      display: grid;
+      gap: 6px;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    .datatable-column-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: flex-start;
+      padding: 8px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+      cursor: pointer;
+    }
+
+    .datatable-column-row:hover {
+      border-color: var(--blue);
+      background: #f5fbfe;
+    }
+
+    .datatable-column-row input {
+      width: auto;
+      min-height: 0;
+      margin-top: 2px;
+    }
+
+    .datatable-column-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .datatable-column-meta {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: normal;
+      line-height: 1.35;
+    }
+
+    .datatable-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .datatable-status {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 520px) {
+      .datatable-actions { grid-template-columns: 1fr; }
+    }
+
+    .same-type-refine {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbfb;
+    }
+    .same-type-refine h3 { margin-bottom: 6px; }
+    .same-type-refine-list { display: grid; gap: 7px; margin-top: 8px; }
+    .same-type-refine-card {
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+    }
+    .same-type-refine-card strong {
+      display: block;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .same-type-refine-card span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    .same-type-refine-values { display: grid; gap: 5px; margin-top: 7px; }
+    .same-type-refine-values button {
+      min-height: 30px;
+      padding: 6px 8px;
+      font-size: 11px;
+      text-align: left;
+    }
+
+    .quick-choice-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px;
+      align-items: stretch;
+    }
+
+    .quick-choice-row .quick-choice {
+      margin: 0;
+    }
+
+    .quick-choice-actions {
+      display: grid;
+      grid-template-columns: auto;
+      gap: 5px;
+      align-items: stretch;
+    }
+
+    .quick-choice-actions button {
+      width: auto;
+      min-width: 72px;
+    }
+
+    @media (max-width: 520px) {
+      .quick-choice-row {
+        grid-template-columns: 1fr;
+      }
+
+      .quick-choice-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .quick-choice-actions button {
+        width: 100%;
+      }
+    }
+
+/* ALTEZ IFC bouwdeelweergave - experimentele uitbreiding, raakt bestaande CSS niet */
+.altez-cat-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 9px}
+.altez-cat-heading h3 {margin:0}
+.altez-cat-help {font-size:12px;color:var(--muted);line-height:1.45;margin:0 0 11px}
+.altez-cat-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+@media(min-width:560px){.altez-cat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.altez-cat-card {background:#fff;border:1px solid #cdd9df;color:var(--ink);border-radius:9px;min-height:105px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.altez-cat-card:hover,.altez-cat-card:focus-visible {background:#edf6fc;border-color:var(--blue)}
+.altez-cat-card svg {width:35px;height:35px;stroke:#0063a3;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.altez-cat-card strong{font-size:12px;text-align:center;overflow-wrap:anywhere}
+.altez-cat-card span{font-size:11px;color:var(--muted)}
+.altez-cat-card:disabled {opacity:.4}
+.altez-cat-btn {display:inline-flex;align-items:center;gap:4px;justify-content:center}
+.altez-cat-nav{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.altez-cat-nav button{width:auto;flex:0 0 auto}
+.altez-cat-nav strong{font-size:14px;line-height:1.3}
+.altez-cat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:10px 0}
+.altez-cat-field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.altez-cat-field select{width:100%;font-size:12px}
+.altez-cat-suggestions {display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 12px}
+.altez-cat-suggestions button{width:auto;min-height:29px;border-radius:16px;background:#eaf3f8;color:var(--blue-dark);padding:5px 9px;font-size:11px}
+.altez-cat-suggestions button.altez-active{background:var(--blue);color:#fff}
+.altez-cat-results{display:grid;gap:7px;margin-top:9px}
+.altez-cat-result{border:1px solid var(--line);background:#fafbfb;border-radius:7px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:9px}
+.altez-cat-result input{width:17px;height:17px;min-height:17px;margin:0;cursor:pointer}
+.altez-cat-result strong{display:block;font-size:12px;word-break:break-word}
+.altez-cat-result span{font-size:11px;color:var(--muted)}
+.altez-cat-result button{width:auto;min-height:30px;font-size:11px;padding:6px 8px}
+.altez-cat-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+.altez-cat-status{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}
+.altez-cat-mode-switch{margin-top:10px}
+.altez-cat-notice{padding:9px;background:#f0f5f8;border-left:3px solid var(--blue);font-size:11px;color:var(--muted);line-height:1.4;margin:10px 0}
+
+</style>
+</head>
+<body>
+  <header class="app-header">
+    <span class="eyebrow">Altez Calculatie</span>
+    <h1>Gerichte selecties</h1>
+    <p class="subtitle">Kies eerst wat je wilt doen. Alleen de informatie die je nodig hebt wordt getoond.</p>
+    <div id="connection-status" class="connection">Verbinding met Trimble Connect controleren...</div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>1. Modelanalyse</h2>
+        <p class="subtitle">Analyseert alleen bruikbare, niet-geometrische eigenschappen.</p>
+      </div>
+      <span class="badge">Start</span>
+    </div>
+
+    <div class="scope-box">
+      <strong id="scope-title">Nog geen geladen model ingelezen</strong>
+      <span id="scope-detail">Open eerst het IFC-model dat je wilt analyseren.</span>
+    </div>
+
+    <div class="button-row">
+      <button id="refresh-model" class="secondary" type="button" disabled>Model vernieuwen</button>
+      <button id="run-analysis" type="button" disabled>Analyseer model</button>
+    </div>
+
+    <div id="progress" class="progress">
+      <div id="progress-text" class="progress-text">Analyse voorbereiden...</div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+
+    <div id="mini-summary" class="scope-box hidden" style="margin-bottom:0;">
+      <strong id="mini-summary-title"></strong>
+      <span id="mini-summary-detail"></span>
+    </div>
+  </section>
+
+  <section id="main-actions" class="panel hidden">
+    <h2>2. Wat wil je doen?</h2>
+    <div class="action-grid">
+      <button id="open-quick-select" type="button">Snel selecteren</button>
+      <button id="open-selection-search" class="secondary" type="button">Zoeken vanuit selectie</button>
+    </div>
+    <button id="open-advanced-search" class="ghost small" type="button" style="margin-top:8px;">Geavanceerd zoeken op parameter</button>
+  </section>
+
+  <section id="quick-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Snel selecteren</h2>
+        <p class="subtitle">Kies eerst een nuttige parameter. Daarna zie je alleen de waarden die bij die parameter horen.</p>
+      </div>
+      <button id="close-quick" class="secondary small compact-button" type="button">Sluiten</button>
+    </div>
+
+
+    <div id="altez-category-mode" class="hidden">
+      <div id="altez-category-home">
+        <div class="altez-cat-heading"><h3>Herken automatisch de bouwdelen</h3><span class="badge">IFC</span></div>
+        <p class="altez-cat-help">Kies een bouwdeel. De tool groepeert automatisch op bruikbare IFC-eigenschappen. Aantallen komen uit het geladen model.</p>
+        <div id="altez-category-grid" class="altez-cat-grid"></div>
+        <div id="altez-category-summary" class="altez-cat-status"></div>
+      </div>
+      <div id="altez-category-details" class="hidden">
+        <div class="altez-cat-nav">
+          <button id="altez-category-back" class="secondary small" type="button">← Bouwdelen</button>
+          <strong id="altez-category-title"></strong>
+        </div>
+        <p id="altez-category-description" class="altez-cat-help"></p>
+        <div class="altez-cat-row">
+          <div class="altez-cat-field"><label for="altez-category-primary">Groepeer op</label><select id="altez-category-primary"></select></div>
+          <div class="altez-cat-field"><label for="altez-category-secondary">Daarna op (optioneel)</label><select id="altez-category-secondary"></select></div>
+        </div>
+        <div id="altez-category-suggestions" class="altez-cat-suggestions"></div>
+        <input id="altez-category-filter" type="search" placeholder="Zoek in groepen...">
+        <div id="altez-category-result-summary" class="altez-cat-status"></div>
+        <div id="altez-category-results" class="altez-cat-results"></div>
+        <button id="altez-category-more" class="secondary small hidden" type="button" style="margin-top:8px">Toon meer groepen</button>
+        <div class="altez-cat-actions">
+          <button id="altez-category-select-all" type="button">Selecteer alle in categorie</button>
+          <button id="altez-category-select-checked" class="secondary" type="button" disabled>Selecteer aangevinkt</button>
+        </div>
+        <div id="altez-category-selection-status" class="altez-cat-status"></div>
+      </div>
+      <div class="altez-cat-notice">Deze versie selecteert alleen objecten in Trimble. Er wordt geen geometrie aangepast, verborgen of gekleurd. Onzekere IFC-objecten staan bij Te controleren.</div>
+      <button id="altez-category-legacy" class="ghost small altez-cat-mode-switch" type="button">Alle parameters / klassieke snelle selectie</button>
+    </div>
+    <button id="altez-category-reopen" class="ghost small hidden" type="button" style="margin-bottom:10px">← Bouwdelen met icoontjes</button>
+
+    <div id="quick-path" class="selection-path hidden"></div>
+
+    <div id="quick-parameters">
+      <h3>Kies parameter</h3>
+      <div id="quick-parameter-list" class="quick-choice-list"></div>
+      <button id="show-more-parameters" class="ghost small hidden" type="button" style="margin-top:8px;">Toon 10 meer</button>
+    </div>
+
+    <div id="quick-values" class="hidden">
+      <div class="panel-head">
+        <div>
+          <h3 id="quick-value-title">Kies waarde</h3>
+          <p id="quick-value-subtitle" class="subtitle"></p>
+        </div>
+        <button id="back-to-parameters" class="secondary small compact-button" type="button">← Vorige stap</button>
+      </div>
+      <div id="quick-value-list" class="quick-choice-list"></div>
+    </div>
+
+    <div id="quick-result" class="hidden">
+      <div class="selection-result">
+        <strong id="quick-result-title"></strong>
+        <span id="quick-result-detail"></span>
+        <div class="button-row" style="margin-top:8px;">
+          <button id="quick-select" type="button">Selecteer</button>
+          <button id="quick-refine" class="secondary" type="button">+ Verder verfijnen</button>
+        </div>
+        <button id="quick-edit-last" class="ghost small" type="button" style="margin-top:8px;">← Laatste keuze aanpassen</button>
+      </div>
+    </div>
+
+    <div id="quick-refine-panel" class="hidden" style="margin-top:12px;">
+      <h3>Kies volgende parameter</h3>
+      <p class="subtitle">Je kunt maximaal 3 parameters combineren.</p>
+      <div id="quick-refine-parameters" class="quick-choice-list"></div>
+    </div>
+  </section>
+
+  <section id="selection-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Zoeken vanuit selectie</h2>
+        <p class="subtitle">Selecteer één object. De plugin zoekt automatisch hetzelfde bouwtype.</p>
+      </div>
+      <button id="close-selection" class="secondary small compact-button" type="button">Sluiten</button>
+    </div>
+
+    <div id="selection-status" class="scope-box">
+      <strong>Nog geen object ingelezen</strong>
+      <span>Selecteer precies één object in Trimble Connect.</span>
+    </div>
+
+    <button id="read-selection" type="button">Zoek hetzelfde type</button>
+    <div id="selection-result"></div>
+  </section>
+
+  <section id="manual-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Zoeken op parameter</h2>
+        <p class="subtitle">Handmatig zoeken wanneer de snelle selectie niet volstaat.</p>
+      </div>
+      <button id="close-manual" class="secondary small compact-button" type="button">Sluiten</button>
+    </div>
+
+    <div class="manual-grid">
+      <select id="manual-parameter">
+        <option value="">Kies parameter...</option>
+      </select>
+      <select id="manual-value" disabled>
+        <option value="">Kies eerst parameter...</option>
+      </select>
+    </div>
+
+    <button id="manual-search" type="button" disabled style="margin-top:8px;">Zoek en selecteer</button>
+    <div id="manual-status" class="scope-box hidden"></div>
+  </section>
+
+
+  <section id="datatable-panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Data Table samenstellen</h2>
+        <p class="subtitle">Analyseer de ingevulde originele IFC-properties van je huidige selectie en vink zelf aan welke kolommen naar de Trimble Data Table moeten.</p>
+      </div>
+      <span class="badge">Data Table</span>
+    </div>
+
+    <div id="datatable-selection-info" class="scope-box">
+      <strong>Nog geen selectie</strong>
+      <span>Maak eerst een selectie via Snel selecteren, Zoeken vanuit selectie of Zoeken op parameter.</span>
+    </div>
+
+    <button id="analyze-datatable-columns" type="button">Analyseer beschikbare IFC-kolommen</button>
+
+    <div id="datatable-builder" class="datatable-builder hidden">
+      <div class="datatable-builder-head">
+        <div>
+          <h3>Aanbevolen eigenschappen</h3>
+          <p class="subtitle">Naam, omschrijving, product-/objecttype en specifieke Wall/Roof/Slab/Member Types staan bovenaan. Materiaal, classificatie en bouwlaag volgen daarna.</p>
+        </div>
+      </div>
+      <div id="datatable-property-columns" class="datatable-column-list"></div>
+
+      <div class="datatable-column-group">
+        <h3>Hoeveelheden</h3>
+        <p class="subtitle">Alle ingevulde quantity-achtige IFC-properties: Alleen geometrische maatparameters uit alle propertysets. Engelse namen krijgen prioriteit (Length, Width, Height, Thickness, Perimeter, Area, Volume); Nederlandse varianten worden als fallback ondersteund. Gewicht en dichtheid worden niet getoond.</p>
+        <div id="datatable-quantity-columns" class="datatable-column-list"></div>
+      </div>
+
+      <div class="datatable-column-group">
+        <h3>Trimble geometrie</h3>
+        <p class="subtitle">Alleen CalculatedGeometryValues.Area en CalculatedGeometryValues.Volume van Trimble Connect.</p>
+        <div id="datatable-trimble-geometry-columns" class="datatable-column-list"></div>
+      </div>
+
+      <div class="datatable-column-group">
+        <h3>Overige beschikbare kolommen</h3>
+        <div id="datatable-other-columns" class="datatable-column-list"></div>
+      </div>
+
+      <div class="datatable-actions">
+        <button id="open-datatable" type="button" disabled>Open selectie in Data Table</button>
+        <button id="clear-datatable-columns" class="secondary" type="button">Selectie wissen</button>
+      </div>
+
+      <div id="datatable-status" class="datatable-status"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Data Table exporteren</h2>
+        <p class="subtitle">Exporteert de actuele Trimble Data Table naar Excel, ook wanneer je de tabel volledig buiten deze tool hebt samengesteld.</p>
+      </div>
+      <span class="badge">Excel</span>
+    </div>
+    <button id="export-datatable-excel" class="ghost" type="button" disabled>Exporteer huidige Data Table naar Excel</button>
+    <div id="excel-export-status" class="datatable-status"></div>
+  </section>
+
+  <p class="footer-note">Selecteer wijzigt alleen de Trimble-selectie: geen zoom, geen grijs/transparant maken en geen objecten zichtbaar of verborgen zetten. Open selectie in Data Table isoleert de huidige selectie wel bewust, zodat Selected Objects en Visible Objects dezelfde objectset gebruiken.</p>
+
+  <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script>
+    "use strict";
+
+    let API = null;
+    let projectName = "";
+    let currentModelScope = [];
+    let analyzedElements = [];
+    let parameterResults = [];
+    let excludedParameterCount = 0;
+    let activeTopParameter = null;
+    let refineFilters = [];
+    let modelRefreshTimer = null;
+
+    const PROPERTY_BATCH_SIZE = 150;
+    const PROPERTY_RETRIES = 1;
+    const EMPTY_VALUE = "(Geen waarde)";
+
+    const ui = {
+      connection: document.getElementById("connection-status"),
+      scopeTitle: document.getElementById("scope-title"),
+      scopeDetail: document.getElementById("scope-detail"),
+      refreshModel: document.getElementById("refresh-model"),
+      runAnalysis: document.getElementById("run-analysis"),
+      progress: document.getElementById("progress"),
+      progressText: document.getElementById("progress-text"),
+      progressBar: document.getElementById("progress-bar"),
+
+      miniSummary: document.getElementById("mini-summary"),
+      miniSummaryTitle: document.getElementById("mini-summary-title"),
+      miniSummaryDetail: document.getElementById("mini-summary-detail"),
+      mainActions: document.getElementById("main-actions"),
+
+      openQuickSelect: document.getElementById("open-quick-select"),
+      openSelectionSearch: document.getElementById("open-selection-search"),
+      openAdvancedSearch: document.getElementById("open-advanced-search"),
+
+      quickPanel: document.getElementById("quick-panel"),
+      closeQuick: document.getElementById("close-quick"),
+      quickPath: document.getElementById("quick-path"),
+      quickParameters: document.getElementById("quick-parameters"),
+      quickParameterList: document.getElementById("quick-parameter-list"),
+      showMoreParameters: document.getElementById("show-more-parameters"),
+      quickValues: document.getElementById("quick-values"),
+      quickValueTitle: document.getElementById("quick-value-title"),
+      quickValueSubtitle: document.getElementById("quick-value-subtitle"),
+      quickValueList: document.getElementById("quick-value-list"),
+      backToParameters: document.getElementById("back-to-parameters"),
+      quickResult: document.getElementById("quick-result"),
+      quickResultTitle: document.getElementById("quick-result-title"),
+      quickResultDetail: document.getElementById("quick-result-detail"),
+      quickSelect: document.getElementById("quick-select"),
+      quickRefine: document.getElementById("quick-refine"),
+      quickEditLast: document.getElementById("quick-edit-last"),
+      quickRefinePanel: document.getElementById("quick-refine-panel"),
+      quickRefineParameters: document.getElementById("quick-refine-parameters"),
+
+      selectionPanel: document.getElementById("selection-panel"),
+      closeSelection: document.getElementById("close-selection"),
+      selectionStatus: document.getElementById("selection-status"),
+      readSelection: document.getElementById("read-selection"),
+      selectionResult: document.getElementById("selection-result"),
+
+      manualPanel: document.getElementById("manual-panel"),
+      closeManual: document.getElementById("close-manual"),
+      manualParameter: document.getElementById("manual-parameter"),
+      manualValue: document.getElementById("manual-value"),
+      manualSearch: document.getElementById("manual-search"),
+      manualStatus: document.getElementById("manual-status"),
+      datatablePanel: document.getElementById("datatable-panel"),
+      datatableSelectionInfo: document.getElementById("datatable-selection-info"),
+      analyzeDatatableColumns: document.getElementById("analyze-datatable-columns"),
+      datatableBuilder: document.getElementById("datatable-builder"),
+      datatablePropertyColumns: document.getElementById("datatable-property-columns"),
+      datatableQuantityColumns: document.getElementById("datatable-quantity-columns"),
+      datatableTrimbleGeometryColumns: document.getElementById("datatable-trimble-geometry-columns"),
+      datatableOtherColumns: document.getElementById("datatable-other-columns"),
+      openDatatable: document.getElementById("open-datatable"),
+      exportDatatableExcel: document.getElementById("export-datatable-excel"),
+      excelExportStatus: document.getElementById("excel-export-status"),
+      clearDatatableColumns: document.getElementById("clear-datatable-columns"),
+      datatableStatus: document.getElementById("datatable-status"),
+    };
+
+    function normalizeText(value) {
+      return String(value ?? "").trim().toLocaleLowerCase("nl-BE");
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, Number(value) || 0));
+    }
+
+    function round(value, digits = 0) {
+      const factor = Math.pow(10, digits);
+      return Math.round((Number(value) || 0) * factor) / factor;
+    }
+
+    function formatPercent(value) {
+      return round(value, 0) + "%";
+    }
+
+    function scoreClass(score) {
+      if (score >= 80) return "good";
+      if (score >= 55) return "warn";
+      return "bad";
+    }
+
+    function setProgress(percent, message) {
+      ui.progress.classList.add("visible");
+      ui.progressBar.style.width = clamp(percent, 0, 100) + "%";
+      ui.progressText.textContent = message;
+    }
+
+    function hideProgress() {
+      ui.progress.classList.remove("visible");
+    }
+
+    function getObjects(model) {
+      return Array.isArray(model && model.objects) ? model.objects : [];
+    }
+
+    function getRuntimeId(object) {
+      if (typeof object === "number") return object;
+      return object && (object.id ?? object.runtimeId ?? object.objectRuntimeId ?? null);
+    }
+
+    function normalizeModelObjects(result) {
+      const source = Array.isArray(result)
+        ? result
+        : Array.isArray(result && result.modelObjectIds)
+          ? result.modelObjectIds
+          : [];
+
+      return source.map(function(model) {
+        const rawIds = Array.isArray(model.objectRuntimeIds)
+          ? model.objectRuntimeIds
+          : getObjects(model).map(getRuntimeId);
+
+        return {
+          modelId: model.modelId,
+          objects: rawIds
+            .filter(function(id) { return id !== null && id !== undefined; })
+            .map(function(id) { return { id: id }; })
+        };
+      }).filter(function(model) {
+        return model.modelId && model.objects.length > 0;
+      });
+    }
+
+    function countModelObjects(models) {
+      return models.reduce(function(total, model) {
+        return total + getObjects(model).length;
+      }, 0);
+    }
+
+    function selectorFromDetails(details) {
+      const byModel = new Map();
+
+      details.forEach(function(detail) {
+        if (!detail || !detail.modelId || detail.runtimeId === null || detail.runtimeId === undefined) return;
+        if (!byModel.has(detail.modelId)) byModel.set(detail.modelId, []);
+        byModel.get(detail.modelId).push(detail.runtimeId);
+      });
+
+      return {
+        modelObjectIds: Array.from(byModel.entries()).map(function(entry) {
+          return {
+            modelId: entry[0],
+            objectRuntimeIds: Array.from(new Set(entry[1]))
+          };
+        }).filter(function(item) {
+          return item.objectRuntimeIds.length > 0;
+        })
+      };
+    }
+
+    async function connectToTrimble() {
+      try {
+        API = await TrimbleConnectWorkspace.connect(window.parent, function(event) {
+          const eventName = String(event || "").toLocaleLowerCase("nl-BE");
+          if (eventName.includes("model") || eventName.includes("loaded")) {
+            clearTimeout(modelRefreshTimer);
+            modelRefreshTimer = setTimeout(refreshModelScope, 250);
+          }
+        });
+
+        const project = await API.project.getProject();
+        projectName = project.name || project.id || "onbekend project";
+        ui.connection.textContent = "Verbonden met project: " + projectName;
+        ui.connection.classList.add("good");
+        ui.refreshModel.disabled = false;
+        ui.exportDatatableExcel.disabled = false;
+        await refreshModelScope();
+      } catch (error) {
+        console.error("Trimble Connect-verbinding mislukt:", error);
+        ui.connection.textContent = "Verbinding met Trimble Connect mislukt. Open dit bestand als geregistreerde Workspace-extensie.";
+        ui.connection.classList.add("bad");
+      }
+    }
+
+    async function readLoadedModelObjects() {
+      try {
+        const loadedObjects = await API.viewer.getObjects();
+        return normalizeModelObjects(loadedObjects);
+      } catch (error) {
+        console.warn("Objecten ophalen mislukt:", error);
+        return [];
+      }
+    }
+
+    async function refreshModelScope() {
+      if (!API) return;
+
+      ui.refreshModel.disabled = true;
+      try {
+        currentModelScope = await readLoadedModelObjects();
+        const count = countModelObjects(currentModelScope);
+        const modelCount = currentModelScope.length;
+
+        ui.scopeTitle.textContent = count > 0
+          ? count + " objecten klaar voor analyse"
+          : "Geen geladen modelobjecten gevonden";
+
+        ui.scopeDetail.textContent = count > 0
+          ? "Gevonden in " + modelCount + " geladen model" + (modelCount === 1 ? "" : "len") + "."
+          : "Open of laad eerst het IFC-model.";
+
+        ui.runAnalysis.disabled = count === 0;
+      } finally {
+        ui.refreshModel.disabled = false;
+      }
+    }
+
+    function splitIntoBatches(items, size) {
+      const result = [];
+      for (let index = 0; index < items.length; index += size) {
+        result.push(items.slice(index, index + size));
+      }
+      return result;
+    }
+
+    function wait(ms) {
+      return new Promise(function(resolve) { setTimeout(resolve, ms); });
+    }
+
+    async function getPropertyBatch(modelId, ids, retry = 0) {
+      try {
+        const response = await API.viewer.getObjectProperties(modelId, ids);
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        if (retry < PROPERTY_RETRIES) {
+          await wait(250 * (retry + 1));
+          return getPropertyBatch(modelId, ids, retry + 1);
+        }
+        throw error;
+      }
+    }
+
+    function addValue(target, setName, name, value, source) {
+      const cleanName = String(name || "").trim();
+      if (!cleanName) return;
+
+      const cleanSet = String(setName || "Algemeen").trim();
+      const key = cleanSet + " → " + cleanName;
+      const existing = target.get(key);
+      const textValue = value === null || value === undefined ? "" : String(value).trim();
+
+      if (!existing) {
+        target.set(key, {
+          key: key,
+          setName: cleanSet,
+          name: cleanName,
+          value: textValue,
+          source: source || "IFC-property"
+        });
+      } else if (!existing.value && textValue) {
+        existing.value = textValue;
+      } else if (textValue && existing.value !== textValue) {
+        existing.value += " | " + textValue;
+      }
+    }
+
+    function flattenObjectProperties(objectProperties) {
+      const values = new Map();
+
+      addValue(values, "Objectinformatie", "IFC-klasse", objectProperties.class, "Object");
+
+      if (objectProperties.product) {
+        addValue(values, "Objectinformatie", "Productnaam", objectProperties.product.name, "Object");
+        addValue(values, "Objectinformatie", "Producttype", objectProperties.product.type, "Object");
+      }
+
+      const sets = Array.isArray(objectProperties.properties) ? objectProperties.properties : [];
+
+      sets.forEach(function(propertySet) {
+        const setName = String(
+          propertySet.set ||
+          propertySet.name ||
+          propertySet.displayName ||
+          "Algemeen"
+        ).trim();
+
+        const properties = Array.isArray(propertySet.properties)
+          ? propertySet.properties
+          : [];
+
+        properties.forEach(function(property) {
+          addValue(values, setName, property.name, property.value, "IFC-property");
+        });
+      });
+
+      return values;
+    }
+
+    function detectValueType(value) {
+      const text = String(value ?? "").trim();
+      if (!text) return "leeg";
+      if (/^(true|false|yes|no|ja|nee)$/i.test(text)) return "boolean";
+      if (/^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)\s*(?:mm|cm|m|m2|m²|m3|m³|kg|t|ton|kn|pa|mpa|°|deg|%)?$/i.test(text.replace(/\s+/g, ""))) return "getal";
+      if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(text)) return "datum";
+      return "tekst";
+    }
+
+    function isSuspiciousValue(value) {
+      const normalized = normalizeText(value).replace(/[.\s_-]+/g, "");
+      return !normalized || [
+        "n/a", "na", "none", "null", "undefined",
+        "onbekend", "unknown", "tbd", "-", "0"
+      ].includes(normalized);
+    }
+
+    function isBlockedParameter(setName, name) {
+      const setText = normalizeText(setName);
+      const nameText = normalizeText(name);
+      const full = setText + " " + nameText;
+
+      const blockedSetPatterns = [
+        /calculatedgeometryvalues/,
+        /calculated geometry values/,
+        /basequantities/,
+        /base quantities/,
+        /^qto_/,
+        /geometry/,
+        /geometrie/,
+        /trimble/,
+        /connect/,
+        /importplugin/,
+        /import plugin/,
+        /importer/,
+        /viewer metadata/,
+        /viewerdata/,
+        /conversion/,
+        /converted/,
+        /mapping metadata/,
+        /plugin metadata/
+      ];
+
+      const blockedNamePatterns = [
+        /guid/,
+        /globalid/,
+        /uuid/,
+        /runtime/,
+        /entity id/,
+        /object id/,
+        /model id/,
+        /source id/,
+        /created/,
+        /modified/,
+        /timestamp/,
+        /ownerhistory/,
+        /bounding/,
+        /coordinate/,
+        /placement/,
+        /position/,
+        /geometry/,
+        /geometrie/,
+        /mesh/,
+        /vertex/,
+        /face/,
+        /normal/,
+        /length/,
+        /lengte/,
+        /width/,
+        /breedte/,
+        /height/,
+        /hoogte/,
+        /thickness/,
+        /dikte/,
+        /area/,
+        /oppervlak/,
+        /surface/,
+        /volume/,
+        /inhoud/,
+        /perimeter/,
+        /omtrek/,
+        /weight/,
+        /gewicht/,
+        /mass/,
+        /massa/,
+        /quantity/,
+        /quantities/,
+        /count quantity/,
+        /gross area/,
+        /net area/,
+        /gross volume/,
+        /net volume/
+      ];
+
+      if (blockedSetPatterns.some(function(pattern) { return pattern.test(setText); })) return true;
+      if (blockedNamePatterns.some(function(pattern) { return pattern.test(nameText); })) return true;
+
+      // Extra harde blokkade voor combinaties die typisch technisch/importmatig zijn.
+      if (/import/.test(full) && /(id|source|file|model|plugin|version|path)/.test(full)) return true;
+
+      return false;
+    }
+
+    function parameterRole(setName, name) {
+      const text = normalizeText(setName + " " + name);
+
+      if (/(material|materiaal)/.test(text)) return "Materiaal";
+      if (/(producttype|product type|objecttype|object type|walltype|roof type|rooftype|slabtype|floor type|membertype|beamtype|columntype|type|reference|referentie|classification|classificatie|construction|family)/.test(text)) return "Type / classificatie";
+      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly|status)/.test(text)) return "Context";
+      if (/(description|omschrijving|comment|opmerking|note|tekst)/.test(text)) return "Informatie";
+
+      return "Algemeen";
+    }
+
+    function calculateGroupability(uniqueCount, filledCount, role) {
+      if (filledCount <= 1 || uniqueCount <= 1) return 15;
+
+      const ratio = uniqueCount / filledCount;
+      let score;
+
+      if (uniqueCount <= 12 && ratio <= 0.45) score = 100;
+      else if (uniqueCount <= 30 && ratio <= 0.65) score = 86;
+      else if (uniqueCount <= 60 && ratio <= 0.78) score = 70;
+      else if (ratio <= 0.88) score = 52;
+      else score = 18;
+
+      if (role === "Materiaal") score += 10;
+      if (role === "Type / classificatie") score += 10;
+      if (role === "Context") score += 5;
+
+      return clamp(score, 0, 100);
+    }
+
+    function usefulnessScore(parameter) {
+      const text = normalizeText(parameter.key);
+      let score =
+        parameter.reliability * 0.42 +
+        parameter.groupability * 0.38 +
+        parameter.coverage * 0.10;
+
+      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text)) score += 30;
+      if (/(producttype|product type|objecttype|object type)/.test(text)) score += 27;
+      if (/(walltype|roof type|rooftype|slabtype|floor type|membertype|beamtype|columntype)/.test(text)) score += 26;
+      if (/(reference|referentie|classification|classificatie|construction|family|type)/.test(text)) score += 19;
+      if (/(storey|verdieping|level|zone|phase|fase|system|systeem|assembly|status)/.test(text)) score += 11;
+      if (/pset_/.test(text)) score += 6;
+
+      if (parameter.unique <= 1) score -= 80;
+      if (parameter.filled > 3 && parameter.unique / parameter.filled > 0.85) score -= 45;
+
+      // Materialen blijven relevant ook wanneer ze niet op elk object voorkomen.
+      if (/(ifcmaterial|ifc material|material|materiaal)/.test(text) && parameter.coverage >= 15) score += 12;
+      else if (parameter.coverage < 25) score -= 20;
+
+      return clamp(score, 0, 100);
+    }
+
+    function buildParameterAnalysis(elements) {
+      const total = elements.length;
+      const catalog = new Map();
+      const excludedKeys = new Set();
+
+      elements.forEach(function(element) {
+        element.values.forEach(function(item, key) {
+          if (isBlockedParameter(item.setName, item.name)) {
+            excludedKeys.add(key);
+            return;
+          }
+
+          if (!catalog.has(key)) {
+            catalog.set(key, {
+              key: key,
+              setName: item.setName,
+              name: item.name,
+              source: item.source,
+              valuesByElement: new Map(),
+              typeCounts: new Map(),
+              filled: 0,
+              suspicious: 0
+            });
+          }
+
+          const parameter = catalog.get(key);
+          const value = String(item.value ?? "").trim();
+
+          parameter.valuesByElement.set(element.uid, value);
+
+          if (value) {
+            parameter.filled += 1;
+            const type = detectValueType(value);
+            parameter.typeCounts.set(type, (parameter.typeCounts.get(type) || 0) + 1);
+            if (isSuspiciousValue(value)) parameter.suspicious += 1;
+          }
+        });
+      });
+
+      excludedParameterCount = excludedKeys.size;
+
+      return Array.from(catalog.values()).map(function(parameter) {
+        const valueCounts = new Map();
+
+        parameter.valuesByElement.forEach(function(value) {
+          const clean = String(value || "").trim();
+          if (clean) valueCounts.set(clean, (valueCounts.get(clean) || 0) + 1);
+        });
+
+        const unique = valueCounts.size;
+        const coverage = total ? parameter.filled / total * 100 : 0;
+        const dominantTypeCount = Math.max(0, ...Array.from(parameter.typeCounts.values()));
+        const consistency = parameter.filled ? dominantTypeCount / parameter.filled * 100 : 0;
+        const validity = parameter.filled ? (parameter.filled - parameter.suspicious) / parameter.filled * 100 : 0;
+        const role = parameterRole(parameter.setName, parameter.name);
+        const groupability = calculateGroupability(unique, parameter.filled, role);
+        const reliability = clamp(
+          coverage * 0.50 +
+          consistency * 0.20 +
+          validity * 0.18 +
+          groupability * 0.12,
+          0,
+          100
+        );
+
+        const result = Object.assign(parameter, {
+          total: total,
+          missing: total - parameter.filled,
+          unique: unique,
+          coverage: coverage,
+          consistency: consistency,
+          validity: validity,
+          role: role,
+          groupability: groupability,
+          reliability: reliability
+        });
+
+        result.usefulness = usefulnessScore(result);
+        return result;
+      }).filter(function(parameter) {
+        return parameter.filled > 1 && parameter.unique > 1;
+      }).sort(function(a, b) {
+        return b.usefulness - a.usefulness
+          || b.reliability - a.reliability
+          || a.key.localeCompare(b.key, "nl");
+      });
+    }
+
+    async function runAnalysis() {
+      const modelSnapshot = await readLoadedModelObjects();
+      const requestedCount = countModelObjects(modelSnapshot);
+
+      if (!requestedCount) {
+        await refreshModelScope();
+        return;
+      }
+
+      ui.runAnalysis.disabled = true;
+      ui.refreshModel.disabled = true;
+
+      analyzedElements = [];
+      parameterResults = [];
+      excludedParameterCount = 0;
+      activeTopParameter = null;
+      refineFilters = [];
+
+
+      const totalBatches = modelSnapshot.reduce(function(total, model) {
+        return total + Math.ceil(getObjects(model).length / PROPERTY_BATCH_SIZE);
+      }, 0);
+
+      let completedBatches = 0;
+      let failedBatches = 0;
+
+      try {
+        setProgress(2, requestedCount + " objecten vastleggen...");
+
+        for (let modelIndex = 0; modelIndex < modelSnapshot.length; modelIndex++) {
+          const model = modelSnapshot[modelIndex];
+          const ids = getObjects(model)
+            .map(getRuntimeId)
+            .filter(function(id) { return id !== null && id !== undefined; });
+
+          const batches = splitIntoBatches(ids, PROPERTY_BATCH_SIZE);
+
+          for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            setProgress(
+              5 + completedBatches / Math.max(1, totalBatches) * 82,
+              "Properties inlezen – model " + (modelIndex + 1) + "/" + modelSnapshot.length +
+              ", blok " + (batchIndex + 1) + "/" + batches.length
+            );
+
+            try {
+              const properties = await getPropertyBatch(model.modelId, batches[batchIndex]);
+
+              properties.forEach(function(objectProperties) {
+                const runtimeId =
+                  objectProperties.id ??
+                  objectProperties.runtimeId ??
+                  objectProperties.objectRuntimeId;
+
+                if (runtimeId === null || runtimeId === undefined) return;
+
+                analyzedElements.push({
+                  uid: String(model.modelId) + "|" + String(runtimeId),
+                  modelId: model.modelId,
+                  runtimeId: runtimeId,
+                  values: flattenObjectProperties(objectProperties)
+                });
+              });
+            } catch (error) {
+              failedBatches += 1;
+              console.warn("Propertyblok overgeslagen:", error);
+            }
+
+            completedBatches += 1;
+          }
+        }
+
+        setProgress(92, "Niet-geometrische parameters beoordelen...");
+        parameterResults = buildParameterAnalysis(analyzedElements);
+        altezRefreshCategories();
+        setProgress(100, "Analyse gereed.");
+
+        renderAnalysis(requestedCount, failedBatches);
+      } catch (error) {
+        console.error("Analyse mislukt:", error);
+        ui.connection.textContent = "Analyse mislukt: " + (error.message || "onbekende fout");
+        ui.connection.className = "connection bad";
+      } finally {
+        setTimeout(hideProgress, 450);
+        ui.runAnalysis.disabled = false;
+        ui.refreshModel.disabled = false;
+      }
+    }
+
+    function topUsefulParameters(limit) {
+      const source = parameterResults.slice();
+      return typeof limit === "number" ? source.slice(0, limit) : source;
+    }
+
+    let quickFilters = [];
+    let quickPendingParameter = null;
+    let quickCurrentMatches = [];
+    let visibleQuickParameterCount = 10;
+    let currentResultDetails = [];
+    let selectedSearchSeedElement = null;
+    let dataTableColumns = [];
+    let selectedDataTableFields = new Set();
+    let activeDataTableExportColumns = [];
+
+    function closeAllActionPanels() {
+      ui.quickPanel.classList.add("hidden");
+    }
+
+    function renderAnalysis(requestedCount, failedBatches) {
+      const top = topUsefulParameters(10);
+
+      ui.miniSummaryTitle.textContent =
+        analyzedElements.length + " elementen · " +
+        parameterResults.length + " bruikbare parameters";
+
+      ui.miniSummaryDetail.textContent =
+        top.length + " nuttige parameters klaar voor snelle selectie" +
+        (failedBatches ? " · " + failedBatches + " blok(ken) mislukt" : "") + ".";
+
+      ui.miniSummary.classList.remove("hidden");
+      ui.mainActions.classList.remove("hidden");
+
+      closeAllActionPanels();
+      renderQuickParameterChoices();
+      populateManualParameters();
+
+      ui.selectionResult.innerHTML = "";
+      ui.selectionStatus.innerHTML =
+        "<strong>Nog geen object ingelezen</strong>" +
+        "<span>Selecteer precies één object in Trimble Connect.</span>";
+    }
+
+    function quickParameterPool() {
+      return topUsefulParameters().slice(0, visibleQuickParameterCount);
+    }
+
+    function renderQuickParameterChoices() {
+      ui.quickParameterList.innerHTML = "";
+
+      const parameters = quickParameterPool();
+
+      if (!parameters.length) {
+        ui.quickParameterList.innerHTML = '<div class="empty">Geen bruikbare parameters gevonden.</div>';
+        ui.showMoreParameters.classList.add("hidden");
+        return;
+      }
+
+      parameters.forEach(function(parameter, index) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-choice";
+
+        const strong = document.createElement("strong");
+        strong.textContent = (index + 1) + ". " + parameter.key;
+
+        const meta = document.createElement("span");
+        meta.textContent =
+          "score " + round(parameter.usefulness, 0) +
+          " · " + parameter.unique + " waarden" +
+          " · " + formatPercent(parameter.coverage) + " gevuld";
+
+        button.appendChild(strong);
+        button.appendChild(meta);
+
+        button.addEventListener("click", function() {
+          try {
+            quickPendingParameter = parameter;
+            renderQuickValues(parameter);
+          } catch (error) {
+            console.error("Waarden openen mislukt:", error);
+            ui.quickParameterList.insertAdjacentHTML(
+              "afterbegin",
+              '<div class="empty">Waarden konden niet worden geopend. Herlaad de extensie met deze nieuwe versie.</div>'
+            );
+          }
+        });
+
+        ui.quickParameterList.appendChild(button);
+      });
+
+      const total = topUsefulParameters().length;
+      if (visibleQuickParameterCount < total) {
+        ui.showMoreParameters.classList.remove("hidden");
+        ui.showMoreParameters.textContent =
+          "Toon 10 meer (" + Math.min(visibleQuickParameterCount + 10, total) + "/" + total + ")";
+      } else {
+        ui.showMoreParameters.classList.add("hidden");
+      }
+    }
+
+    function valueCountsForParameter(parameter, scopeElements) {
+      const counts = new Map();
+
+      (scopeElements || []).forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+
+        if (!value || isSuspiciousValue(value)) return;
+
+        if (!counts.has(value)) counts.set(value, []);
+        counts.get(value).push(element);
+      });
+
+      return Array.from(counts.entries()).map(function(entry) {
+        return { value: entry[0], elements: entry[1] };
+      }).sort(function(a, b) {
+        return b.elements.length - a.elements.length ||
+          a.value.localeCompare(b.value, "nl", { numeric: true });
+      });
+    }
+
+    function currentQuickScope() {
+      if (!quickFilters.length) return analyzedElements;
+
+      return analyzedElements.filter(function(element) {
+        return quickFilters.every(function(filter) {
+          const item = element.values.get(filter.key);
+          return item && normalizeText(item.value) === normalizeText(filter.value);
+        });
+      });
+    }
+
+    function renderQuickValues(parameter) {
+      const scope = currentQuickScope();
+      const values = valueCountsForParameter(parameter, scope);
+
+      ui.quickParameters.classList.add("hidden");
+      ui.quickValues.classList.remove("hidden");
+      ui.quickResult.classList.add("hidden");
+      ui.quickRefinePanel.classList.add("hidden");
+
+      ui.quickValueTitle.textContent = parameter.key;
+      ui.quickValueSubtitle.textContent =
+        values.length + " waarden binnen " + scope.length + " elementen";
+
+      ui.quickValueList.innerHTML = "";
+
+      values.forEach(function(entry) {
+        const row = document.createElement("div");
+        row.className = "quick-choice-row";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-choice";
+
+        const strong = document.createElement("strong");
+        strong.textContent = entry.value;
+
+        const meta = document.createElement("span");
+        meta.textContent = entry.elements.length + " elementen";
+
+        button.appendChild(strong);
+        button.appendChild(meta);
+
+        button.addEventListener("click", function() {
+          quickFilters.push({
+            key: parameter.key,
+            value: entry.value
+          });
+
+          quickCurrentMatches = currentQuickScope();
+          renderQuickResult();
+        });
+
+        const selectButton = document.createElement("button");
+        selectButton.type = "button";
+        selectButton.className = "secondary small";
+        selectButton.textContent = "Selecteer";
+        selectButton.addEventListener("click", async function(event) {
+          event.stopPropagation();
+          await selectOnly(entry.elements);
+          rememberCurrentResult(
+            entry.elements,
+            parameter.key + " = " + entry.value
+          );
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "quick-choice-actions";
+        actions.appendChild(selectButton);
+
+        row.appendChild(button);
+        row.appendChild(actions);
+
+        ui.quickValueList.appendChild(row);
+      });
+    }
+
+    function renderQuickPath() {
+      if (!quickFilters.length) {
+        ui.quickPath.classList.add("hidden");
+        return;
+      }
+
+      ui.quickPath.textContent =
+        quickFilters.map(function(filter) {
+          return filter.value;
+        }).join(" → ") +
+        " · " + quickCurrentMatches.length + " elementen";
+
+      ui.quickPath.classList.remove("hidden");
+    }
+
+    function renderQuickResult() {
+      renderQuickPath();
+
+      ui.quickValues.classList.add("hidden");
+      ui.quickParameters.classList.add("hidden");
+      ui.quickRefinePanel.classList.add("hidden");
+      ui.quickResult.classList.remove("hidden");
+
+      const last = quickFilters[quickFilters.length - 1];
+
+      ui.quickResultTitle.textContent =
+        quickCurrentMatches.length + " elementen gevonden";
+
+      ui.quickResultDetail.textContent =
+        quickFilters.map(function(filter) {
+          return filter.key + " = " + filter.value;
+        }).join(" · ");
+
+      rememberCurrentResult(
+        quickCurrentMatches,
+        quickFilters.map(function(filter) {
+          return filter.key + " = " + filter.value;
+        }).join(" · ")
+      );
+
+      ui.quickRefine.disabled = quickFilters.length >= 3;
+    }
+
+    function renderRefineParameterChoices() {
+      ui.quickRefineParameters.innerHTML = "";
+
+      const usedKeys = new Set(quickFilters.map(function(filter) {
+        return filter.key;
+      }));
+
+      const candidates = parameterResults
+        .filter(function(parameter) {
+          return !usedKeys.has(parameter.key);
+        })
+        .slice(0, 5);
+
+      candidates.forEach(function(parameter) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quick-choice";
+
+        const strong = document.createElement("strong");
+        strong.textContent = parameter.key;
+
+        const meta = document.createElement("span");
+        meta.textContent =
+          "score " + round(parameter.usefulness, 0) +
+          " · " + parameter.unique + " waarden";
+
+        button.appendChild(strong);
+        button.appendChild(meta);
+
+        button.addEventListener("click", function() {
+          quickPendingParameter = parameter;
+          renderQuickValues(parameter);
+        });
+
+        ui.quickRefineParameters.appendChild(button);
+      });
+    }
+
+    function reopenLastQuickStep() {
+      if (!quickFilters.length) {
+        resetQuickFlow();
+        return;
+      }
+
+      const last = quickFilters.pop();
+      quickCurrentMatches = currentQuickScope();
+
+      const parameter = parameterResults.find(function(item) {
+        return item.key === last.key;
+      });
+
+      renderQuickPath();
+
+      if (parameter) {
+        quickPendingParameter = parameter;
+        renderQuickValues(parameter);
+      } else {
+        resetQuickFlow();
+      }
+    }
+
+    function goBackOneQuickStep() {
+      // If the user is choosing values, go back to the parameter choice
+      // for the current level without throwing away earlier filters.
+      if (!ui.quickValues.classList.contains("hidden")) {
+        ui.quickValues.classList.add("hidden");
+
+        if (quickFilters.length) {
+          ui.quickParameters.classList.add("hidden");
+          ui.quickRefinePanel.classList.remove("hidden");
+          renderRefineParameterChoices();
+        } else {
+          ui.quickParameters.classList.remove("hidden");
+          ui.quickRefinePanel.classList.add("hidden");
+        }
+        return;
+      }
+
+      // If a result is shown, remove only the last filter and reopen that step.
+      if (!ui.quickResult.classList.contains("hidden")) {
+        reopenLastQuickStep();
+        return;
+      }
+
+      // If refine parameter choice is shown, go back to the current result.
+      if (!ui.quickRefinePanel.classList.contains("hidden")) {
+        ui.quickRefinePanel.classList.add("hidden");
+        ui.quickResult.classList.remove("hidden");
+        return;
+      }
+
+      resetQuickFlow();
+    }
+
+    function resetQuickFlow() {
+      quickFilters = [];
+      quickPendingParameter = null;
+      quickCurrentMatches = [];
+      visibleQuickParameterCount = 10;
+
+      ui.quickPath.classList.add("hidden");
+      ui.quickParameters.classList.remove("hidden");
+      ui.quickValues.classList.add("hidden");
+      ui.quickResult.classList.add("hidden");
+      ui.quickRefinePanel.classList.add("hidden");
+
+      renderQuickParameterChoices();
+    }
+
+    function rememberCurrentResult(details, label) {
+      currentResultDetails = Array.isArray(details) ? details.slice() : [];
+
+      if (!currentResultDetails.length) {
+        ui.datatablePanel.classList.add("hidden");
+        return;
+      }
+
+      ui.datatablePanel.classList.remove("hidden");
+      ui.datatableSelectionInfo.innerHTML =
+        "<strong>" + currentResultDetails.length + " geselecteerde object" +
+        (currentResultDetails.length === 1 ? "" : "en") + "</strong>" +
+        "<span>" + (label || "Selectie klaar voor Data Table.") + "</span>";
+
+      ui.datatableBuilder.classList.add("hidden");
+      ui.datatableStatus.textContent = "";
+      selectedDataTableFields = new Set();
+      activeDataTableExportColumns = [];
+      ui.openDatatable.disabled = true;
+    }
+
+    function normalizeColumnText(column) {
+      return normalizeText(
+        (column && column.label ? column.label : "") + " " +
+        (column && column.field ? column.field : "")
+      );
+    }
+
+    function isDataTableQuantityColumn(column) {
+      const full = normalizeColumnText(column);
+      const propertyName = normalizeText(
+        column && column.name
+          ? column.name
+          : String(column && column.field ? column.field : "").split(".").pop()
+      ).replace(/[\s_-]+/g, "");
+
+      // Prioriteit: Engelse propertynamen.
+      // Nederlandse varianten worden als extra fallback ondersteund.
+      const allowedNames = [
+        // English
+        "length", "totallength", "netlength", "grosslength",
+        "width", "height", "thickness", "depth",
+        "perimeter", "circumference",
+        "area", "netarea", "grossarea", "sidearea", "netsidearea", "grosssidearea",
+        "surfacearea", "footprintarea", "grossfootprintarea", "netfootprintarea",
+        "volume", "netvolume", "grossvolume",
+
+        // Dutch fallback
+        "lengte", "totalelengte", "nettolengte", "brutolengte",
+        "breedte", "hoogte", "dikte", "diepte",
+        "omtrek",
+        "oppervlakte", "nettooppervlakte", "brutooppervlakte",
+        "zijoppervlakte", "nettozijoppervlakte", "brutozijoppervlakte",
+        "voetafdrukoppervlakte",
+        "inhoud", "nettoinhoud", "brutoinhoud"
+      ];
+
+      if (allowedNames.includes(propertyName)) return true;
+
+      // Expliciete IFC Quantity sets mogen ook mee, maar alleen als de
+      // propertynaam zelf op een geometrische maat wijst.
+      if (/qto_|basequantit|ifcelementquantity/.test(full)) {
+        return /(length|width|height|thickness|depth|perimeter|area|surface|footprint|volume|lengte|breedte|hoogte|dikte|diepte|omtrek|oppervlakte|inhoud)/.test(propertyName);
+      }
+
+      return false;
+    }
+
+    function isTrimbleCalculatedGeometryColumn(column) {
+      const text = normalizeColumnText(column);
+
+      if (!/calculatedgeometryvalues|calculated geometry values/.test(text)) {
+        return false;
+      }
+
+      const propertyName = normalizeText(
+        column && column.name
+          ? column.name
+          : String(column && column.field ? column.field : "").split(".").pop()
+      ).replace(/[\s_-]+/g, "");
+
+      // Onder Trimble geometrie alleen de twee bruikbare basiswaarden tonen.
+      return propertyName === "area" || propertyName === "volume";
+    }
+
+    function dataTableQuantityPriority(column) {
+      const text = normalizeColumnText(column);
+
+      if (/qto_|basequantit/.test(text)) return 1;
+      if (/ifcelementquantity/.test(text)) return 2;
+      if (/calculatedgeometryvalues|calculated geometry values/.test(text)) return 4;
+      return 3;
+    }
+
+    function dataTablePropertyReason(column) {
+      const text = normalizeColumnText(column);
+
+      if (/(product name|productnaam|\bname\b)/.test(text)) return "Naam / productidentiteit";
+      if (/(product description|description|omschrijving)/.test(text)) return "Omschrijving";
+      if (/(producttype|product type|objecttype|object type)/.test(text)) return "Type";
+      if (/(walltype|wall type|rooftype|roof type|slabtype|slab type|floor type|floortype|membertype|member type|beamtype|beam type|columntype|column type|doortype|door type|windowtype|window type)/.test(text)) return "Specifiek IFC-type";
+      if (/(reference|referentie)/.test(text)) return "Referentie";
+      if (/(material|materiaal)/.test(text)) return "Materiaal";
+      if (/(classification|classificatie)/.test(text)) return "Classificatie";
+      if (/(storey|verdieping|level|bouwlaag)/.test(text)) return "Bouwlaag";
+      if (/(system|systeem|assembly|phase|fase|status|zone)/.test(text)) return "Context";
+      if (/pset_/.test(text)) return "IFC/Pset eigenschap";
+
+      return "Overige bruikbare eigenschap";
+    }
+
+    function dataTablePropertyScore(column) {
+      const text = normalizeColumnText(column);
+      let score = 0;
+
+      if (/(product name|productnaam)/.test(text)) score += 160;
+      if (/(product description|description|omschrijving)/.test(text)) score += 150;
+      if (/(^|[.\s])name($|[.\s])/.test(text)) score += 140;
+
+      if (/(producttype|product type|objecttype|object type)/.test(text)) score += 145;
+      if (/(walltype|wall type|rooftype|roof type|slabtype|slab type|floor type|floortype|membertype|member type|beamtype|beam type|columntype|column type|doortype|door type|windowtype|window type)/.test(text)) score += 150;
+      if (/(reference|referentie)/.test(text)) score += 125;
+
+      if (/(material|materiaal)/.test(text)) score += 120;
+      if (/(classification|classificatie)/.test(text)) score += 105;
+      if (/(storey|verdieping|level|bouwlaag)/.test(text)) score += 90;
+      if (/(system|systeem|assembly|phase|fase|status|zone)/.test(text)) score += 65;
+      if (/pset_/.test(text)) score += 20;
+
+      if (/(typetag|type tag|\btag\b|mark|type mark|typemark)/.test(text)) score -= 170;
+      if (/(guid|globalid|uuid|runtime|entity id|object id|model id|source id)/.test(text)) score -= 250;
+      if (/(coordinate|placement|bounding|geometry|geometrie|mesh|vertex|normal)/.test(text)) score -= 220;
+      if (isDataTableQuantityColumn(column)) score -= 250;
+
+      return score;
+    }
+
+    function normalizedPropertyCandidates(element) {
+      const candidates = new Set();
+
+      if (!element || !element.values) return candidates;
+
+      element.values.forEach(function(item) {
+        const setName = String(item.setName || "").trim();
+        const name = String(item.name || "").trim();
+        const value = String(item.value ?? "").trim();
+
+        if (!setName || !name || !value) return;
+
+        [
+          setName + "." + name,
+          setName + " → " + name,
+          setName + ":" + name,
+          name
+        ].forEach(function(candidate) {
+          const normalized = normalizeText(candidate)
+            .replace(/\s*→\s*/g, ".")
+            .replace(/\s*:\s*/g, ".")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          if (normalized) candidates.add(normalized);
+        });
+      });
+
+      return candidates;
+    }
+
+    function columnHasValueInCurrentSelection(column) {
+      if (!column || !column.field || !currentResultDetails.length) return false;
+
+      const field = normalizeText(column.field)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const label = normalizeText(column.label || "")
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return currentResultDetails.some(function(element) {
+        const candidates = normalizedPropertyCandidates(element);
+
+        if (candidates.has(field)) return true;
+        if (label && candidates.has(label)) return true;
+
+        return Array.from(candidates).some(function(candidate) {
+          return field.endsWith("." + candidate)
+            || candidate.endsWith("." + field)
+            || (label && (
+              label.endsWith("." + candidate)
+              || candidate.endsWith("." + label)
+            ));
+        });
+      });
+    }
+
+    function classifyDataTableColumns(columns) {
+      const unique = new Map();
+
+      (columns || []).forEach(function(column) {
+        if (!column || !column.field) return;
+        if (isBlockedDataTableColumn(column)) return;
+        if (!columnHasValueInCurrentSelection(column)) return;
+
+        if (!unique.has(column.field)) unique.set(column.field, column);
+      });
+
+      const all = Array.from(unique.values());
+
+      const trimbleGeometry = all
+        .filter(isTrimbleCalculatedGeometryColumn)
+        .sort(function(a, b) {
+          return normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      const trimbleFields = new Set(trimbleGeometry.map(function(c) { return c.field; }));
+
+      const quantities = all
+        .filter(function(column) {
+          return !trimbleFields.has(column.field) && isDataTableQuantityColumn(column);
+        })
+        .sort(function(a, b) {
+          return dataTableQuantityPriority(a) - dataTableQuantityPriority(b)
+            || normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      const quantityFields = new Set(quantities.map(function(c) { return c.field; }));
+
+      const properties = all
+        .filter(function(column) {
+          return !trimbleFields.has(column.field)
+            && !quantityFields.has(column.field)
+            && dataTablePropertyScore(column) > 0;
+        })
+        .sort(function(a, b) {
+          return dataTablePropertyScore(b) - dataTablePropertyScore(a)
+            || normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      const propertyFields = new Set(properties.map(function(c) { return c.field; }));
+
+      const others = all
+        .filter(function(column) {
+          return !trimbleFields.has(column.field)
+            && !quantityFields.has(column.field)
+            && !propertyFields.has(column.field);
+        })
+        .sort(function(a, b) {
+          return normalizeColumnText(a).localeCompare(normalizeColumnText(b), "nl");
+        });
+
+      return {
+        properties: properties,
+        quantities: quantities,
+        trimbleGeometry: trimbleGeometry,
+        others: others
+      };
+    }
+
+    function renderDataTableColumnRows(container, columns) {
+      container.innerHTML = "";
+
+      if (!columns.length) {
+        container.innerHTML = '<div class="empty">Geen kolommen gevonden in deze categorie.</div>';
+        return;
+      }
+
+      columns.forEach(function(column) {
+        const label = document.createElement("label");
+        label.className = "datatable-column-row";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedDataTableFields.has(column.field);
+
+        checkbox.addEventListener("change", function() {
+          if (checkbox.checked) selectedDataTableFields.add(column.field);
+          else selectedDataTableFields.delete(column.field);
+
+          ui.openDatatable.disabled = selectedDataTableFields.size === 0;
+          activeDataTableExportColumns = [];
+          ui.datatableStatus.textContent =
+            selectedDataTableFields.size + " kolom" +
+            (selectedDataTableFields.size === 1 ? "" : "men") +
+            " geselecteerd. Open de Data Table opnieuw om deze kolommen te activeren.";
+        });
+
+        const content = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "datatable-column-label";
+        title.textContent = column.label || column.field;
+
+        const meta = document.createElement("span");
+        meta.className = "datatable-column-meta";
+        meta.textContent =
+          dataTablePropertyReason(column) +
+          " · Data Table field: " + column.field +
+          (typeof column.filled === "number"
+            ? " · " + column.filled + "/" + currentResultDetails.length + " gevuld"
+            : "");
+
+        content.appendChild(title);
+        content.appendChild(meta);
+
+        label.appendChild(checkbox);
+        label.appendChild(content);
+        container.appendChild(label);
+      });
+    }
+
+    function isBlockedDataTableColumn(column) {
+      if (!column) return true;
+
+      const setName = String(column.setName || "").trim();
+      const name = String(column.name || "").trim();
+      const field = normalizeText(column.field || "");
+      const label = normalizeText(column.label || "");
+      const combined = field + " " + label;
+
+      // Alleen echte systeem-/importvelden blokkeren.
+      // Geometry/quantity-achtige properties worden hier bewust NIET geblokkeerd,
+      // zodat Area/Volume/Length enz. altijd beschikbaar kunnen zijn in de Data Table-kiezer.
+      const blockedPatterns = [
+        /none\.discrimination/,
+        /\bdiscrimination\b/,
+        /^none\./,
+        /\bnone\./,
+        /globalid/,
+        /\bguid\b/,
+        /\buuid\b/,
+        /runtime/,
+        /entity id/,
+        /object id/,
+        /model id/,
+        /source id/,
+        /ownerhistory/,
+        /created/,
+        /modified/,
+        /timestamp/,
+        /coordinate/,
+        /placement/,
+        /bounding/,
+        /vertex/,
+        /mesh/,
+        /normal/,
+        /importplugin/,
+        /import plugin/,
+        /importer/,
+        /viewer metadata/,
+        /conversion metadata/
+      ];
+
+      return blockedPatterns.some(function(pattern) {
+        return pattern.test(combined);
+      });
+    }
+
+    function collectDataTableColumnsFromSelection() {
+      const catalog = new Map();
+
+      currentResultDetails.forEach(function(element) {
+        if (!element || !element.values) return;
+
+        element.values.forEach(function(item) {
+          const setName = String(item.setName || "").trim();
+          const name = String(item.name || "").trim();
+          const value = String(item.value ?? "").trim();
+
+          // Alleen echte model-/IFC-properties gebruiken.
+          // Objectinformatie is door de extensie zelf samengesteld en heeft
+          // niet noodzakelijk een 1-op-1 Data Table field.
+          if (!setName || !name || !value) return;
+          if (item.source !== "IFC-property") return;
+
+          // Exacte originele propertynamen gebruiken.
+          // Trimble property filters gebruiken hetzelfde formaat Set.Property.
+          const field = setName + "." + name;
+
+          if (!catalog.has(field)) {
+            catalog.set(field, {
+              field: field,
+              label: setName + " → " + name,
+              setName: setName,
+              name: name,
+              filled: 0
+            });
+          }
+
+          catalog.get(field).filled += 1;
+        });
+      });
+
+      return Array.from(catalog.values()).filter(function(column) {
+        return column.filled > 0 && !isBlockedDataTableColumn(column);
+      });
+    }
+
+    async function analyzeDataTableColumns() {
+      if (!currentResultDetails.length) {
+        ui.datatableStatus.textContent = "Maak eerst een selectie.";
+        return;
+      }
+
+      ui.analyzeDatatableColumns.disabled = true;
+      ui.datatableStatus.textContent = "Ingevulde IFC-properties van de selectie analyseren...";
+
+      try {
+        // Geen getAllColumns() meer en de Data Table wordt hier NIET geopend.
+        // We bouwen de keuzelijst rechtstreeks uit de originele properties
+        // die al tijdens de modelanalyse zijn ingelezen.
+        dataTableColumns = collectDataTableColumnsFromSelection();
+
+        if (!dataTableColumns.length) {
+          ui.datatableBuilder.classList.remove("hidden");
+          ui.datatablePropertyColumns.innerHTML =
+            '<div class="empty">Geen ingevulde IFC-properties gevonden voor deze selectie.</div>';
+          ui.datatableQuantityColumns.innerHTML =
+            '<div class="empty">Geen ingevulde IFC-properties gevonden voor deze selectie.</div>';
+          ui.datatableOtherColumns.innerHTML =
+            '<div class="empty">Geen ingevulde IFC-properties gevonden voor deze selectie.</div>';
+          ui.datatableStatus.textContent =
+            "Voor deze selectie werden geen bruikbare originele IFC-properties gevonden.";
+          return;
+        }
+
+        const classified = classifyDataTableColumns(dataTableColumns);
+
+        selectedDataTableFields = new Set();
+        activeDataTableExportColumns = [];
+
+        classified.properties.slice(0, 5).forEach(function(column) {
+          selectedDataTableFields.add(column.field);
+        });
+
+        // Quantity-properties worden wel aangeboden, maar niet automatisch
+        // geïnterpreteerd of berekend. De gebruiker kiest zelf.
+        classified.quantities.slice(0, 6).forEach(function(column) {
+          selectedDataTableFields.add(column.field);
+        });
+
+        // Trimble CalculatedGeometryValues ook aanbieden, maar niet alles blind aanvinken.
+        // Alleen de eerste 4 geometriekolommen worden voorgeselecteerd.
+        classified.trimbleGeometry.slice(0, 4).forEach(function(column) {
+          selectedDataTableFields.add(column.field);
+        });
+
+        renderDataTableColumnRows(
+          ui.datatablePropertyColumns,
+          classified.properties
+        );
+        renderDataTableColumnRows(
+          ui.datatableQuantityColumns,
+          classified.quantities
+        );
+        renderDataTableColumnRows(
+          ui.datatableTrimbleGeometryColumns,
+          classified.trimbleGeometry
+        );
+        renderDataTableColumnRows(
+          ui.datatableOtherColumns,
+          classified.others
+        );
+
+        ui.datatableBuilder.classList.remove("hidden");
+        ui.openDatatable.disabled = selectedDataTableFields.size === 0;
+
+        ui.datatableStatus.textContent =
+          dataTableColumns.length +
+          " ingevulde originele IFC-properties gevonden voor " +
+          currentResultDetails.length +
+          " geselecteerde object" +
+          (currentResultDetails.length === 1 ? "" : "en") +
+          " · " +
+          selectedDataTableFields.size +
+          " voorgeselecteerd.";
+      } catch (error) {
+        console.error("IFC-properties analyseren mislukt:", error);
+        ui.datatableBuilder.classList.remove("hidden");
+        ui.datatableStatus.textContent =
+          "De beschikbare IFC-properties konden niet worden geanalyseerd: " +
+          (error.message || "onbekende fout");
+      } finally {
+        ui.analyzeDatatableColumns.disabled = false;
+      }
+    }
+
+    function normalizeDataTableFieldText(value) {
+      return normalizeText(value)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/[\/\\]+/g, ".")
+        .replace(/\.+/g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function splitLogicalIfcField(field) {
+      const normalized = normalizeDataTableFieldText(field);
+      const dot = normalized.lastIndexOf(".");
+      if (dot < 0) {
+        return { setName: "", propertyName: normalized };
+      }
+
+      return {
+        setName: normalized.slice(0, dot),
+        propertyName: normalized.slice(dot + 1)
+      };
+    }
+
+    function normalizeFieldToken(value) {
+      return normalizeText(value)
+        .replace(/\s*→\s*/g, ".")
+        .replace(/\s*:\s*/g, ".")
+        .replace(/[\/\\]+/g, ".")
+        .replace(/[\s_-]+/g, "")
+        .replace(/\.+/g, ".")
+        .trim();
+    }
+
+    function splitLogicalIfcField(field) {
+      const normalized = normalizeDataTableFieldText(field);
+      const dot = normalized.lastIndexOf(".");
+
+      if (dot < 0) {
+        return {
+          setName: "",
+          propertyName: normalized,
+          setToken: "",
+          propertyToken: normalizeFieldToken(normalized)
+        };
+      }
+
+      const setName = normalized.slice(0, dot);
+      const propertyName = normalized.slice(dot + 1);
+
+      return {
+        setName: setName,
+        propertyName: propertyName,
+        setToken: normalizeFieldToken(setName),
+        propertyToken: normalizeFieldToken(propertyName)
+      };
+    }
+
+    function resolveActualTrimbleColumn(logicalField, availableColumns) {
+      const logical = splitLogicalIfcField(logicalField);
+      const logicalFull = normalizeDataTableFieldText(logicalField);
+      const logicalToken = normalizeFieldToken(logicalField);
+
+      const scored = (availableColumns || []).map(function(column) {
+        const actualFieldRaw = String(column.field || "");
+        const actualLabelRaw = String(column.label || "");
+
+        const actualField = normalizeDataTableFieldText(actualFieldRaw);
+        const actualLabel = normalizeDataTableFieldText(actualLabelRaw);
+
+        const actualFieldToken = normalizeFieldToken(actualFieldRaw);
+        const actualLabelToken = normalizeFieldToken(actualLabelRaw);
+
+        let score = 0;
+
+        // Exacte matches blijven veruit het sterkst.
+        if (actualField === logicalFull) score += 1200;
+        if (actualLabel === logicalFull) score += 1150;
+        if (actualFieldToken === logicalToken) score += 1100;
+        if (actualLabelToken === logicalToken) score += 1050;
+
+        // Trimble kan interne prefixes gebruiken.
+        if (actualField.endsWith("." + logicalFull)) score += 1000;
+        if (actualLabel.endsWith("." + logicalFull)) score += 950;
+        if (actualFieldToken.endsWith(logicalToken)) score += 900;
+        if (actualLabelToken.endsWith(logicalToken)) score += 850;
+
+        // Sterke match op propertyset + propertynaam.
+        if (
+          logical.setToken &&
+          logical.propertyToken &&
+          actualFieldToken.includes(logical.setToken) &&
+          actualFieldToken.includes(logical.propertyToken)
+        ) score += 780;
+
+        if (
+          logical.setToken &&
+          logical.propertyToken &&
+          actualLabelToken.includes(logical.setToken) &&
+          actualLabelToken.includes(logical.propertyToken)
+        ) score += 740;
+
+        // Belangrijk voor velden zoals IfcWallType.Name:
+        // als de propertynaam exact "Name" is, moet ook de type/propertyset
+        // overeenkomen zodat we niet per ongeluk een generieke Name kiezen.
+        if (
+          logical.propertyToken &&
+          actualFieldToken.endsWith(logical.propertyToken)
+        ) score += 180;
+
+        if (
+          logical.propertyToken &&
+          actualLabelToken.endsWith(logical.propertyToken)
+        ) score += 160;
+
+        if (logical.setToken && actualFieldToken.includes(logical.setToken)) score += 260;
+        if (logical.setToken && actualLabelToken.includes(logical.setToken)) score += 240;
+
+        return {
+          column: column,
+          score: score
+        };
+      }).filter(function(item) {
+        return item.score > 0;
+      }).sort(function(a, b) {
+        return b.score - a.score;
+      });
+
+      // Voor generieke properties zoals Name/Description enkel een match toelaten
+      // als de propertyset/typecontext ook echt overeenkomt.
+      if (!scored.length) return null;
+
+      const best = scored[0];
+      const genericProperty = /^(name|description|type|reference)$/.test(logical.propertyToken);
+
+      if (genericProperty) {
+        const bestFieldToken = normalizeFieldToken(best.column.field || "");
+        const bestLabelToken = normalizeFieldToken(best.column.label || "");
+
+        const contextMatches =
+          !logical.setToken ||
+          bestFieldToken.includes(logical.setToken) ||
+          bestLabelToken.includes(logical.setToken);
+
+        if (!contextMatches) return null;
+      }
+
+      return best.score >= 300 ? best.column : null;
+    }
+
+    async function openCurrentSelectionInDataTable() {
+      if (!API || !API.dataTable) return;
+      if (!currentResultDetails.length || !selectedDataTableFields.size) return;
+
+      try {
+        const selector = selectorFromDetails(currentResultDetails);
+
+        // Voor de Data Table gebruiken we echte isolate:
+        // zo zijn zowel Selected Objects als Visible Objects exact dezelfde objectset.
+        await isolateDetailsForDataTable(currentResultDetails);
+
+        // Nu pas de Data Table openen. Eerst zonder custom columns zodat Trimble
+        // zijn echte beschikbare fields voor de geselecteerde objecten kan laden.
+        await API.dataTable.setConfig({
+          show: true,
+          mode: "selected"
+        });
+
+        let availableColumns = [];
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            const response = await API.dataTable.getAllColumns();
+            availableColumns = Array.isArray(response) ? response : [];
+          } catch (error) {
+            console.warn("getAllColumns poging " + (attempt + 1) + " mislukt:", error);
+          }
+
+          if (availableColumns.length) break;
+          await wait(300 * (attempt + 1));
+        }
+
+        if (!availableColumns.length) {
+          ui.datatableStatus.textContent =
+            "De Data Table is geopend, maar Trimble gaf nog geen echte kolomdefinities terug. " +
+            "Probeer Open selectie in Data Table nogmaals zodra de tabel geladen is.";
+          return;
+        }
+
+        const resolvedColumns = [];
+        const unresolved = [];
+
+        Array.from(selectedDataTableFields).forEach(function(logicalField) {
+          const actual = resolveActualTrimbleColumn(logicalField, availableColumns);
+
+          if (actual && actual.field) {
+            if (!resolvedColumns.some(function(existing) {
+              return existing.field === actual.field;
+            })) {
+              // Exact het echte field gebruiken dat Trimble zelf heeft teruggegeven.
+              // Quantity-/maatkolommen krijgen automatisch SUM zodat totalen
+              // in de Data Table meteen zichtbaar zijn.
+              const columnDef = { field: actual.field };
+
+              // Bepaal of dit een hoeveelheid is op basis van de ORIGINELE
+              // IFC-property die de gebruiker heeft aangevinkt.
+              // De echte Trimble field-naam kan intern/gecodeerd zijn en bevat
+              // niet altijd woorden zoals Area, Volume of Length.
+              const logicalColumn = dataTableColumns.find(function(column) {
+                return column.field === logicalField;
+              });
+
+              if (
+                logicalColumn &&
+                (
+                  isDataTableQuantityColumn(logicalColumn) ||
+                  isTrimbleCalculatedGeometryColumn(logicalColumn)
+                )
+              ) {
+                // Trimble Data Table gebruikt aggregated:true.
+                // De enige beschikbare aggregatiefunctie is SUM en het totaal
+                // verschijnt ook in de footer.
+                columnDef.aggregated = true;
+              }
+
+              resolvedColumns.push(columnDef);
+            }
+          } else {
+            unresolved.push(logicalField);
+          }
+        });
+
+        if (!resolvedColumns.length) {
+          ui.datatableStatus.textContent =
+            "Trimble heeft de Data Table geopend, maar geen van de gekozen IFC-properties " +
+            "kon veilig aan een echte Trimble-kolom gekoppeld worden. Er zijn geen custom (*)-kolommen aangemaakt.";
+          return;
+        }
+
+        await API.dataTable.setConfig({
+          show: true,
+          mode: "selected",
+          columnSet: {
+            name: "Altez selectie",
+            columns: resolvedColumns
+          }
+        });
+
+        const exportedActualFields = new Set(resolvedColumns.map(function(column) {
+          return column.field;
+        }));
+        const usedActualFields = new Set();
+
+        activeDataTableExportColumns = Array.from(selectedDataTableFields).map(function(logicalField) {
+          const actual = resolveActualTrimbleColumn(logicalField, availableColumns);
+          if (!actual || !exportedActualFields.has(actual.field) || usedActualFields.has(actual.field)) {
+            return null;
+          }
+          usedActualFields.add(actual.field);
+
+          const logicalColumn = dataTableColumns.find(function(column) {
+            return column.field === logicalField;
+          });
+
+          return {
+            field: logicalField,
+            actualField: actual.field,
+            label: logicalColumn && logicalColumn.label
+              ? logicalColumn.label
+              : logicalField
+          };
+        }).filter(Boolean);
+
+        ui.exportDatatableExcel.disabled = false;
+
+        const aggregatedCount = resolvedColumns.filter(function(column) {
+          return column.aggregated === true;
+        }).length;
+
+        ui.datatableStatus.textContent =
+          resolvedColumns.length + " echte Trimble-kolom" +
+          (resolvedColumns.length === 1 ? "" : "men") +
+          " gekoppeld voor " + currentResultDetails.length + " geselecteerde objecten" +
+          " · " + aggregatedCount + " hoeveelheid" +
+          (aggregatedCount === 1 ? "" : "kolommen") +
+          " automatisch op SOM gezet" +
+          (unresolved.length
+            ? " · Niet gekoppeld: " + unresolved.join(", ")
+            : ".");
+      } catch (error) {
+        console.error("Data Table openen mislukt:", error);
+        ui.datatableStatus.textContent =
+          "Data Table kon niet worden ingesteld: " +
+          (error.message || "onbekende fout");
+      }
+    }
+
+    function getDataTableExportValue(element, logicalField) {
+      if (!element || !element.values) return "";
+
+      const logical = splitLogicalIfcField(logicalField);
+      let result = "";
+
+      element.values.forEach(function(item) {
+        if (result) return;
+        if (!item) return;
+
+        const setToken = normalizeFieldToken(item.setName || "");
+        const propertyToken = normalizeFieldToken(item.name || "");
+
+        if (
+          setToken === logical.setToken &&
+          propertyToken === logical.propertyToken
+        ) {
+          result = item.value === null || item.value === undefined
+            ? ""
+            : String(item.value);
+        }
+      });
+
+      return result;
+    }
+
+    async function getCurrentDataTableObjectScope(mode) {
+      const normalizedMode = normalizeText(mode || "all");
+
+      if (normalizedMode === "selected") {
+        return normalizeModelObjects(await API.viewer.getSelection());
+      }
+
+      if (normalizedMode === "visible") {
+        return normalizeModelObjects(
+          await API.viewer.getObjects(undefined, { visible: true })
+        );
+      }
+
+      return normalizeModelObjects(await API.viewer.getObjects());
+    }
+
+    async function readDetailsForDataTableExport(scope) {
+      const details = [];
+      const total = countModelObjects(scope);
+      let completed = 0;
+
+      for (const model of scope) {
+        const ids = getObjects(model)
+          .map(getRuntimeId)
+          .filter(function(id) { return id !== null && id !== undefined; });
+
+        for (const batch of splitIntoBatches(ids, PROPERTY_BATCH_SIZE)) {
+          const properties = await getPropertyBatch(model.modelId, batch);
+
+          properties.forEach(function(objectProperties) {
+            const runtimeId =
+              objectProperties.id ??
+              objectProperties.runtimeId ??
+              objectProperties.objectRuntimeId;
+
+            if (runtimeId === null || runtimeId === undefined) return;
+
+            details.push({
+              uid: String(model.modelId) + "|" + String(runtimeId),
+              modelId: model.modelId,
+              runtimeId: runtimeId,
+              values: flattenObjectProperties(objectProperties)
+            });
+          });
+
+          completed += batch.length;
+          ui.excelExportStatus.textContent =
+            "Data Table uitlezen: " + Math.min(completed, total) + "/" + total + " objecten...";
+        }
+      }
+
+      return details;
+    }
+
+    function buildExportPropertyCatalog(details) {
+      const catalog = new Map();
+
+      details.forEach(function(element) {
+        if (!element || !element.values) return;
+        element.values.forEach(function(item) {
+          if (!item || !item.name) return;
+          const field = String(item.setName || "Algemeen").trim() + "." + String(item.name).trim();
+          if (!catalog.has(field)) {
+            catalog.set(field, {
+              field: field,
+              label: String(item.setName || "Algemeen").trim() + " → " + String(item.name).trim(),
+              setName: String(item.setName || "Algemeen").trim(),
+              name: String(item.name).trim()
+            });
+          }
+        });
+      });
+
+      return Array.from(catalog.values());
+    }
+
+    function scoreExportPropertyMatch(property, actualColumn) {
+      const actualField = normalizeDataTableFieldText(actualColumn.field || "");
+      const actualLabel = normalizeDataTableFieldText(actualColumn.label || "");
+      const actualFieldToken = normalizeFieldToken(actualColumn.field || "");
+      const actualLabelToken = normalizeFieldToken(actualColumn.label || "");
+      const logicalField = normalizeDataTableFieldText(property.field);
+      const logicalToken = normalizeFieldToken(property.field);
+      const setToken = normalizeFieldToken(property.setName);
+      const propertyToken = normalizeFieldToken(property.name);
+      let score = 0;
+
+      if (actualField === logicalField) score += 1200;
+      if (actualLabel === logicalField) score += 1150;
+      if (actualFieldToken === logicalToken) score += 1100;
+      if (actualLabelToken === logicalToken) score += 1050;
+      if (actualFieldToken.endsWith(logicalToken)) score += 900;
+      if (actualLabelToken.endsWith(logicalToken)) score += 850;
+      if (setToken && propertyToken && actualFieldToken.includes(setToken) && actualFieldToken.includes(propertyToken)) score += 780;
+      if (setToken && propertyToken && actualLabelToken.includes(setToken) && actualLabelToken.includes(propertyToken)) score += 740;
+      if (actualFieldToken === propertyToken) score += 420;
+      if (actualLabelToken === propertyToken) score += 400;
+      if (actualFieldToken.endsWith(propertyToken)) score += 180;
+      if (actualLabelToken.endsWith(propertyToken)) score += 160;
+
+      if (/^(name|description|type|reference)$/.test(propertyToken)) {
+        const hasContext = actualFieldToken.includes(setToken) || actualLabelToken.includes(setToken);
+        if (!hasContext) score = 0;
+      }
+
+      return score;
+    }
+
+    function readablePropertyLabel(property) {
+      if (!property) return "Kolom";
+
+      const setName = String(property.setName || "").trim();
+      const name = String(property.name || "").trim();
+
+      // Voor de Excel-export willen we de leesbare IFC-/custom propertynaam,
+      // nooit Trimble's interne prop_xxx identifier.
+      if (setName && name) return setName + " → " + name;
+      return name || setName || property.field || "Kolom";
+    }
+
+    function looksLikeInternalTrimblePropertyName(value) {
+      const text = String(value || "");
+      return /(?:^|[+.])prop_[a-z0-9]+/i.test(text)
+        || /\+prop_[a-z0-9]+/i.test(text);
+    }
+
+    function findKnownActiveExportMapping(actualColumn) {
+      const actualField = String(actualColumn && actualColumn.field || "");
+
+      return activeDataTableExportColumns.find(function(mapping) {
+        return mapping && mapping.actualField && mapping.actualField === actualField;
+      }) || null;
+    }
+
+    function isBuiltInCountColumn(column) {
+      const field = normalizeFieldToken(column && column.field || "");
+      const label = normalizeFieldToken(column && column.label || "");
+      const combined = field + " " + label;
+
+      // Trimble Data Table heeft een ingebouwde kolom Aantal/Count die geen
+      // objectproperty is. Die moet daarom synthetisch worden geëxporteerd.
+      return /(^|\.)(count|aantal)(\.|$)/.test(field)
+        || /(^|\.)(count|aantal)(\.|$)/.test(label)
+        || /objectcount|itemcount|rowcount|numberofobjects|numberofitems/.test(combined);
+    }
+
+    function resolveExportColumns(actualColumns, details) {
+      const propertyCatalog = buildExportPropertyCatalog(details);
+
+      return (actualColumns || []).map(function(actualColumn) {
+        if (isBuiltInCountColumn(actualColumn)) {
+          return {
+            field: "__trimble_count__",
+            label: actualColumn.label || "Aantal",
+            actualField: actualColumn.field || "",
+            matched: true,
+            syntheticCount: true,
+            aggregated: actualColumn.aggregated === true,
+            grouped: actualColumn.grouped === true,
+            sortDirection: actualColumn.sortDirection || ""
+          };
+        }
+        // Wanneer de Data Table vanuit deze tool werd samengesteld kennen we
+        // de exacte koppeling logical IFC field <-> Trimble field. Gebruik die
+        // altijd eerst; dit lost custom propertysets met prop_xxx velden op.
+        const knownMapping = findKnownActiveExportMapping(actualColumn);
+        if (knownMapping) {
+          const logicalProperty = propertyCatalog.find(function(property) {
+            return property.field === knownMapping.field;
+          });
+
+          return {
+            field: knownMapping.field,
+            label: logicalProperty
+              ? readablePropertyLabel(logicalProperty)
+              : (knownMapping.label || knownMapping.field),
+            actualField: actualColumn.field || "",
+            matched: true,
+            aggregated: actualColumn.aggregated === true,
+            grouped: actualColumn.grouped === true,
+            sortDirection: actualColumn.sortDirection || ""
+          };
+        }
+
+        const actualToken = normalizeFieldToken(
+          String(actualColumn.label || "") + " " + String(actualColumn.field || "")
+        );
+        const objectAlias = propertyCatalog.find(function(property) {
+          const setToken = normalizeFieldToken(property.setName);
+          const nameToken = normalizeFieldToken(property.name);
+          if (setToken !== normalizeFieldToken("Objectinformatie")) return false;
+
+          if (/(productname|productnaam|objectname|objectnaam)/.test(actualToken)) {
+            return nameToken === normalizeFieldToken("Productnaam");
+          }
+          if (/(producttype|objecttype)/.test(actualToken)) {
+            return nameToken === normalizeFieldToken("Producttype");
+          }
+          if (/(ifcclass|ifcklasse|entitytype)/.test(actualToken)) {
+            return nameToken === normalizeFieldToken("IFC-klasse");
+          }
+          return false;
+        });
+
+        const ranked = propertyCatalog.map(function(property) {
+          return {
+            property: property,
+            score: scoreExportPropertyMatch(property, actualColumn)
+          };
+        }).sort(function(a, b) {
+          return b.score - a.score;
+        });
+
+        const best = ranked[0];
+        const matchedProperty = objectAlias
+          ? objectAlias
+          : best && best.score >= 300 ? best.property : null;
+
+        let label;
+        if (matchedProperty) {
+          label = readablePropertyLabel(matchedProperty);
+        } else {
+          label = actualColumn.label || actualColumn.field || "Kolom";
+        }
+
+        // Laat een interne prop_xxx naam nooit als nette titel doorgaan.
+        // Als de match onzeker is, maak de titel minstens leesbaarder door
+        // '+' als scheiding van propertyset te tonen.
+        if (!matchedProperty && looksLikeInternalTrimblePropertyName(label)) {
+          label = String(label).replace(/\+/g, " → ");
+        }
+
+        return {
+          field: matchedProperty ? matchedProperty.field : "",
+          label: label,
+          actualField: actualColumn.field || "",
+          matched: Boolean(matchedProperty),
+          aggregated: actualColumn.aggregated === true,
+          grouped: actualColumn.grouped === true,
+          sortDirection: actualColumn.sortDirection || ""
+        };
+      });
+    }
+
+    function parseExcelNumericValue(value) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return { numeric: true, value: value, unit: "" };
+      }
+
+      const text = String(value ?? "").trim();
+      if (!text) return { numeric: false, value: "", unit: "" };
+
+      // Ondersteunt 40.77, 40,77, 1 234,56 en optionele eenheden.
+      const match = text.match(/^([+-]?(?:\d{1,3}(?:[ .]\d{3})+|\d+)?(?:[.,]\d+)?|[+-]?[.,]\d+)\s*(mm|cm|m|m2|m²|m3|m³|kg|t|ton|kn|pa|kpa|mpa|%)?$/i);
+      if (!match) return { numeric: false, value: text, unit: "" };
+
+      let numberText = match[1].replace(/\s+/g, "");
+
+      // Europese duizendtallen + decimale komma.
+      if (numberText.includes(",") && numberText.includes(".")) {
+        if (numberText.lastIndexOf(",") > numberText.lastIndexOf(".")) {
+          numberText = numberText.replace(/\./g, "").replace(",", ".");
+        } else {
+          numberText = numberText.replace(/,/g, "");
+        }
+      } else if (numberText.includes(",")) {
+        numberText = numberText.replace(",", ".");
+      }
+
+      const numericValue = Number(numberText);
+      if (!Number.isFinite(numericValue)) {
+        return { numeric: false, value: text, unit: "" };
+      }
+
+      return {
+        numeric: true,
+        value: numericValue,
+        unit: String(match[2] || "").trim()
+      };
+    }
+
+    function excelNumberFormatForUnit(unit) {
+      const normalized = normalizeText(unit);
+      if (!normalized) return "0.00";
+      if (normalized === "%") return '0.00" %"';
+      return '0.00" ' + String(unit).replace(/"/g, "") + '"';
+    }
+
+    function shouldExportAsNumber(column, rawValue) {
+      if (!column) return false;
+      if (column.syntheticCount) return true;
+      if (column.aggregated) return true;
+
+      const property = dataTableColumns.find(function(item) {
+        return item.field === column.field;
+      });
+
+      if (property && (
+        isDataTableQuantityColumn(property) ||
+        isTrimbleCalculatedGeometryColumn(property)
+      )) return true;
+
+      const name = normalizeFieldToken(column.label + " " + column.field);
+      if (/(length|width|height|thickness|depth|perimeter|area|surface|volume|lengte|breedte|hoogte|dikte|diepte|omtrek|oppervlakte|inhoud)/.test(name)) {
+        return parseExcelNumericValue(rawValue).numeric;
+      }
+
+      return false;
+    }
+
+    function compareExportRowsByGroupedColumns(a, b, exportColumns) {
+      const grouped = exportColumns.map(function(column, index) {
+        return { column: column, index: index };
+      }).filter(function(item) {
+        return item.column.grouped;
+      });
+
+      if (!grouped.length) return a.originalIndex - b.originalIndex;
+
+      for (const item of grouped) {
+        const av = a.values[item.index];
+        const bv = b.values[item.index];
+        const cmp = String(av ?? "").localeCompare(String(bv ?? ""), "nl", {
+          numeric: true,
+          sensitivity: "base"
+        });
+
+        if (cmp !== 0) {
+          return normalizeText(item.column.sortDirection) === "descending" ? -cmp : cmp;
+        }
+      }
+
+      return a.originalIndex - b.originalIndex;
+    }
+
+    function safeExcelFileName(value) {
+      const cleaned = String(value || "Altez Data Table")
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return (cleaned || "Altez Data Table").slice(0, 120);
+    }
+
+    async function exportCurrentDataTableToExcel() {
+      if (typeof XLSX === "undefined") {
+        ui.excelExportStatus.textContent =
+          "De Excel-module kon niet worden geladen. Controleer de internetverbinding en probeer opnieuw.";
+        return;
+      }
+
+      if (!API || !API.dataTable) {
+        ui.excelExportStatus.textContent = "De Trimble Data Table is momenteel niet beschikbaar.";
+        return;
+      }
+
+      ui.exportDatatableExcel.disabled = true;
+      ui.excelExportStatus.textContent = "Actuele Data Table-configuratie uitlezen...";
+
+      try {
+        const config = await API.dataTable.getConfig();
+        const activeColumns = config && config.columnSet && Array.isArray(config.columnSet.columns)
+          ? config.columnSet.columns
+          : [];
+
+        if (!activeColumns.length) {
+          throw new Error("De huidige Data Table bevat geen uitleesbare kolommen.");
+        }
+
+        const scope = await getCurrentDataTableObjectScope(config.mode);
+        if (!countModelObjects(scope)) {
+          throw new Error("Binnen de Data Table-modus '" + (config.mode || "All") + "' zijn geen objecten gevonden.");
+        }
+
+        const details = await readDetailsForDataTableExport(scope);
+        const exportColumns = resolveExportColumns(activeColumns, details);
+        const unmatchedColumns = exportColumns.filter(function(column) { return !column.matched; });
+
+        const headers = exportColumns.map(function(column) {
+          return column.label;
+        });
+
+        let rowObjects = details.map(function(element, originalIndex) {
+          const rawValues = exportColumns.map(function(column) {
+            if (column.syntheticCount) return 1;
+            return column.matched ? getDataTableExportValue(element, column.field) : "";
+          });
+
+          return {
+            originalIndex: originalIndex,
+            values: rawValues
+          };
+        });
+
+        const tableFilter = normalizeText(config.filter || "");
+        if (tableFilter) {
+          rowObjects = rowObjects.filter(function(row) {
+            return row.values.some(function(value) {
+              return normalizeText(value).includes(tableFilter);
+            });
+          });
+        }
+
+        // Indien Trimble groepeert, bouwen we dezelfde zichtbare groepsstructuur
+        // opnieuw op. De volgorde wordt NIET alfabetisch hersorteerd: de eerste
+        // voorkomensvolgorde uit de Data Table-scope blijft behouden. Ook spaties
+        // en originele tekstwaarden worden letterlijk behouden.
+        const groupedColumnIndexes = exportColumns
+          .map(function(column, index) { return column.grouped ? index : -1; })
+          .filter(function(index) { return index >= 0; });
+
+        if (groupedColumnIndexes.length) {
+          const groups = new Map();
+
+          rowObjects.forEach(function(row) {
+            const keyParts = groupedColumnIndexes.map(function(index) {
+              const value = row.values[index];
+              return value === null || value === undefined ? "" : String(value);
+            });
+            const key = JSON.stringify(keyParts);
+
+            if (!groups.has(key)) {
+              groups.set(key, {
+                originalIndex: row.originalIndex,
+                rows: []
+              });
+            }
+            groups.get(key).rows.push(row);
+          });
+
+          rowObjects = Array.from(groups.values()).map(function(group) {
+            const firstRow = group.rows[0];
+            const values = exportColumns.map(function(column, columnIndex) {
+              if (column.syntheticCount) return group.rows.length;
+
+              if (column.grouped) {
+                return firstRow.values[columnIndex];
+              }
+
+              if (column.aggregated) {
+                let sum = 0;
+                let foundNumeric = false;
+                let unit = "";
+
+                group.rows.forEach(function(row) {
+                  const parsed = parseExcelNumericValue(row.values[columnIndex]);
+                  if (parsed.numeric) {
+                    sum += parsed.value;
+                    foundNumeric = true;
+                    if (!unit && parsed.unit) unit = parsed.unit;
+                  }
+                });
+
+                return foundNumeric ? sum : "";
+              }
+
+              // Voor niet-gegroepeerde, niet-geaggregeerde kolommen toont Excel
+              // alleen een waarde als die binnen de volledige groep identiek is.
+              // Zo vermijden we willekeurig de eerste objectwaarde als groepswaarde.
+              const firstValue = firstRow.values[columnIndex];
+              const allEqual = group.rows.every(function(row) {
+                return row.values[columnIndex] === firstValue;
+              });
+              return allEqual ? firstValue : "";
+            });
+
+            return {
+              originalIndex: group.originalIndex,
+              values: values,
+              groupedCount: group.rows.length
+            };
+          });
+        }
+
+        const typedRows = rowObjects.map(function(row) {
+          return row.values.map(function(rawValue, columnIndex) {
+            const column = exportColumns[columnIndex];
+            if (!shouldExportAsNumber(column, rawValue)) return rawValue;
+
+            const parsed = parseExcelNumericValue(rawValue);
+            return parsed.numeric ? parsed.value : rawValue;
+          });
+        });
+
+        const hasTotals = exportColumns.some(function(column) {
+          return column.aggregated || column.syntheticCount;
+        });
+
+        const totalRow = hasTotals
+          ? exportColumns.map(function(column, columnIndex) {
+              if (columnIndex === 0 && !column.syntheticCount) return "Totaal";
+              if (!column.aggregated && !column.syntheticCount) return "";
+
+              return typedRows.reduce(function(sum, row) {
+                const value = row[columnIndex];
+                return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+              }, 0);
+            })
+          : null;
+
+        const sheetRows = [headers].concat(typedRows);
+        if (totalRow) sheetRows.push(totalRow);
+
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+
+        worksheet["!autofilter"] = {
+          ref: XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: typedRows.length, c: Math.max(0, headers.length - 1) }
+          })
+        };
+
+        worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
+
+        // Numerieke cellen als echte Excel-getallen schrijven. Excel toont ze
+        // daardoor volgens de lokale instellingen (NL/BE met decimale komma).
+        exportColumns.forEach(function(column, columnIndex) {
+          let detectedUnit = "";
+
+          rowObjects.some(function(row) {
+            const parsed = parseExcelNumericValue(row.values[columnIndex]);
+            if (parsed.numeric && parsed.unit) {
+              detectedUnit = parsed.unit;
+              return true;
+            }
+            return false;
+          });
+
+          for (let rowIndex = 1; rowIndex <= typedRows.length; rowIndex++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+            const cell = worksheet[cellAddress];
+            if (cell && typeof cell.v === "number") {
+              cell.t = "n";
+              cell.z = excelNumberFormatForUnit(detectedUnit);
+            }
+          }
+
+          if (totalRow && (column.aggregated || column.syntheticCount)) {
+            const totalAddress = XLSX.utils.encode_cell({
+              r: typedRows.length + 1,
+              c: columnIndex
+            });
+            const totalCell = worksheet[totalAddress];
+            if (totalCell && typeof totalCell.v === "number") {
+              totalCell.t = "n";
+              totalCell.z = excelNumberFormatForUnit(detectedUnit);
+            }
+          }
+        });
+
+        worksheet["!cols"] = headers.map(function(header, columnIndex) {
+          let width = String(header || "").length;
+          typedRows.forEach(function(row) {
+            width = Math.max(width, String(row[columnIndex] ?? "").length);
+          });
+          if (totalRow) width = Math.max(width, String(totalRow[columnIndex] ?? "").length);
+          return { wch: Math.min(55, Math.max(12, width + 2)) };
+        });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data Table");
+
+        const now = new Date();
+        const dateStamp = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, "0"),
+          String(now.getDate()).padStart(2, "0")
+        ].join("-");
+        const fileName = safeExcelFileName(projectName) + " - Data Table - " + dateStamp + ".xlsx";
+
+        XLSX.writeFile(workbook, fileName, { compression: true, cellStyles: true });
+        ui.excelExportStatus.textContent =
+          typedRows.length + (groupedColumnIndexes.length ? " groep" : " object") +
+          (typedRows.length === 1 ? "" : (groupedColumnIndexes.length ? "en" : "en")) + " en " +
+          exportColumns.length + " kolom" + (exportColumns.length === 1 ? "" : "men") +
+          " naar Excel geëxporteerd" +
+          (hasTotals ? " · SOM-totalen toegevoegd" : "") +
+          (unmatchedColumns.length
+            ? " · " + unmatchedColumns.length + " Trimble-systeemkolom kon niet veilig aan een objectproperty worden gekoppeld en is leeg gelaten."
+            : ".");
+      } catch (error) {
+        console.error("Excel-export mislukt:", error);
+        ui.excelExportStatus.textContent =
+          "Excel-export mislukt: " + (error.message || "onbekende fout");
+      } finally {
+        ui.exportDatatableExcel.disabled = false;
+      }
+    }
+
+    function clearDataTableColumnSelection() {
+      selectedDataTableFields = new Set();
+      activeDataTableExportColumns = [];
+
+      document.querySelectorAll(
+        "#datatable-builder input[type='checkbox']"
+      ).forEach(function(checkbox) {
+        checkbox.checked = false;
+      });
+
+      ui.openDatatable.disabled = true;
+      ui.datatableStatus.textContent = "Kolomselectie gewist.";
+    }
+
+    async function selectOnly(details) {
+      const targetSelector = selectorFromDetails(details);
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        await API.viewer.setSelection(targetSelector, "set");
+      } catch (error) {
+        console.warn("Selectie instellen mislukt:", error);
+      }
+    }
+
+    async function isolateDetailsForDataTable(details) {
+      const targetSelector = selectorFromDetails(details);
+      if (!targetSelector.modelObjectIds.length) return;
+
+      try {
+        // Echte isolate voor Data Table / Visible Objects.
+        const modelEntities = targetSelector.modelObjectIds.map(function(model) {
+          return {
+            modelId: model.modelId,
+            entityIds: (model.objectRuntimeIds || []).slice()
+          };
+        }).filter(function(model) {
+          return model.entityIds.length > 0;
+        });
+
+        await API.viewer.setSelection(targetSelector, "set");
+
+        const isolated = await API.viewer.isolateEntities(modelEntities);
+        if (isolated === false) {
+          throw new Error("Trimble isolateEntities gaf false terug.");
+        }
+
+        await wait(120);
+      } catch (error) {
+        console.warn("Isoleren voor Data Table mislukt:", error);
+
+        // Veilige fallback: probeer enkel selectie te behouden.
+        await selectOnly(details);
+      }
+    }
+
+    function getSelectedRuntimeIds(selection) {
+      const models = normalizeModelObjects(selection);
+      const result = [];
+
+      models.forEach(function(model) {
+        getObjects(model).forEach(function(object) {
+          const id = getRuntimeId(object);
+          if (id !== null && id !== undefined) {
+            result.push({
+              modelId: model.modelId,
+              runtimeId: id
+            });
+          }
+        });
+      });
+
+      return result;
+    }
+
+    function cleanTypeValue(value) {
+      const text = String(value || "").trim();
+      return text && !isSuspiciousValue(text) ? text : "";
+    }
+
+    function getElementValue(element, key) {
+      const item = element.values.get(key);
+      return item ? cleanTypeValue(item.value) : "";
+    }
+
+    function getSelectedValue(element, setName, name) {
+      return getElementValue(element, setName + " → " + name);
+    }
+
+    function classToken(ifcClass) {
+      return normalizeText(ifcClass)
+        .replace(/^ifc/, "")
+        .replace(/standardcase$/, "")
+        .replace(/elementedcase$/, "");
+    }
+
+    function normalizeProductNameForType(value) {
+      let text = String(value || "").trim();
+      if (!text) return "";
+
+      return text
+        .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/ig, "")
+        .replace(/\b[0-9a-f]{10,}\b/ig, "")
+        .replace(/([_\-\s])\d{5,}$/g, "")
+        .replace(/([_\-\s])[A-Z0-9]{8,}$/ig, "")
+        .replace(/\s{2,}/g, " ")
+        .replace(/[_\-\s]+$/g, "")
+        .trim();
+    }
+
+    function selectionCandidateScore(item, parameter, ifcClass) {
+      if (isBlockedParameter(item.setName, item.name)) return -999;
+
+      const nameText = normalizeText(item.name);
+      const setText = normalizeText(item.setName);
+      const token = classToken(ifcClass);
+      let score = 0;
+
+      if (/(producttype|product type|objecttype|object type)/.test(nameText)) score += 135;
+      if (/^(type|reference|referentie|type name|typename)$/.test(nameText)) score += 120;
+      if (/(walltype|roof type|rooftype|slabtype|floor type|floortype|membertype|beamtype|columntype|doortype|windowtype)/.test(nameText)) score += 130;
+      if (/(constructiontype|elementtype|family and type|familytype|type mark|typemark)/.test(nameText)) score += 105;
+      if (/pset_/.test(setText)) score += 20;
+      if (/common/.test(setText)) score += 10;
+      if (token && (setText.includes(token) || nameText.includes(token))) score += 42;
+      if (parameter) score += parameter.usefulness * 0.22;
+
+      return score;
+    }
+
+    function countCandidateMatches(key, value, ifcClass, normalizeProductName) {
+      const target = normalizeProductName
+        ? normalizeProductNameForType(value)
+        : String(value || "").trim();
+
+      if (!target) return 0;
+
+      return analyzedElements.filter(function(element) {
+        const item = element.values.get(key);
+        if (!item) return false;
+
+        const candidateValue = normalizeProductName
+          ? normalizeProductNameForType(item.value)
+          : String(item.value || "").trim();
+
+        if (normalizeText(candidateValue) !== normalizeText(target)) return false;
+
+        if (key !== "Objectinformatie → IFC-klasse" && ifcClass) {
+          const elementClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
+          if (elementClass && normalizeText(elementClass) !== normalizeText(ifcClass)) return false;
+        }
+
+        return true;
+      }).length;
+    }
+
+    function determineSelectedType(element) {
+      const ifcClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
+      const candidates = [];
+
+      function addCandidate(key, value, source, baseScore, normalizeProductName) {
+        const cleanValue = cleanTypeValue(value);
+        if (!cleanValue) return;
+
+        const normalized = normalizeProductName
+          ? normalizeProductNameForType(cleanValue)
+          : cleanValue;
+
+        if (!normalized) return;
+
+        const matchCount = countCandidateMatches(
+          key,
+          cleanValue,
+          ifcClass,
+          normalizeProductName
+        );
+
+        let score = baseScore;
+
+        if (matchCount >= 2) score += 45;
+        if (matchCount >= 5) score += 20;
+        if (matchCount >= 20) score += 10;
+        if (matchCount === 1) score -= 55;
+
+        candidates.push({
+          ifcClass: ifcClass,
+          key: key,
+          value: normalized,
+          rawValue: cleanValue,
+          source: source,
+          matchCount: matchCount,
+          normalizeProductName: !!normalizeProductName,
+          score: score
+        });
+      }
+
+      const productType = getSelectedValue(element, "Objectinformatie", "Producttype");
+      addCandidate(
+        "Objectinformatie → Producttype",
+        productType,
+        "Product Type",
+        150,
+        false
+      );
+
+      const productName = getSelectedValue(element, "Objectinformatie", "Productnaam");
+      addCandidate(
+        "Objectinformatie → Productnaam",
+        productName,
+        "Product Name",
+        95,
+        true
+      );
+
+      element.values.forEach(function(item, key) {
+        if (
+          key === "Objectinformatie → IFC-klasse" ||
+          key === "Objectinformatie → Productnaam" ||
+          key === "Objectinformatie → Producttype"
+        ) return;
+
+        const value = cleanTypeValue(item.value);
+        if (!value) return;
+        if (isBlockedParameter(item.setName, item.name)) return;
+
+        const parameter = parameterResults.find(function(p) {
+          return p.key === key;
+        });
+
+        const score = selectionCandidateScore(item, parameter, ifcClass);
+        if (score <= 0) return;
+
+        addCandidate(
+          key,
+          value,
+          item.setName + " → " + item.name,
+          score,
+          false
+        );
+      });
+
+      if (ifcClass) {
+        addCandidate(
+          "Objectinformatie → IFC-klasse",
+          ifcClass,
+          "Alleen IFC-klasse",
+          5,
+          false
+        );
+      }
+
+      candidates.sort(function(a, b) {
+        return b.score - a.score
+          || b.matchCount - a.matchCount
+          || a.source.localeCompare(b.source, "nl");
+      });
+
+      return candidates.length ? candidates[0] : null;
+    }
+
+    function findSameTypeElements(typeInfo) {
+      if (!typeInfo) return [];
+
+      return analyzedElements.filter(function(element) {
+        const item = element.values.get(typeInfo.key);
+        if (!item) return false;
+
+        const candidateValue = typeInfo.normalizeProductName
+          ? normalizeProductNameForType(item.value)
+          : String(item.value || "").trim();
+
+        if (normalizeText(candidateValue) !== normalizeText(typeInfo.value)) return false;
+
+        if (typeInfo.key !== "Objectinformatie → IFC-klasse" && typeInfo.ifcClass) {
+          const elementClass = getSelectedValue(element, "Objectinformatie", "IFC-klasse");
+
+          if (
+            elementClass &&
+            normalizeText(elementClass) !== normalizeText(typeInfo.ifcClass)
+          ) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function refinementCandidateScore(parameter, baseElements) {
+      if (!parameter) return -999;
+      if (isBlockedParameter(parameter.setName, parameter.name)) return -999;
+
+      // Belangrijk: een verfijnparameter mag alleen voorgesteld worden
+      // wanneer die property ook werkelijk aanwezig en ingevuld is op het
+      // object dat de gebruiker oorspronkelijk heeft aangeklikt.
+      if (!selectedSearchSeedElement || !selectedSearchSeedElement.values) return -999;
+
+      const seedItem = selectedSearchSeedElement.values.get(parameter.key);
+      const seedValue = seedItem && String(seedItem.value || "").trim();
+
+      if (!seedValue || isSuspiciousValue(seedValue)) return -999;
+
+      const text = normalizeText(parameter.key);
+      let score = parameter.usefulness || 0;
+
+      // Bouwkundige verfijningen krijgen voorrang.
+      if (/(material|materiaal)/.test(text)) score += 48;
+      if (/(objecttype|object type|producttype|product type|walltype|wall type|rooftype|roof type|slabtype|slab type|membertype|member type|beamtype|beam type|columntype|column type)/.test(text)) score += 44;
+      if (/(reference|referentie|classification|classificatie)/.test(text)) score += 26;
+      if (/(storey|verdieping|level|zone|system|systeem|assembly)/.test(text)) score += 12;
+
+      const counts = new Map();
+      let filled = 0;
+
+      baseElements.forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+
+        if (!value || isSuspiciousValue(value)) return;
+
+        filled += 1;
+        counts.set(value, (counts.get(value) || 0) + 1);
+      });
+
+      // Geen opsplitsing = geen verfijning.
+      if (counts.size < 2) return -999;
+
+      // De waarde van het oorspronkelijk geselecteerde element moet
+      // ook werkelijk voorkomen in de huidige hoofd-/subgroep.
+      if (!counts.has(seedValue)) return -999;
+
+      const coverage = baseElements.length
+        ? filled / baseElements.length
+        : 0;
+
+      // Alleen parameters tonen die echt relevant zijn voor deze groep.
+      // Dit voorkomt properties die slechts op enkele toevallige objecten voorkomen.
+      if (coverage < 0.70) return -999;
+
+      const largest = Math.max.apply(null, Array.from(counts.values()));
+      const largestRatio = baseElements.length
+        ? largest / baseElements.length
+        : 1;
+
+      if (counts.size <= 12) score += 18;
+      if (largestRatio < 0.92) score += 20;
+      if (largestRatio < 0.80) score += 12;
+
+      // Bijna unieke waarden zijn niet nuttig als verfijning.
+      if (counts.size / Math.max(1, filled) > 0.75) score -= 45;
+
+      return score;
+    }
+
+    function getBestSameTypeRefinements(baseElements, excludedKeys) {
+      const excluded = new Set(excludedKeys || []);
+
+      return parameterResults
+        .filter(function(parameter) {
+          return !excluded.has(parameter.key);
+        })
+        .map(function(parameter) {
+          return {
+            parameter: parameter,
+            score: refinementCandidateScore(parameter, baseElements)
+          };
+        })
+        .filter(function(item) { return item.score > 0; })
+        .sort(function(a, b) {
+          return b.score - a.score
+            || b.parameter.usefulness - a.parameter.usefulness
+            || a.parameter.key.localeCompare(b.parameter.key, "nl");
+        })
+        // Toon meerdere relevante verfijneigenschappen,
+        // maar alleen wanneer ze werkelijk aanwezig zijn op het
+        // oorspronkelijk geselecteerde object.
+        .slice(0, 5);
+    }
+
+    function buildRefinementValues(parameter, baseElements) {
+      const groups = new Map();
+
+      baseElements.forEach(function(element) {
+        const item = element.values.get(parameter.key);
+        const value = item && String(item.value || "").trim();
+        if (!value || isSuspiciousValue(value)) return;
+
+        if (!groups.has(value)) groups.set(value, []);
+        groups.get(value).push(element);
+      });
+
+      return Array.from(groups.entries())
+        .map(function(entry) {
+          return { value: entry[0], elements: entry[1] };
+        })
+        .sort(function(a, b) {
+          return b.elements.length - a.elements.length
+            || a.value.localeCompare(b.value, "nl", { numeric: true });
+        });
+    }
+
+    function renderSameTypeRefinements(baseElements, excludedKeys, level) {
+      const container = document.createElement("div");
+      container.className = "same-type-refine";
+
+      if (level >= 2) {
+        const note = document.createElement("span");
+        note.textContent = "Maximale verfijning bereikt.";
+        container.appendChild(note);
+        return container;
+      }
+
+      const candidates = getBestSameTypeRefinements(baseElements, excludedKeys);
+
+      if (!candidates.length) {
+        const note = document.createElement("span");
+        note.textContent = "Geen zinvolle verdere opsplitsing gevonden.";
+        container.appendChild(note);
+        return container;
+      }
+
+      const title = document.createElement("h3");
+      title.textContent = "Mogelijke verfijningen";
+      container.appendChild(title);
+
+      const intro = document.createElement("p");
+      intro.className = "subtitle";
+      intro.textContent =
+        "Alleen waarden die werkelijk aanwezig zijn op het oorspronkelijk geselecteerde object worden getoond.";
+      container.appendChild(intro);
+
+      const list = document.createElement("div");
+      list.className = "same-type-refine-list";
+
+      candidates.forEach(function(candidate) {
+        const seedItem = selectedSearchSeedElement
+          ? selectedSearchSeedElement.values.get(candidate.parameter.key)
+          : null;
+
+        const seedValue = seedItem && String(seedItem.value || "").trim();
+
+        if (!seedValue || isSuspiciousValue(seedValue)) return;
+
+        // Zoek alleen de subgroep die overeenkomt met de waarde
+        // van het oorspronkelijk geselecteerde object.
+        const matchingElements = baseElements.filter(function(element) {
+          const item = element.values.get(candidate.parameter.key);
+          const value = item && String(item.value || "").trim();
+          return value && normalizeText(value) === normalizeText(seedValue);
+        });
+
+        if (!matchingElements.length) return;
+
+        const card = document.createElement("div");
+        card.className = "same-type-refine-card";
+
+        const strong = document.createElement("strong");
+        strong.textContent = candidate.parameter.key;
+
+        const meta = document.createElement("span");
+        meta.textContent =
+          "Aanwezige waarde op geselecteerd object · verfijnscore " +
+          round(candidate.score, 0);
+
+        const valueList = document.createElement("div");
+        valueList.className = "same-type-refine-values";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary";
+        button.textContent =
+          seedValue + " (" + matchingElements.length + " elementen)";
+
+        button.addEventListener("click", async function() {
+          await selectOnly(matchingElements);
+
+          rememberCurrentResult(
+            matchingElements,
+            candidate.parameter.key + " = " + seedValue
+          );
+
+          ui.selectionStatus.innerHTML =
+            "<strong>" + matchingElements.length + " elementen geselecteerd</strong>" +
+            "<span>Verfijnd op " + candidate.parameter.key + " = " + seedValue + ".</span>";
+
+          ui.selectionResult.innerHTML = "";
+
+          const resultCard = document.createElement("div");
+          resultCard.className = "selection-result";
+
+          const resultStrong = document.createElement("strong");
+          resultStrong.textContent =
+            matchingElements.length + " elementen in verfijnde groep";
+
+          const resultDetail = document.createElement("span");
+          resultDetail.textContent =
+            candidate.parameter.key + " = " + seedValue;
+
+          resultCard.appendChild(resultStrong);
+          resultCard.appendChild(resultDetail);
+
+          resultCard.appendChild(
+            renderSameTypeRefinements(
+              matchingElements,
+              (excludedKeys || []).concat([candidate.parameter.key]),
+              level + 1
+            )
+          );
+
+          ui.selectionResult.appendChild(resultCard);
+        });
+
+        valueList.appendChild(button);
+        card.appendChild(strong);
+        card.appendChild(meta);
+        card.appendChild(valueList);
+        list.appendChild(card);
+      });
+
+      container.appendChild(list);
+      return container;
+    }
+
+    async function readCurrentSelectionForSearch() {
+      if (!API) return;
+
+      ui.selectionResult.innerHTML = "";
+      ui.selectionStatus.innerHTML =
+        "<strong>Selectie inlezen...</strong>" +
+        "<span>Type-eigenschappen worden vergeleken.</span>";
+
+      try {
+        const selection = await API.viewer.getSelection();
+        const selected = getSelectedRuntimeIds(selection);
+
+        if (selected.length !== 1) {
+          ui.selectionStatus.innerHTML =
+            "<strong>Selecteer precies één object</strong>" +
+            "<span>Momenteel zijn " + selected.length + " objecten geselecteerd.</span>";
+          return;
+        }
+
+        const target = selected[0];
+
+        let element = analyzedElements.find(function(item) {
+          return String(item.modelId) === String(target.modelId)
+            && String(item.runtimeId) === String(target.runtimeId);
+        });
+
+        if (!element) {
+          const properties = await getPropertyBatch(
+            target.modelId,
+            [target.runtimeId]
+          );
+
+          if (!properties.length) {
+            throw new Error("Geen properties gevonden voor het geselecteerde object.");
+          }
+
+          element = {
+            uid: String(target.modelId) + "|" + String(target.runtimeId),
+            modelId: target.modelId,
+            runtimeId: target.runtimeId,
+            values: flattenObjectProperties(properties[0])
+          };
+        }
+
+        selectedSearchSeedElement = element;
+
+        const typeInfo = determineSelectedType(element);
+
+        if (!typeInfo) {
+          ui.selectionStatus.innerHTML =
+            "<strong>Geen bruikbaar type herkend</strong>" +
+            "<span>Geen geschikte type-, Pset- of IFC-eigenschap gevonden.</span>";
+          return;
+        }
+
+        const matches = findSameTypeElements(typeInfo);
+
+        rememberCurrentResult(
+          matches,
+          "Zelfde type: " + typeInfo.source + " = " + typeInfo.value
+        );
+
+        ui.selectionStatus.innerHTML =
+          "<strong>Type herkend: " + typeInfo.value + "</strong>" +
+          "<span>Gebruikt veld: " + typeInfo.source +
+          " · IFC-klasse: " + (typeInfo.ifcClass || "niet ingevuld") + ".</span>";
+
+        const card = document.createElement("div");
+        card.className = "selection-result";
+
+        const strong = document.createElement("strong");
+        strong.textContent =
+          matches.length + " element" +
+          (matches.length === 1 ? "" : "en") +
+          " in hoofdgroep";
+
+        const detail = document.createElement("span");
+        detail.textContent =
+          typeInfo.source + " = " + typeInfo.value;
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.style.marginTop = "8px";
+        button.textContent =
+          "Selecteer hoofdgroep (" + matches.length + ")";
+
+        button.disabled = matches.length === 0;
+
+        button.addEventListener("click", async function() {
+          await selectOnly(matches);
+          rememberCurrentResult(
+            matches,
+            typeInfo.source + " = " + typeInfo.value
+          );
+        });
+
+        card.appendChild(strong);
+        card.appendChild(detail);
+        card.appendChild(button);
+
+        card.appendChild(
+          renderSameTypeRefinements(
+            matches,
+            [typeInfo.key],
+            0
+          )
+        );
+
+        ui.selectionResult.appendChild(card);
+      } catch (error) {
+        console.error("Selectie inlezen mislukt:", error);
+
+        ui.selectionStatus.innerHTML =
+          "<strong>Selectie kon niet worden ingelezen</strong>" +
+          "<span>" + (error.message || "Onbekende fout") + "</span>";
+      }
+    }
+
+    function populateManualParameters() {
+      ui.manualParameter.innerHTML = '<option value="">Kies parameter...</option>';
+
+      parameterResults.forEach(function(parameter) {
+        const option = document.createElement("option");
+        option.value = parameter.key;
+        option.textContent =
+          parameter.key + " · score " + round(parameter.usefulness, 0);
+        ui.manualParameter.appendChild(option);
+      });
+
+      ui.manualValue.innerHTML = '<option value="">Kies eerst parameter...</option>';
+      ui.manualValue.disabled = true;
+      ui.manualSearch.disabled = true;
+      ui.manualStatus.classList.add("hidden");
+    }
+
+    function updateManualValues() {
+      const key = ui.manualParameter.value;
+      const parameter = parameterResults.find(function(p) { return p.key === key; });
+
+      ui.manualValue.innerHTML = '<option value="">Kies waarde...</option>';
+      ui.manualSearch.disabled = true;
+      ui.manualStatus.classList.add("hidden");
+
+      if (!parameter) {
+        ui.manualValue.innerHTML = '<option value="">Kies eerst parameter...</option>';
+        ui.manualValue.disabled = true;
+        return;
+      }
+
+      const values = valueCountsForParameter(parameter, analyzedElements);
+
+      values.forEach(function(entry) {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.value + " (" + entry.elements.length + ")";
+        ui.manualValue.appendChild(option);
+      });
+
+      ui.manualValue.disabled = values.length === 0;
+      ui.manualSearch.disabled = true;
+    }
+
+    function updateManualSearchButton() {
+      ui.manualSearch.disabled =
+        !ui.manualParameter.value ||
+        !ui.manualValue.value;
+    }
+
+    async function runManualSearch() {
+      const key = ui.manualParameter.value;
+      const value = ui.manualValue.value;
+
+      if (!key || !value) return;
+
+      const matches = analyzedElements.filter(function(element) {
+        const item = element.values.get(key);
+        return item && normalizeText(item.value) === normalizeText(value);
+      });
+
+      ui.manualStatus.classList.remove("hidden");
+
+      if (!matches.length) {
+        ui.manualStatus.innerHTML =
+          "<strong>Geen objecten gevonden</strong>" +
+          "<span>" + key + " = " + value + "</span>";
+        return;
+      }
+
+      await selectOnly(matches);
+
+      rememberCurrentResult(
+        matches,
+        key + " = " + value
+      );
+
+      ui.manualStatus.innerHTML =
+        "<strong>" + matches.length + " object" +
+        (matches.length === 1 ? "" : "en") +
+        " gevonden</strong>" +
+        "<span>" + key + " = " + value + "</span>";
+    }
+
+    ui.refreshModel.addEventListener("click", refreshModelScope);
+    ui.runAnalysis.addEventListener("click", runAnalysis);
+
+    ui.openQuickSelect.addEventListener("click", function() {
+      closeAllActionPanels();
+      resetQuickFlow();
+      ui.quickPanel.classList.remove("hidden");
+      altezOpenIconMode();
+    });
+
+    ui.showMoreParameters.addEventListener("click", function() {
+      visibleQuickParameterCount += 10;
+      renderQuickParameterChoices();
+    });
+
+    ui.openSelectionSearch.addEventListener("click", function() {
+      closeAllActionPanels();
+      ui.selectionPanel.classList.remove("hidden");
+    });
+
+    ui.openAdvancedSearch.addEventListener("click", function() {
+      closeAllActionPanels();
+      ui.manualPanel.classList.remove("hidden");
+    });
+
+    ui.closeQuick.addEventListener("click", function() {
+      ui.quickPanel.classList.add("hidden");
+    });
+
+    ui.closeSelection.addEventListener("click", function() {
+      ui.selectionPanel.classList.add("hidden");
+    });
+
+    ui.closeManual.addEventListener("click", function() {
+      ui.manualPanel.classList.add("hidden");
+    });
+
+    ui.backToParameters.addEventListener("click", goBackOneQuickStep);
+
+    ui.quickEditLast.addEventListener("click", function() {
+      reopenLastQuickStep();
+    });
+
+    ui.quickSelect.addEventListener("click", async function() {
+      if (quickCurrentMatches.length) {
+        await selectOnly(quickCurrentMatches);
+      }
+    });
+
+    ui.quickRefine.addEventListener("click", function() {
+      if (quickFilters.length >= 3) return;
+      ui.quickResult.classList.add("hidden");
+      ui.quickRefinePanel.classList.remove("hidden");
+      renderRefineParameterChoices();
+    });
+
+    ui.readSelection.addEventListener("click", readCurrentSelectionForSearch);
+
+    ui.manualParameter.addEventListener("change", updateManualValues);
+    ui.manualValue.addEventListener("change", updateManualSearchButton);
+    ui.manualSearch.addEventListener("click", runManualSearch);
+
+    ui.analyzeDatatableColumns.addEventListener("click", analyzeDataTableColumns);
+    ui.openDatatable.addEventListener("click", openCurrentSelectionInDataTable);
+    ui.exportDatatableExcel.addEventListener("click", exportCurrentDataTableToExcel);
+    ui.clearDatatableColumns.addEventListener("click", clearDataTableColumnSelection);
+
+
+    /* ========= ALTEZ BOUWDELEN: onafhankelijke laag op bestaande calculatie ========= */
+    const ALTEZ_CATEGORIES = [
+      {id:"wall",label:"Wanden",svg:'<svg viewBox="0 0 48 48"><rect x="4" y="9" width="40" height="30" rx="1"/><path d="M4 19h40M4 29h40M14 9v10M33 9v10M23 19v10M11 29v10M35 29v10"/></svg>'},
+      {id:"floor",label:"Vloeren",svg:'<svg viewBox="0 0 48 48"><path d="M5 17 33 9 43 17 15 25 5 17ZM5 17v9l10 8 28-9v-8M15 25v9"/></svg>'},
+      {id:"roof",label:"Daken",svg:'<svg viewBox="0 0 48 48"><path d="m4 26 20-17 20 17M10 24v15h28V24M24 9v30M16 33h16"/></svg>'},
+      {id:"column",label:"Kolommen",svg:'<svg viewBox="0 0 48 48"><path d="M14 8h20v5H14zM18 13h12v24H18zM12 37h24v5H12zM20 13v24M28 13v24"/></svg>'},
+      {id:"beam",label:"Liggers",svg:'<svg viewBox="0 0 48 48"><path d="M6 9h36v7H6zM20 16h8v17h-8zM6 33h36v7H6z"/></svg>'},
+      {id:"foundation",label:"Funderingen",svg:'<svg viewBox="0 0 48 48"><path d="M19 6h10v21H19zM9 27h30v8H9zM5 35h38v7H5zM10 42v2M20 42v2M30 42v2"/></svg>'},
+      {id:"door",label:"Deuren",svg:'<svg viewBox="0 0 48 48"><path d="M10 43V5h28v38M15 43V10h18v33M28 28h2M7 43h34"/></svg>'},
+      {id:"window",label:"Ramen",svg:'<svg viewBox="0 0 48 48"><rect x="6" y="8" width="36" height="32" rx="1"/><path d="M24 8v32M6 24h36M11 13h8M29 35h8"/></svg>'},
+      {id:"stair",label:"Trappen",svg:'<svg viewBox="0 0 48 48"><path d="M5 42h9V32h9V22h10V11h10M5 42h38V11M8 27l30-23M35 4h3v6"/></svg>'},
+      {id:"unknown",label:"Te controleren",svg:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19"/><path d="M18 18a6 6 0 1 1 10 5c-3 2-4 3-4 7M24 36h.01"/></svg>'}
+    ];
+    const altezByCategory = new Map();
+    const altezCategoryCache = new Map();
+    let altezActiveCategory = "";
+    let altezCurrentGroups = [];
+    let altezCheckedGroupKeys = new Set();
+    let altezShowCount = 30;
+    const altezEl = (id) => document.getElementById(id);
+    const altezNormalize = (value, key) => {
+      let text = String(value == null ? "" : value).trim().toLocaleLowerCase("nl-BE").replace(/\s+/g, " ");
+      if (/ral|finish|afwerking|coating|kleur|color|colour/i.test(key)) text = text.replace(/\s+/g, "");
+      if (/dikte|thickness/i.test(key)) text = text.replace(/(\d)\s+(mm|cm|m)\b/g, "$1$2");
+      return text;
+    };
+    function altezText(element, setName, name) {
+      const item = element.values.get(setName + " → " + name);
+      return item ? String(item.value || "").trim() : "";
+    }
+    function altezEvidence(element) {
+      const cls = altezText(element, "Objectinformatie", "IFC-klasse").toLowerCase();
+      const type = altezText(element, "Objectinformatie", "Producttype").toLowerCase();
+      const name = altezText(element, "Objectinformatie", "Productnaam").toLowerCase();
+      let predefined = "";
+      let candidates = "";
+      element.values.forEach(function(item) {
+        const label = String(item.name || "").toLowerCase();
+        if (/^(predefined\s?type|ifc\s?predefined\s?type)$/.test(label) && !predefined) predefined = String(item.value || "").toLowerCase();
+        if (/^(type|type name|typename|wall type|roof type|slab type|object type|construction type)$/.test(label) && candidates.length < 350) {
+          candidates += " " + String(item.value || "").toLowerCase().slice(0,70);
+        }
+      });
+      return {cls,predefined,type,name,candidates};
+    }
+    function altezRecognize(element) {
+      const e = altezEvidence(element);
+      const cls = e.cls;
+      const context = (e.type + " " + e.name + " " + e.candidates);
+      const subtype = (e.predefined + " " + e.type);
+      if (/ifcroof\b/.test(cls)) return "roof";
+      if (/ifcwall/.test(cls)) return "wall";
+      if (/ifcfooting|ifcpile\b/.test(cls)) return "foundation";
+      if (/ifccolumn/.test(cls)) return "column";
+      if (/ifcbeam/.test(cls)) return "beam";
+      if (/ifcdoor/.test(cls)) return "door";
+      if (/ifcwindow/.test(cls)) return "window";
+      if (/ifcstair|ifcramp/.test(cls)) return "stair";
+      if (/ifcslab/.test(cls)) {
+        return /\broof\b|dak|toit|dach/.test(subtype) ? "roof" : "floor";
+      }
+      if (/ifccovering/.test(cls)) {
+        if (/roofing|roof|dak/.test(subtype + " " + context)) return "roof";
+        if (/flooring|floor|vloer/.test(subtype + " " + context)) return "floor";
+      }
+      if (/ifcmember/.test(cls)) {
+        if (/gording|purlin|beam|ligger|spant|rafter|brace/.test(context)) return "beam";
+        if (/kolom|column|stijl|post/.test(context)) return "column";
+      }
+      if (/ifcplate|ifcbuildingelementproxy|ifcbuildingelementpart|ifcelementassembly/.test(cls) || !cls) {
+        if (/sandwichwand|gevelpaneel|prefabwand|wall panel|\bwand\b|\bwall\b/.test(context)) return "wall";
+        if (/roof|dakpaneel|dakplaat|dakbedekking|dak/.test(context)) return "roof";
+        if (/vloer|floor slab|floor panel|vloerplaat/.test(context)) return "floor";
+        if (/kolom|column/.test(context)) return "column";
+        if (/ligger|beam|spant|gording/.test(context)) return "beam";
+      }
+      return "unknown";
+    }
+    function altezRefreshCategories() {
+      altezByCategory.clear();
+      altezCategoryCache.clear();
+      ALTEZ_CATEGORIES.forEach(function(c){altezByCategory.set(c.id, []);});
+      analyzedElements.forEach(function(element) {
+        altezByCategory.get(altezRecognize(element)).push(element);
+      });
+      altezRenderCategoryGrid();
+      altezActiveCategory = "";
+      altezEl("altez-category-home").classList.remove("hidden");
+      altezEl("altez-category-details").classList.add("hidden");
+    }
+    function altezRenderCategoryGrid() {
+      const container = altezEl("altez-category-grid");
+      container.replaceChildren();
+      ALTEZ_CATEGORIES.forEach(function(c) {
+        const count = (altezByCategory.get(c.id) || []).length;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "altez-cat-card";
+        button.disabled = !count;
+        const art = document.createElement("span");
+        art.innerHTML = c.svg; // uitsluitend eigen, vaste SVG-paden
+        const title = document.createElement("strong");
+        title.textContent = c.label;
+        const meta = document.createElement("span");
+        meta.textContent = count.toLocaleString("nl-BE") + " objecten";
+        button.append(art,title,meta);
+        button.addEventListener("click", function(){altezOpenCategory(c.id);});
+        container.appendChild(button);
+      });
+      altezEl("altez-category-summary").textContent = analyzedElements.length.toLocaleString("nl-BE") + " ingelezen objecten. Indeling op IFC-klasse en, bij generieke objecten, typekenmerken.";
+    }
+    function altezMakeCategoryIndex(id) {
+      if (altezCategoryCache.has(id)) return altezCategoryCache.get(id);
+      const elements = altezByCategory.get(id) || [];
+      const index = new Map();
+      elements.forEach(function(element) {
+        element.values.forEach(function(item, key) {
+          if (!item) return;
+          const value = String(item.value == null ? "" : item.value).trim();
+          if (!value || value.length > 100 || isSuspiciousValue(value)) return;
+          const name = String(item.name || "");
+          if (/(guid|globalid|uuid|runtime|object id|model id|entity id|source id|created|modified|timestamp|coordinate|placement|bounding|vertex|normal|mesh|geometry|conversion|importplugin)/i.test(key)) return;
+          if (/(^|[\s.])id$/i.test(name)) return;
+          let entry = index.get(key);
+          if (!entry) {
+            entry = {key,label:key,filled:0,unique:new Map(),weight:0};
+            index.set(key,entry);
+          }
+          entry.filled++;
+          const norm = altezNormalize(value,key);
+          let group = entry.unique.get(norm);
+          if (!group) {group={value:value,elements:[]};entry.unique.set(norm,group);}
+          group.elements.push(element);
+        });
+      });
+      const available = Array.from(index.values()).filter(function(p){
+        return p.unique.size >= 2 && p.filled >= Math.min(2,elements.length) && p.unique.size <= Math.max(80,Math.round(elements.length*.75));
+      });
+      available.forEach(function(p) {
+        const key = p.key.toLowerCase();
+        let weight = 0;
+        if (/wall type|roof type|slab type|producttype|product type|objecttype|object type|type name|typename|\btype\b|family/.test(key)) weight += 125;
+        if (/material|materiaal/.test(key)) weight += 110;
+        if (/thickness|dikte/.test(key)) weight += 100;
+        if (/finish|afwerking|ral|coating|color|colour|kleur/.test(key)) weight += 90;
+        if (/classification|classificatie|reference|referentie/.test(key)) weight += 70;
+        if (/storey|verdieping|level|bouwlaag/.test(key)) weight += 65;
+        if (/productnaam|product name|description|omschrijving/.test(key)) weight += 48;
+        if (/length|lengte|width|breedte|height|hoogte|area|oppervlakte|volume|gewicht|weight/.test(key)) weight -= 30;
+        const coverage = p.filled/Math.max(1,elements.length);
+        const diversity = p.unique.size/p.filled;
+        weight += coverage*45 + Math.min(20,p.unique.size)*.8;
+        if (diversity > .85) weight -= 110;
+        if (p.unique.size <= 15) weight += 10;
+        p.weight = weight;
+      });
+      available.sort((a,b)=>b.weight-a.weight || a.label.localeCompare(b.label,"nl"));
+      const result = {elements,index,available};
+      altezCategoryCache.set(id,result);
+      return result;
+    }
+    function altezPopulateGroupingSelects() {
+      const data = altezMakeCategoryIndex(altezActiveCategory);
+      const first = altezEl("altez-category-primary");
+      const second = altezEl("altez-category-secondary");
+      first.replaceChildren();
+      second.replaceChildren();
+      const none = document.createElement("option");
+      none.value="";none.textContent="Geen tweede parameter";
+      second.appendChild(none);
+      data.available.forEach(function(p){
+        [first,second].forEach(function(select){
+          const o=document.createElement("option");o.value=p.key;
+          o.textContent=p.label + " (" + p.unique.size + ")";
+          select.appendChild(o);
+        });
+      });
+      first.disabled = !data.available.length;
+      second.disabled = !data.available.length;
+      if (data.available.length) first.value = data.available[0].key;
+      second.value="";
+      altezRenderSuggestions();
+    }
+    function altezRenderSuggestions() {
+      const data=altezMakeCategoryIndex(altezActiveCategory);
+      const current=altezEl("altez-category-primary").value;
+      const host=altezEl("altez-category-suggestions");
+      host.replaceChildren();
+      data.available.slice(0,7).forEach(function(p){
+        const b=document.createElement("button");
+        b.type="button";b.className=p.key===current?"altez-active":"";
+        b.textContent = p.label.split(" → ").pop();
+        b.title = p.label;
+        b.addEventListener("click",function(){
+          altezEl("altez-category-primary").value = p.key;
+          if (altezEl("altez-category-secondary").value === p.key) altezEl("altez-category-secondary").value="";
+          altezOnGroupParametersChanged();
+        });
+        host.appendChild(b);
+      });
+    }
+    function altezOpenCategory(id) {
+      altezActiveCategory=id;
+      altezShowCount=30;
+      altezCheckedGroupKeys.clear();
+      const c=ALTEZ_CATEGORIES.find(x=>x.id===id);
+      altezEl("altez-category-home").classList.add("hidden");
+      altezEl("altez-category-details").classList.remove("hidden");
+      altezEl("altez-category-title").textContent=c.label+" · "+(altezByCategory.get(id)||[]).length+" objecten";
+      altezEl("altez-category-description").textContent=id==="unknown"
+        ? "Deze objecten hebben geen ondubbelzinnige IFC-indeling. Controleer eerst de klasse en productgegevens."
+        : "Voorgestelde parameters voor "+c.label.toLowerCase()+". Kies er een of combineer twee eigenschappen.";
+      altezEl("altez-category-filter").value="";
+      altezEl("altez-category-selection-status").textContent="";
+      altezPopulateGroupingSelects();
+      altezRenderGroups();
+    }
+    function altezOnGroupParametersChanged() {
+      altezCheckedGroupKeys.clear();
+      altezShowCount=30;
+      altezRenderSuggestions();
+      altezRenderGroups();
+    }
+    function altezRenderGroups() {
+      if (!altezActiveCategory)return;
+      const data=altezMakeCategoryIndex(altezActiveCategory);
+      const first=altezEl("altez-category-primary").value;
+      let second=altezEl("altez-category-secondary").value;
+      if (second===first) { second="";altezEl("altez-category-secondary").value=""; }
+      const groups=new Map();
+      for(const element of data.elements){
+        const itemA=first&&element.values.get(first);
+        const rawA=itemA?String(itemA.value||"").trim():"";
+        const itemB=second&&element.values.get(second);
+        const rawB=itemB?String(itemB.value||"").trim():"";
+        const normA=first?altezNormalize(rawA,first):"alles";
+        const normB=second?altezNormalize(rawB,second):"";
+        const nameA=rawA||"(Geen waarde)";
+        const nameB=second?(rawB||"(Geen waarde)"):"";
+        const groupKey=JSON.stringify([normA,normB]);
+        let g=groups.get(groupKey);
+        if(!g){g={key:groupKey,name:nameA,subtitle:nameB,elements:[]};groups.set(groupKey,g);}
+        g.elements.push(element);
+      }
+      altezCurrentGroups=Array.from(groups.values()).sort((a,b)=>b.elements.length-a.elements.length || a.name.localeCompare(b.name,"nl",{numeric:true}));
+      altezRenderGroupRows();
+    }
+    function altezRenderGroupRows() {
+      const search=altezEl("altez-category-filter").value.trim().toLocaleLowerCase("nl-BE");
+      const groups=altezCurrentGroups.filter(g=>!search||(g.name+" "+g.subtitle).toLocaleLowerCase("nl-BE").includes(search));
+      const visible=groups.slice(0,altezShowCount);
+      const host=altezEl("altez-category-results");
+      host.replaceChildren();
+      if(!visible.length) {
+        const p=document.createElement("p");p.className="altez-cat-help";
+        p.textContent="Geen groepen gevonden.";host.appendChild(p);
+      }
+      for(const g of visible) {
+        const row=document.createElement("div");row.className="altez-cat-result";
+        const check=document.createElement("input");check.type="checkbox";check.checked=altezCheckedGroupKeys.has(g.key);
+        check.setAttribute("aria-label","Selectiegroep "+g.name);
+        check.addEventListener("change",function(){
+          if(check.checked)altezCheckedGroupKeys.add(g.key);
+          else altezCheckedGroupKeys.delete(g.key);
+          altezUpdateCheckedButton();
+        });
+        const info=document.createElement("div");
+        const title=document.createElement("strong");title.textContent=g.name;
+        const sub=document.createElement("span");sub.textContent=(g.subtitle?g.subtitle+" · ":"")+g.elements.length.toLocaleString("nl-BE")+" objecten";
+        info.append(title,sub);
+        const button=document.createElement("button");button.type="button";button.textContent="Selecteer";
+        button.addEventListener("click",function(){altezSelectElements(g.elements);});
+        row.append(check,info,button);host.appendChild(row);
+      }
+      altezEl("altez-category-result-summary").textContent=groups.length+" groepen · "+(altezByCategory.get(altezActiveCategory)||[]).length+" objecten in deze categorie";
+      const more=altezEl("altez-category-more");
+      more.classList.toggle("hidden",groups.length<=altezShowCount);
+      more.textContent="Toon meer groepen ("+Math.min(groups.length,altezShowCount+30)+"/"+groups.length+")";
+      altezUpdateCheckedButton();
+    }
+    function altezUpdateCheckedButton() {
+      const n=altezCheckedGroupKeys.size;
+      const btn=altezEl("altez-category-select-checked");
+      btn.disabled=n===0;
+      btn.textContent=n?"Selecteer "+n+" groepen":"Selecteer aangevinkt";
+    }
+    async function altezSelectElements(objects){
+      if(!objects.length)return;
+      const el=altezEl("altez-category-selection-status");
+      el.textContent="Selectie instellen...";
+      try{
+        await API.viewer.setSelection(selectorFromDetails(objects),"set");
+        const name=ALTEZ_CATEGORIES.find(x=>x.id===altezActiveCategory).label;
+        rememberCurrentResult(objects,name+" - bouwdeelgroepering");
+        el.textContent=objects.length.toLocaleString("nl-BE")+" objecten geselecteerd. Beschikbaar voor Data Table.";
+      }catch(error){
+        console.error("Bouwdeelselectie mislukt:",error);
+        el.textContent="Selectie mislukt: "+(error&&error.message?error.message:"onbekende fout");
+      }
+    }
+    function altezOpenIconMode() {
+      altezEl("altez-category-mode").classList.remove("hidden");
+      altezEl("altez-category-reopen").classList.add("hidden");
+      ["quickPath","quickParameters","quickValues","quickResult","quickRefinePanel"].forEach(function(k){ui[k].classList.add("hidden");});
+      if(!altezByCategory.size && analyzedElements.length)altezRefreshCategories();
+    }
+    altezEl("altez-category-legacy").addEventListener("click",function(){
+      altezEl("altez-category-mode").classList.add("hidden");
+      altezEl("altez-category-reopen").classList.remove("hidden");
+      resetQuickFlow();
+    });
+    altezEl("altez-category-reopen").addEventListener("click",function(){
+      altezOpenIconMode();
+    });
+    altezEl("altez-category-back").addEventListener("click",function(){
+      altezActiveCategory="";
+      altezEl("altez-category-home").classList.remove("hidden");
+      altezEl("altez-category-details").classList.add("hidden");
+    });
+    altezEl("altez-category-primary").addEventListener("change",altezOnGroupParametersChanged);
+    altezEl("altez-category-secondary").addEventListener("change",altezOnGroupParametersChanged);
+    altezEl("altez-category-filter").addEventListener("input",function(){altezShowCount=30;altezRenderGroupRows();});
+    altezEl("altez-category-more").addEventListener("click",function(){altezShowCount+=30;altezRenderGroupRows();});
+    altezEl("altez-category-select-all").addEventListener("click",function(){
+      altezSelectElements(altezByCategory.get(altezActiveCategory)||[]);
+    });
+    altezEl("altez-category-select-checked").addEventListener("click",function(){
+      const seen=new Set(), selection=[];
+      for(const group of altezCurrentGroups){
+        if(!altezCheckedGroupKeys.has(group.key))continue;
+        for(const element of group.elements){
+          if(!seen.has(element.uid)){seen.add(element.uid);selection.push(element);}
+        }
+      }
+      altezSelectElements(selection);
+    });
+    /* ========= Einde uitbreiding ========= */
+
+    connectToTrimble();
+  </script>
+</body>
+</html>
