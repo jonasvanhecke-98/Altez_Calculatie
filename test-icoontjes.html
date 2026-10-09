@@ -564,6 +564,26 @@
 .altez-cat-mode-switch{margin-top:10px}
 .altez-cat-notice{padding:9px;background:#f0f5f8;border-left:3px solid var(--blue);font-size:11px;color:var(--muted);line-height:1.4;margin:10px 0}
 
+
+/* Altez: voorlopige bouwdeelvoorstellen op basis van IFC-eigenschappen */
+.altez-infer-panel{border:1px solid #b7cbd8;background:#f8fbfc;border-radius:9px;padding:11px;margin:12px 0}
+.altez-infer-panel h3{margin:0 0 6px}
+.altez-infer-list{display:grid;gap:9px;margin-top:10px}
+.altez-infer-card{background:#fff;border:1px solid #d5dde3;border-radius:8px;padding:10px}
+.altez-infer-head{display:flex;gap:9px;align-items:center}
+.altez-infer-head svg{width:30px;height:30px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.altez-infer-head strong{display:block;font-size:13px}
+.altez-infer-head span,.altez-infer-meta{color:var(--muted);font-size:11px;line-height:1.4}
+.altez-infer-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}
+.altez-infer-actions button{font-size:11px;padding:7px 6px;min-height:34px}
+.altez-infer-examples{margin:8px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.altez-infer-details{margin-top:8px;padding-top:7px;border-top:1px solid var(--line)}
+.altez-infer-details summary{font-size:11px;color:var(--blue-dark);cursor:pointer;font-weight:bold}
+.altez-infer-example{display:flex;align-items:center;justify-content:space-between;gap:7px;border-top:1px solid #e5e8eb;padding:7px 0;font-size:11px}
+.altez-infer-example button{width:auto;min-height:28px;font-size:11px;padding:5px 8px}
+.altez-infer-alert{background:#fff9ed;border-left:3px solid #ba8500;padding:8px;font-size:11px;line-height:1.45;margin:8px 0}
+.altez-infer-residual{padding:9px;background:#fff;border:1px dashed #bccbd4;border-radius:7px;font-size:11px;margin-top:10px}
+
 </style>
 </head>
 <body>
@@ -629,6 +649,7 @@
         <p class="altez-cat-help">Kies een bouwdeel en zie meteen de verschillende types. Daarna kun je verfijnen op materiaal, dikte of afwerking.</p>
         <div id="altez-category-grid" class="altez-cat-grid"></div>
         <div id="altez-category-summary" class="altez-cat-status"></div>
+        <button id="altez-undo-assignments" class="secondary small hidden" type="button" style="margin-top:9px">Herstel tijdelijke indelingen</button>
       </div>
       <div id="altez-category-details" class="hidden">
         <div class="altez-cat-nav">
@@ -637,6 +658,13 @@
         </div>
         <button id="altez-category-select-all" type="button" style="margin-bottom:10px">Selecteer alles</button>
         <p id="altez-category-description" class="altez-cat-help"></p>
+        <div id="altez-unknown-panel" class="altez-infer-panel hidden">
+          <h3>Wat kunnen deze elementen zijn?</h3>
+          <p class="altez-cat-help">Voorstellen op basis van IFC-klasse, Product Type, Type Name, Product Name en relevante kenmerken. Controleer de geselecteerde objecten in de 3D Viewer vóór je ze voorlopig indeelt.</p>
+          <div class="altez-infer-alert">Dit is regelgebaseerde interpretatie, geen geometrische of AI-controle. Een voorstel kan onjuist zijn. Bevestigen verandert alleen deze analysetool, nooit de IFC.</div>
+          <div id="altez-unknown-suggestions" class="altez-infer-list"></div>
+          <div id="altez-unknown-unresolved" class="altez-infer-residual hidden"></div>
+        </div>
         <div class="altez-cat-row">
           <div class="altez-cat-field"><label for="altez-category-primary">Groepeer op</label><select id="altez-category-primary"></select></div>
           <div class="altez-cat-field"><label for="altez-category-secondary">Daarna op (optioneel)</label><select id="altez-category-secondary"></select></div>
@@ -1373,6 +1401,7 @@
       ui.refreshModel.disabled = true;
 
       analyzedElements = [];
+      altezOverrides.clear();
       parameterResults = [];
       excludedParameterCount = 0;
       activeTopParameter = null;
@@ -4004,6 +4033,7 @@
       {id:"stair",label:"Trappen",svg:'<svg viewBox="0 0 48 48"><path d="M5 42h9V32h9V22h10V11h10M5 42h38V11M8 27l30-23M35 4h3v6"/></svg>'},
       {id:"unknown",label:"Te controleren",svg:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19"/><path d="M18 18a6 6 0 1 1 10 5c-3 2-4 3-4 7M24 36h.01"/></svg>'}
     ];
+    const altezOverrides = new Map();
     const altezByCategory = new Map();
     const altezCategoryCache = new Map();
     let altezActiveCategory = "";
@@ -4074,9 +4104,11 @@
       altezCategoryCache.clear();
       ALTEZ_CATEGORIES.forEach(function(c){altezByCategory.set(c.id, []);});
       analyzedElements.forEach(function(element) {
-        altezByCategory.get(altezRecognize(element)).push(element);
+        const target = altezOverrides.get(element.uid) || altezRecognize(element);
+        (altezByCategory.get(target) || altezByCategory.get("unknown")).push(element);
       });
       altezRenderCategoryGrid();
+      altezEl("altez-undo-assignments").classList.toggle("hidden",!altezOverrides.size);
       altezActiveCategory = "";
       altezEl("altez-category-home").classList.remove("hidden");
       altezEl("altez-category-details").classList.add("hidden");
@@ -4252,6 +4284,8 @@
       altezEl("altez-category-details").classList.remove("hidden");
       altezEl("altez-category-title").textContent=c.label+" · "+n+" objecten";
       altezEl("altez-category-select-all").textContent="Selecteer alles ("+n+")";
+      altezEl("altez-unknown-panel").classList.toggle("hidden",id!=="unknown");
+      if(id==="unknown")altezRenderUnknownSuggestions();
       altezEl("altez-category-description").textContent=data.explicitCount
         ? "Direct de types: "+data.explicitCount+" objecten met een echte typeparameter"+(data.fallbackCount?" · "+data.fallbackCount+" herkend via herhaalde productnamen":"")+". Verfijn via materiaal, dikte of afwerking."
         : "Geen ingevulde typeparameter gevonden. Herhaalde productnamen worden als alternatief gebruikt; controleer de ontbrekende types.";
@@ -4381,7 +4415,206 @@
       }
       altezSelectElements(selection);
     });
-    /* ========= Einde uitbreiding ========= */
+
+    /* ========= Voorstellen voor niet-herkende IFC-objecten ========= */
+    const ALTEZ_INFER_RULES=[
+      {id:"wall",re:/\b(?:wall|walls|wand|wanden|gevelwand|binnenwand|buitenwand|scheidingswand|prefabwand|sandwichwand|sandwichgevel|gevelpaneel|wallpanel|claddingwall|partition)\b/i},
+      {id:"floor",re:/\b(?:floor|floors|vloer|vloeren|vloerplaat|welfsel|welfsels|kanaalplaat|kanaalplaten|predal|predallen|breedplaat|vloerpaneel|floorpanel|slab|slabs|deck|vloerplaten)\b/i},
+      {id:"roof",re:/\b(?:roof|roofs|dak|daken|dakplaat|dakpanelen|dakpaneel|roofpanel|roofing|purlinroof|dakbedekking|dakplaatstaal|dakplaten)\b/i},
+      {id:"column",re:/\b(?:column|columns|kolom|kolommen|pilaar|pijler|stijl|staander|pillar|post)\b/i},
+      {id:"beam",re:/\b(?:beam|beams|ligger|liggers|gording|gordingen|purlin|purlins|spant|spanten|rafter|rafters|joist|joists|balk|balken)\b/i},
+      {id:"foundation",re:/\b(?:foundation|foundations|fundering|funderingen|funderingsbalk|fundatie|footing|footings|pilecap|poer|poeren|heipaal|funderingspaal)\b/i},
+      {id:"door",re:/\b(?:door|doors|deur|deuren|poort|poorten|gate|gates)\b/i},
+      {id:"window",re:/\b(?:window|windows|raam|ramen|venster|vensters|glazing|beglazing)\b/i},
+      {id:"stair",re:/\b(?:stair|stairs|staircase|trap|trappen|traptrede|treden|ramp|hellingbaan)\b/i}
+    ];
+    const ALTEZ_INFER_OTHER=[
+      {re:/\b(?:railing|balustrade|balustrades|leuning|leuningen|guardrail)\b/i,label:"Mogelijk balustrade of leuning"},
+      {re:/\b(?:ceiling|plafond|plafonds)\b/i,label:"Mogelijk plafond"},
+      {re:/\b(?:curtainwall|vliesgevel|gevelsysteem)\b/i,label:"Mogelijk vliesgevel"},
+      {re:/\b(?:furniture|furnishing|meubilair)\b/i,label:"Mogelijk meubilair"},
+      {re:/\b(?:duct|kanaalwerk|ventilatiekanaal|pipe|leidingen|leiding|piping)\b/i,label:"Mogelijk installatie"},
+      {re:/\b(?:opening|sparingen|sparing|uitsparing)\b/i,label:"Mogelijk opening of sparing"}
+    ];
+    function altezInferSignals(element){
+      const signals=[];
+      const add=(name,value,weight)=>{
+        const v=String(value||"").trim();
+        if(!v||isSuspiciousValue(v))return;
+        signals.push({name,value:v,weight});
+      };
+      add("IFC-klasse",altezText(element,"Objectinformatie","IFC-klasse"),42);
+      add("Producttype",altezText(element,"Objectinformatie","Producttype"),86);
+      add("Productnaam",altezText(element,"Objectinformatie","Productnaam"),54);
+      let count=0;
+      element.values.forEach(item=>{
+        if(count>=12)return;
+        const n=String(item.name||"").toLowerCase().replace(/[\s_.-]+/g,"");
+        if(/^(predefinedtype|ifcpredefinedtype|objecttype|typename|type|elementtype|familyandtype|walltype|rooftype|slabtype|membertype|constructiontype|ifctype|producttype)$/.test(n)){
+          add(item.name,item.value,88);count++;
+        }else if(/^(description|omschrijving|productdescription)$/.test(n)){
+          add(item.name,item.value,23);count++;
+        }
+      });
+      return signals;
+    }
+    function altezPrepareInferText(value) {
+      return String(value||"").toLocaleLowerCase("nl-BE")
+        .replace(/([a-zà-ÿ])([0-9])/gi,"$1 $2")
+        .replace(/([0-9])([a-zà-ÿ])/gi,"$1 $2")
+        .replace(/[_./:()[\]{}+\\-]+/g," ")
+        .replace(/([a-z])([A-Z])/g,"$1 $2").replace(/\s+/g," ").trim();
+    }
+    function altezInferUnknown(element) {
+      const signals=altezInferSignals(element);
+      const votes=new Map();
+      const classVal=altezText(element,"Objectinformatie","IFC-klasse");
+      for(const signal of signals){
+        const prepared=altezPrepareInferText(signal.value);
+        for(const rule of ALTEZ_INFER_RULES){
+          if(!rule.re.test(prepared))continue;
+          let e=votes.get(rule.id);
+          if(!e){e={id:rule.id,score:0,reasons:[],sources:new Set()};votes.set(rule.id,e);}
+          // Een bron mag niet meermaals dezelfde categorie bevoordelen.
+          if(e.sources.has(signal.name))continue;
+          e.sources.add(signal.name);
+          e.score+=signal.weight;
+          e.reasons.push(signal.name+": "+signal.value.slice(0,75));
+        }
+      }
+      const ranked=[...votes.values()].sort((a,b)=>b.score-a.score);
+      const top=ranked[0],second=ranked[1];
+      const clearlyBetter=top && (!second || top.score-second.score>=20);
+      if(top && top.score>=45 && clearlyBetter) {
+        return {category:top.id,confidence:top.score>=120?"sterke aanwijzing":"mogelijk",
+          reasons:top.reasons.slice(0,3),alternatives:second?[second.id]:[],label:""};
+      }
+      let label="";
+      const search=altezPrepareInferText(signals.map(s=>s.value).join(" "));
+      for(const other of ALTEZ_INFER_OTHER){if(other.re.test(search)){label=other.label;break;}}
+      if(!label && top && second && top.score>=45)label="Mogelijk "+(ALTEZ_CATEGORIES.find(c=>c.id===top.id)?.label||top.id)+" of "+(ALTEZ_CATEGORIES.find(c=>c.id===second.id)?.label||second.id);
+      if(!label)label=classVal?"Niet duidelijk: "+classVal:"Niet te bepalen uit beschikbare parameters";
+      return {category:"",confidence:"onzeker",reasons:signals.slice(0,2).map(s=>s.name+": "+s.value.slice(0,75)),alternatives:[],label};
+    }
+    function altezSuggestionTypeLabel(element){
+      const pick=[];
+      element.values.forEach(item=>{
+        const name=String(item.name||"").toLowerCase().replace(/[\s._-]+/g,"");
+        if(/^(walltype|rooftype|slabtype|floortype|typename|elementtype|objecttype|producttype|familyandtype|type)$/.test(name)){
+          const v=String(item.value||"").trim();
+          if(v && !isSuspiciousValue(v))pick.push({v,score:/^(walltype|rooftype|slabtype|floortype)$/.test(name)?3:2});
+        }
+      });
+      pick.sort((a,b)=>b.score-a.score);
+      if(pick.length)return normalizeProductNameForType(pick[0].v).slice(0,90);
+      const type=altezText(element,"Objectinformatie","Producttype");
+      if(type)return normalizeProductNameForType(type).slice(0,90);
+      const product=altezText(element,"Objectinformatie","Productnaam");
+      if(product)return normalizeProductNameForType(product).slice(0,90);
+      return altezText(element,"Objectinformatie","IFC-klasse") || "(Zonder naam)";
+    }
+    function altezSelectSuggestion(elements){
+      return altezSelectElements(elements);
+    }
+    function altezAcceptSuggestion(elements,id){
+      if(!id||id==="unknown"||!elements.length)return;
+      elements.forEach(element=>altezOverrides.set(element.uid,id));
+      altezRefreshCategories();
+      altezOpenCategory(id);
+      altezEl("altez-category-selection-status").textContent=elements.length+" objecten voorlopig ingedeeld. Het IFC-bestand is niet gewijzigd. Gebruik 'Herstel tijdelijke indelingen' om dit ongedaan te maken.";
+    }
+    function altezRenderUnknownSuggestions(){
+      const elements=altezByCategory.get("unknown")||[];
+      const host=altezEl("altez-unknown-suggestions");
+      const unresolved=altezEl("altez-unknown-unresolved");
+      host.replaceChildren();
+      unresolved.replaceChildren();
+      const grouped=new Map();
+      const ungrouped=new Map();
+      for(const element of elements){
+        const result=altezInferUnknown(element);
+        if(result.category){
+          let group=grouped.get(result.category);
+          if(!group){group={id:result.category,elements:[],strong:0,evidence:new Set(),types:new Map()};grouped.set(result.category,group);}
+          group.elements.push(element);
+          if(result.confidence==="sterke aanwijzing")group.strong++;
+          result.reasons.forEach(x=>{if(group.evidence.size<4)group.evidence.add(x);});
+          const type=altezSuggestionTypeLabel(element);
+          if(!group.types.has(type))group.types.set(type,[]);
+          group.types.get(type).push(element);
+        } else {
+          const label=result.label||"Nog niet herkend";
+          if(!ungrouped.has(label))ungrouped.set(label,[]);
+          ungrouped.get(label).push(element);
+        }
+      }
+      if(!grouped.size){
+        const text=document.createElement("p");text.className="altez-cat-help";
+        text.textContent="Er zijn geen voldoende onderbouwde voorstellen voor een bestaande bouwdeelcategorie. Bekijk hieronder welke informatie ontbreekt.";
+        host.appendChild(text);
+      }
+      for(const group of [...grouped.values()].sort((a,b)=>b.elements.length-a.elements.length)){
+        const c=ALTEZ_CATEGORIES.find(x=>x.id===group.id);
+        if(!c)continue;
+        const card=document.createElement("section");card.className="altez-infer-card";
+        const top=document.createElement("div");top.className="altez-infer-head";
+        const image=document.createElement("span");image.innerHTML=c.svg; // alleen eigen SVG
+        const labels=document.createElement("div");
+        const bold=document.createElement("strong");bold.textContent="Mogelijk "+c.label.toLowerCase()+" · "+group.elements.length+" objecten";
+        const meta=document.createElement("span");meta.textContent=group.strong+" sterke aanwijzingen; "+(group.elements.length-group.strong)+" mogelijke";
+        labels.append(bold,meta);top.append(image,labels);card.appendChild(top);
+        const explanation=document.createElement("p");explanation.className="altez-infer-examples";
+        explanation.textContent="Herkenningssignalen: "+[...group.evidence].map(x=>x.slice(0,65)).join(" · ");
+        card.appendChild(explanation);
+        const actions=document.createElement("div");actions.className="altez-infer-actions";
+        const select=document.createElement("button");select.type="button";select.className="secondary";select.textContent="Selecteer in 3D";
+        select.addEventListener("click",()=>altezSelectSuggestion(group.elements));
+        const accept=document.createElement("button");accept.type="button";accept.textContent="Indelen als "+c.label.toLowerCase();
+        accept.addEventListener("click",()=>altezAcceptSuggestion(group.elements,group.id));
+        actions.append(select,accept);card.appendChild(actions);
+        const detail=document.createElement("details");detail.className="altez-infer-details";
+        const summary=document.createElement("summary");summary.textContent="Toon objecttypes ("+group.types.size+")";detail.appendChild(summary);
+        const rows=[...group.types.entries()].sort((a,b)=>b[1].length-a[1].length);
+        for(const [type,subset] of rows.slice(0,40)){
+          const row=document.createElement("div");row.className="altez-infer-example";
+          const txt=document.createElement("span");txt.textContent=type+" ("+subset.length+")";
+          const inspect=document.createElement("button");inspect.type="button";inspect.className="secondary";inspect.textContent="Selecteer";
+          inspect.addEventListener("click",()=>altezSelectSuggestion(subset));
+          row.append(txt,inspect);detail.appendChild(row);
+        }
+        if(rows.length>40){
+          const note=document.createElement("p");note.className="altez-infer-meta";note.textContent="Eerste 40 typen zichtbaar; selecteer de volledige voorgestelde groep via de knop hierboven.";
+          detail.appendChild(note);
+        }
+        card.appendChild(detail);host.appendChild(card);
+      }
+      if(ungrouped.size){
+        unresolved.classList.remove("hidden");
+        const heading=document.createElement("strong");
+        const n=[...ungrouped.values()].reduce((sum,arr)=>sum+arr.length,0);
+        heading.textContent="Nog niet eenduidig: "+n+" objecten";
+        unresolved.appendChild(heading);
+        for(const [label,list] of [...ungrouped.entries()].sort((a,b)=>b[1].length-a[1].length).slice(0,18)){
+          const row=document.createElement("div");row.className="altez-infer-example";
+          const txt=document.createElement("span");txt.textContent=label+" ("+list.length+")";
+          const b=document.createElement("button");b.type="button";b.className="secondary";b.textContent="Selecteer";
+          b.addEventListener("click",()=>altezSelectSuggestion(list));
+          row.append(txt,b);unresolved.appendChild(row);
+        }
+      }else unresolved.classList.add("hidden");
+      if(grouped.size) {
+        const note=document.createElement("p");note.className="altez-cat-status";
+        note.textContent="Bevestig pas nadat je de elementen in 3D hebt nagekeken. Onzekere categorieën blijven onder Te controleren.";
+        host.appendChild(note);
+      }
+    }
+    altezEl("altez-undo-assignments").addEventListener("click",function(){
+      altezOverrides.clear();
+      altezRefreshCategories();
+    });
+    /* ========= Einde voorstellen ========= */
+
+        /* ========= Einde uitbreiding ========= */
 
     connectToTrimble();
   </script>
