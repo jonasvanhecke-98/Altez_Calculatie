@@ -584,6 +584,19 @@
 .altez-infer-alert{background:#fff9ed;border-left:3px solid #ba8500;padding:8px;font-size:11px;line-height:1.45;margin:8px 0}
 .altez-infer-residual{padding:9px;background:#fff;border:1px dashed #bccbd4;border-radius:7px;font-size:11px;margin-top:10px}
 
+
+/* Bouwkundige en constructieve subcategorieen, zonder extra hoofdtegels */
+.altez-sub-panel{margin:10px 0 13px;padding:10px;border:1px solid #d6e0e6;border-radius:8px;background:#f8fbfd}
+.altez-sub-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
+.altez-sub-head strong{font-size:12px}
+.altez-sub-head span{font-size:11px;color:var(--muted)}
+.altez-sub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.altez-sub-choice{display:flex;align-items:flex-start;justify-content:space-between;flex-direction:column;gap:5px;min-height:56px;background:#fff;color:var(--ink);border:1px solid #cdd9df;text-align:left;font-size:12px;padding:9px}
+.altez-sub-choice:hover,.altez-sub-choice:focus-visible{background:#eff8ff;border-color:var(--blue)}
+.altez-sub-choice.active{background:#e2f0fa;color:var(--blue-dark);border:2px solid var(--blue);padding:8px}
+.altez-sub-choice span{font-size:10px;color:var(--muted)}
+.altez-sub-note{color:var(--muted);font-size:11px;line-height:1.45;margin-top:8px}
+
 </style>
 </head>
 <body>
@@ -627,7 +640,7 @@
   <section id="main-actions" class="panel hidden">
     <h2>2. Wat wil je doen?</h2>
     <div class="action-grid">
-      <button id="open-quick-select" type="button">Snel selecteren</button>
+      <button id="open-quick-select" type="button">Selecteer vanuit categorie</button>
       <button id="open-selection-search" class="secondary" type="button">Zoeken vanuit selectie</button>
     </div>
     <button id="open-advanced-search" class="ghost small" type="button" style="margin-top:8px;">Geavanceerd zoeken op parameter</button>
@@ -636,7 +649,7 @@
   <section id="quick-panel" class="panel hidden">
     <div class="panel-head">
       <div>
-        <h2>Snel selecteren</h2>
+        <h2>Selecteer vanuit categorie</h2>
         <p class="subtitle">Kies eerst een nuttige parameter. Daarna zie je alleen de waarden die bij die parameter horen.</p>
       </div>
       <button id="close-quick" class="secondary small compact-button" type="button">Sluiten</button>
@@ -658,6 +671,11 @@
         </div>
         <button id="altez-category-select-all" type="button" style="margin-bottom:10px">Selecteer alles</button>
         <p id="altez-category-description" class="altez-cat-help"></p>
+        <div id="altez-subcategory-panel" class="altez-sub-panel hidden">
+          <div class="altez-sub-head"><strong>Subcategorieen</strong><span id="altez-subcategory-count"></span></div>
+          <div id="altez-subcategory-grid" class="altez-sub-grid"></div>
+          <div class="altez-sub-note">Gevonden op basis van bouwkundige en constructieve IFC-eigenschappen. Onzekere elementen blijven bij Overige. Selecteer alles geldt voor de huidige groep.</div>
+        </div>
         <div id="altez-unknown-panel" class="altez-infer-panel hidden">
           <h3>Wat kunnen deze elementen zijn?</h3>
           <p class="altez-cat-help">Voorstellen op basis van IFC-klasse, Product Type, Type Name, Product Name en relevante kenmerken. Controleer de geselecteerde objecten in de 3D Viewer vóór je ze voorlopig indeelt.</p>
@@ -680,7 +698,7 @@
         <div id="altez-category-selection-status" class="altez-cat-status"></div>
       </div>
       <div class="altez-cat-notice">Deze versie selecteert alleen objecten in Trimble. Er wordt geen geometrie aangepast, verborgen of gekleurd. Onzekere IFC-objecten staan bij Te controleren.</div>
-      <button id="altez-category-legacy" class="ghost small altez-cat-mode-switch" type="button">Alle parameters / klassieke snelle selectie</button>
+      <button id="altez-category-legacy" class="ghost small altez-cat-mode-switch" type="button">Alle parameters / klassieke parameterselectie</button>
     </div>
     <button id="altez-category-reopen" class="ghost small hidden" type="button" style="margin-bottom:10px">← Bouwdelen met icoontjes</button>
 
@@ -726,7 +744,7 @@
     <div class="panel-head">
       <div>
         <h2>Zoeken vanuit selectie</h2>
-        <p class="subtitle">Selecteer één object. De plugin zoekt automatisch hetzelfde bouwtype.</p>
+        <p class="subtitle">Klik een element aan en kies Zoek hetzelfde type: alle gelijke elementen worden direct geselecteerd, zonder verfijnstappen.</p>
       </div>
       <button id="close-selection" class="secondary small compact-button" type="button">Sluiten</button>
     </div>
@@ -774,7 +792,7 @@
 
     <div id="datatable-selection-info" class="scope-box">
       <strong>Nog geen selectie</strong>
-      <span>Maak eerst een selectie via Snel selecteren, Zoeken vanuit selectie of Zoeken op parameter.</span>
+      <span>Maak eerst een selectie via Selecteer vanuit categorie, Zoeken vanuit selectie of Zoeken op parameter.</span>
     </div>
 
     <button id="analyze-datatable-columns" type="button">Analyseer beschikbare IFC-kolommen</button>
@@ -3751,123 +3769,61 @@
     }
 
     async function readCurrentSelectionForSearch() {
-      if (!API) return;
-
-      ui.selectionResult.innerHTML = "";
-      ui.selectionStatus.innerHTML =
-        "<strong>Selectie inlezen...</strong>" +
-        "<span>Type-eigenschappen worden vergeleken.</span>";
-
-      try {
-        const selection = await API.viewer.getSelection();
-        const selected = getSelectedRuntimeIds(selection);
-
-        if (selected.length !== 1) {
-          ui.selectionStatus.innerHTML =
-            "<strong>Selecteer precies één object</strong>" +
-            "<span>Momenteel zijn " + selected.length + " objecten geselecteerd.</span>";
+      if(!API)return;
+      ui.selectionResult.replaceChildren();
+      ui.readSelection.disabled=true;
+      ui.selectionStatus.textContent="Het geselecteerde type wordt opgezocht...";
+      try{
+        const selected=getSelectedRuntimeIds(await API.viewer.getSelection());
+        if(selected.length!==1){
+          ui.selectionStatus.textContent="Selecteer precies een element in de 3D Viewer. Nu geselecteerd: "+selected.length+".";
           return;
         }
-
-        const target = selected[0];
-
-        let element = analyzedElements.find(function(item) {
-          return String(item.modelId) === String(target.modelId)
-            && String(item.runtimeId) === String(target.runtimeId);
-        });
-
-        if (!element) {
-          const properties = await getPropertyBatch(
-            target.modelId,
-            [target.runtimeId]
-          );
-
-          if (!properties.length) {
-            throw new Error("Geen properties gevonden voor het geselecteerde object.");
-          }
-
-          element = {
-            uid: String(target.modelId) + "|" + String(target.runtimeId),
-            modelId: target.modelId,
-            runtimeId: target.runtimeId,
-            values: flattenObjectProperties(properties[0])
+        if(!analyzedElements.length){
+          ui.selectionStatus.textContent="Analyseer eerst het geladen model, zodat alle elementen van hetzelfde type gevonden kunnen worden.";
+          return;
+        }
+        const target=selected[0];
+        let element=analyzedElements.find(item=>String(item.modelId)===String(target.modelId) && String(item.runtimeId)===String(target.runtimeId));
+        if(!element){
+          const properties=await getPropertyBatch(target.modelId,[target.runtimeId]);
+          if(!properties.length)throw new Error("Geen eigenschappen gevonden voor het gekozen object.");
+          element={
+            uid:String(target.modelId)+"|"+String(target.runtimeId),
+            modelId:target.modelId,runtimeId:target.runtimeId,
+            values:flattenObjectProperties(properties[0])
           };
         }
-
-        selectedSearchSeedElement = element;
-
-        const typeInfo = determineSelectedType(element);
-
-        if (!typeInfo) {
-          ui.selectionStatus.innerHTML =
-            "<strong>Geen bruikbaar type herkend</strong>" +
-            "<span>Geen geschikte type-, Pset- of IFC-eigenschap gevonden.</span>";
+        selectedSearchSeedElement=element;
+        const typeInfo=determineSelectedType(element);
+        // Een identieke IFC-klasse alleen bewijst niet dat objecten hetzelfde type hebben.
+        if(!typeInfo||typeInfo.key==="Objectinformatie → IFC-klasse"){
+          ui.selectionStatus.textContent="Geen herkenbaar type beschikbaar. Kijk of de IFC een Product Type, Type Name of andere typeparameter bevat.";
           return;
         }
-
-        const matches = findSameTypeElements(typeInfo);
-
-        rememberCurrentResult(
-          matches,
-          "Zelfde type: " + typeInfo.source + " = " + typeInfo.value
-        );
-
-        ui.selectionStatus.innerHTML =
-          "<strong>Type herkend: " + typeInfo.value + "</strong>" +
-          "<span>Gebruikt veld: " + typeInfo.source +
-          " · IFC-klasse: " + (typeInfo.ifcClass || "niet ingevuld") + ".</span>";
-
-        const card = document.createElement("div");
-        card.className = "selection-result";
-
-        const strong = document.createElement("strong");
-        strong.textContent =
-          matches.length + " element" +
-          (matches.length === 1 ? "" : "en") +
-          " in hoofdgroep";
-
-        const detail = document.createElement("span");
-        detail.textContent =
-          typeInfo.source + " = " + typeInfo.value;
-
-        const button = document.createElement("button");
-        button.type = "button";
-        button.style.marginTop = "8px";
-        button.textContent =
-          "Selecteer hoofdgroep (" + matches.length + ")";
-
-        button.disabled = matches.length === 0;
-
-        button.addEventListener("click", async function() {
-          await selectOnly(matches);
-          rememberCurrentResult(
-            matches,
-            typeInfo.source + " = " + typeInfo.value
-          );
-        });
-
-        card.appendChild(strong);
-        card.appendChild(detail);
-        card.appendChild(button);
-
-        card.appendChild(
-          renderSameTypeRefinements(
-            matches,
-            [typeInfo.key],
-            0
-          )
-        );
-
+        const matches=findSameTypeElements(typeInfo);
+        if(!matches.length){
+          ui.selectionStatus.textContent="Geen overeenkomende objecten gevonden voor dit type.";
+          return;
+        }
+        await API.viewer.setSelection(selectorFromDetails(matches),"set");
+        rememberCurrentResult(matches,"Zelfde type: "+typeInfo.source+" = "+typeInfo.value);
+        const card=document.createElement("div");card.className="selection-result";
+        const strong=document.createElement("strong");
+        strong.textContent=matches.length+" object"+(matches.length===1?"":"en")+" direct geselecteerd";
+        const detail=document.createElement("span");
+        detail.textContent="Type: "+typeInfo.value+" · via "+typeInfo.source+
+          (typeInfo.ifcClass?" · IFC-klasse: "+typeInfo.ifcClass:"");
+        card.append(strong,detail);
         ui.selectionResult.appendChild(card);
-      } catch (error) {
-        console.error("Selectie inlezen mislukt:", error);
-
-        ui.selectionStatus.innerHTML =
-          "<strong>Selectie kon niet worden ingelezen</strong>" +
-          "<span>" + (error.message || "Onbekende fout") + "</span>";
+        ui.selectionStatus.textContent="Alle overeenkomstige objecten zijn direct geselecteerd.";
+      }catch(error){
+        console.error("Zoeken vanuit selectie mislukt:",error);
+        ui.selectionStatus.textContent="Selectie mislukt: "+(error&&error.message||"onbekende fout");
+      }finally{
+        ui.readSelection.disabled=false;
       }
     }
-
     function populateManualParameters() {
       ui.manualParameter.innerHTML = '<option value="">Kies parameter...</option>';
 
@@ -4036,6 +3992,8 @@
     const altezOverrides = new Map();
     const altezByCategory = new Map();
     const altezCategoryCache = new Map();
+    const altezSubcategoryCache = new Map();
+    let altezActiveSubcategory = "";
     let altezActiveCategory = "";
     let altezCurrentGroups = [];
     let altezCheckedGroupKeys = new Set();
@@ -4102,6 +4060,8 @@
     function altezRefreshCategories() {
       altezByCategory.clear();
       altezCategoryCache.clear();
+      altezSubcategoryCache.clear();
+      altezActiveSubcategory = "";
       ALTEZ_CATEGORIES.forEach(function(c){altezByCategory.set(c.id, []);});
       analyzedElements.forEach(function(element) {
         const target = altezOverrides.get(element.uid) || altezRecognize(element);
@@ -4110,6 +4070,7 @@
       altezRenderCategoryGrid();
       altezEl("altez-undo-assignments").classList.toggle("hidden",!altezOverrides.size);
       altezActiveCategory = "";
+      altezActiveSubcategory = "";
       altezEl("altez-category-home").classList.remove("hidden");
       altezEl("altez-category-details").classList.add("hidden");
     }
@@ -4134,6 +4095,154 @@
       });
       altezEl("altez-category-summary").textContent = analyzedElements.length.toLocaleString("nl-BE") + " ingelezen objecten. Indeling op IFC-klasse en, bij generieke objecten, typekenmerken.";
     }
+
+    /* Alleen bouwkundige en constructieve soorten. Geen extra hoofdtegels of technieken. */
+    const ALTEZ_SUBCATEGORY_RULES = {
+      wall: [
+        {id:"sandwich",label:"Sandwichpanelen",re:/sandwich|(?:gevel|wand|wall)[\s-]*panel.{0,30}(?:pir|pur|isolatie|insulation|minerale[\s-]*wol)/i},
+        {id:"prefab",label:"Prefab betonwanden",re:/(?:prefab|precast|prefabricated).{0,25}(?:beton|concrete|wand|wall)|(?:beton|concrete)[\s-]*(?:prefab|precast)/i},
+        {id:"masonry",label:"Metselwerkwanden",re:/metselwerk|metselsteen|brickwork|masonry|baksteen|brick[\s-]*wall/i},
+        {id:"light",label:"Lichte binnenwanden",re:/gipsplaat|gypsum|drywall|metal[\s-]*stud|lichte[\s-]*wand|scheidingswand|partition[\s-]*wall/i},
+        {id:"timber",label:"Houten wanden",re:/houten[\s-]*wand|timber[\s-]*wall|wood[\s-]*wall|houtskelet/i},
+        {id:"concrete",label:"Betonwanden",re:/beton|concrete/i}
+      ],
+      floor: [
+        {id:"hollowcore",label:"Kanaalplaten / welfsels",re:/kanaalplaat|kanaalplaten|welfsel|welfsels|hollow[\s-]*core|hollowcore|spiroll/i},
+        {id:"predal",label:"Predallen / breedplaten",re:/predal|predallen|breedplaat|breedplaten|filigree[\s-]*slab|half[\s-]*slab/i},
+        {id:"precast",label:"Prefab betonvloeren",re:/(?:prefab|precast|prefabricated).{0,25}(?:beton|concrete|vloer|floor|slab)|(?:beton|concrete)[\s-]*(?:prefab|precast)/i},
+        {id:"steel",label:"Staalplaatvloeren",re:/staalplaatvloer|steel[\s-]*deck|metal[\s-]*deck|composite[\s-]*slab|comflor|staalplaat|steel[\s-]*floor/i},
+        {id:"timber",label:"Houten vloeren",re:/houten[\s-]*vloer|wooden[\s-]*floor|timber[\s-]*floor|clt[\s-]*floor|houtvloer/i},
+        {id:"concrete",label:"Betonvloeren",re:/beton|concrete/i}
+      ],
+      roof: [
+        {id:"sandwich",label:"Sandwichdakpanelen",re:/sandwich|dakpaneel.{0,25}(?:pir|pur|isolatie|insulation|minerale[\s-]*wol)|roof[\s-]*panel.{0,25}(?:pir|pur|insulation)/i},
+        {id:"sheet",label:"Dakbeplating / staalplaat",re:/dakbeplating|dakplaat|trapeziumplaat|geprofileerde[\s-]*plaat|roof[\s-]*sheet|roof[\s-]*deck|metal[\s-]*roof|steel[\s-]*roof|steel[\s-]*deck/i},
+        {id:"covering",label:"Dakbedekking",re:/dakbedekking|roofing[\s-]*membrane|bitumen|epdm|tpo|pvc[\s-]*roof|dakpannen|roof[\s-]*tile/i},
+        {id:"insulation",label:"Dakisolatie",re:/dakisolatie|roof[\s-]*insulation|isolatieplaat|insulation[\s-]*board/i},
+        {id:"timber",label:"Houten dakconstructies",re:/houten[\s-]*dak|timber[\s-]*roof|wooden[\s-]*roof|sporenkap/i}
+      ],
+      column: [
+        {id:"steel",label:"Stalen kolommen",re:/staal|steel|stalen[\s-]*kolom|steel[\s-]*column|\b(?:ipe|hea|heb|hem|rhs|shs|chs)\s*\d{2,4}\b|\bs(?:235|275|355|420|460)(?:jr|j0|j2)?\b/i},
+        {id:"concrete",label:"Betonkolommen",re:/beton|concrete/i},
+        {id:"timber",label:"Houten kolommen",re:/houten[\s-]*kolom|timber|hout|wood/i}
+      ],
+      beam: [
+        {id:"truss",label:"Spanten en gordingen",re:/spant|spanten|gording|purlin|rafter|vakwerk|truss/i},
+        {id:"steel",label:"Stalen liggers",re:/staal|steel|\b(?:ipe|hea|heb|hem|upn|unp|rhs|shs|chs)\s*\d{2,4}\b|\bs(?:235|275|355|420|460)(?:jr|j0|j2)?\b/i},
+        {id:"concrete",label:"Betonnen liggers",re:/beton|concrete/i},
+        {id:"timber",label:"Houten liggers",re:/hout|timber|wood|glulam|gelamineerd/i}
+      ],
+      foundation: [
+        {id:"pile",label:"Funderingspalen",re:/heipaal|funderingspaal|boorpaal|paalfundering|foundation[\s-]*pile|bored[\s-]*pile|ifcpile/i},
+        {id:"footing",label:"Poeren",re:/poer|poeren|pile[\s-]*cap|pad[\s-]*footing|isolated[\s-]*footing/i},
+        {id:"beam",label:"Funderingsbalken",re:/funderingsbalk|foundation[\s-]*beam|grade[\s-]*beam|ground[\s-]*beam/i},
+        {id:"strip",label:"Funderingszolen",re:/funderingszool|strokenfundering|strip[\s-]*footing|strip[\s-]*foundation/i}
+      ],
+      door: [
+        {id:"industrial",label:"Industriele poorten",re:/sectionaal|sectional|overhead[\s-]*door|industrial[\s-]*door|rolpoort|garagepoort/i},
+        {id:"fire",label:"Brandwerende deuren",re:/brandwerend|fire[\s-]*rated|fire[\s-]*door|(?:^|\W)ei\s*(?:30|60|90|120)(?:\W|$)/i},
+        {id:"external",label:"Buitendeuren",re:/buitendeur|external[\s-]*door|exterior[\s-]*door/i},
+        {id:"internal",label:"Binnendeuren",re:/binnendeur|internal[\s-]*door|interior[\s-]*door/i}
+      ],
+      window: [
+        {id:"roof",label:"Dakramen",re:/dakraam|dakvenster|roof[\s-]*window|rooflight|skylight/i},
+        {id:"alu",label:"Aluminium ramen",re:/aluminium|aluminum|\balu[\s-]*raam\b|\balu[\s-]*window\b/i},
+        {id:"timber",label:"Houten ramen",re:/houten[\s-]*raam|timber[\s-]*window|wooden[\s-]*window/i},
+        {id:"pvc",label:"PVC ramen",re:/pvc[\s-]*(?:raam|window)|kunststof[\s-]*raam|u[\s-]*pvc/i}
+      ],
+      stair: [
+        {id:"concrete",label:"Betonnen trappen",re:/beton|concrete|prefab[\s-]*trap|precast[\s-]*stair/i},
+        {id:"steel",label:"Stalen trappen",re:/staal|steel|metalen[\s-]*trap|metal[\s-]*stair/i},
+        {id:"timber",label:"Houten trappen",re:/hout|timber|wood/i}
+      ]
+    };
+    function altezSubcategoryEvidence(element) {
+      const pieces=[];
+      const cl=altezText(element,"Objectinformatie","IFC-klasse");
+      if(cl)pieces.push(cl);
+      for(const key of ["Objectinformatie → Producttype","Objectinformatie → Productnaam"]){
+        const item=element.values.get(key);
+        if(item&&item.value)pieces.push(String(item.value).slice(0,180));
+      }
+      element.values.forEach(function(item){
+        if(!item||!item.name)return;
+        const name=String(item.name).toLocaleLowerCase("nl-BE").replace(/[\s_.-]/g,"");
+        if(/^(typename|typenaam|type|objecttype|producttype|walltype|slabtype|rooftype|columntype|beamtype|membertype|constructiontype|predefinedtype|familyandtype|description|omschrijving|material|materialname|materialtype|ifcmaterial|materiaal|materiaalnaam|composition|construction|profile|profilename|sectionname|sectiontype)$/.test(name)){
+          const value=String(item.value||"").trim();
+          if(value&&value.length<=180)pieces.push(value);
+        }
+      });
+      return pieces.join(" | ").toLocaleLowerCase("nl-BE").replace(/[_/\\.,:;()[\]-]+/g," ");
+    }
+    function altezDetectSubcategory(element,category) {
+      const rules=ALTEZ_SUBCATEGORY_RULES[category];
+      if(!rules)return "";
+      const context=altezSubcategoryEvidence(element);
+      for(const rule of rules)if(rule.re.test(context))return rule.id;
+      return "other";
+    }
+    function altezGetSubcategories(category) {
+      if(altezSubcategoryCache.has(category))return altezSubcategoryCache.get(category);
+      const rules=ALTEZ_SUBCATEGORY_RULES[category];
+      if(!rules){altezSubcategoryCache.set(category,[]);return [];}
+      const groups=new Map();
+      rules.forEach(rule=>groups.set(rule.id,{id:rule.id,label:rule.label,elements:[]}));
+      const categoryName=ALTEZ_CATEGORIES.find(c=>c.id===category)?.label||"bouwdelen";
+      groups.set("other",{id:"other",label:"Overige "+categoryName.toLocaleLowerCase("nl-BE"),elements:[]});
+      for(const element of altezByCategory.get(category)||[]){
+        const id=altezDetectSubcategory(element,category);
+        (groups.get(id)||groups.get("other")).elements.push(element);
+      }
+      const result=[...groups.values()].filter(group=>group.elements.length>0);
+      altezSubcategoryCache.set(category,result);
+      return result;
+    }
+    function altezCategoryScope() {
+      if(!altezActiveCategory)return [];
+      if(!altezActiveSubcategory)return altezByCategory.get(altezActiveCategory)||[];
+      const sub=altezGetSubcategories(altezActiveCategory).find(group=>group.id===altezActiveSubcategory);
+      return sub?sub.elements:[];
+    }
+    function altezUpdateSubcategoryHeader() {
+      const category=ALTEZ_CATEGORIES.find(c=>c.id===altezActiveCategory);
+      if(!category)return;
+      const sub=altezGetSubcategories(altezActiveCategory).find(x=>x.id===altezActiveSubcategory);
+      const length=altezCategoryScope().length;
+      altezEl("altez-category-title").textContent=category.label+(sub?" / "+sub.label:"")+" · "+length+" objecten";
+      altezEl("altez-category-select-all").textContent="Selecteer alles ("+length+")";
+    }
+    function altezRenderSubcategoryTiles() {
+      const panel=altezEl("altez-subcategory-panel");
+      const grid=altezEl("altez-subcategory-grid");
+      const categories=altezGetSubcategories(altezActiveCategory);
+      const recognized=categories.some(c=>c.id!=="other");
+      panel.classList.toggle("hidden",!recognized||altezActiveCategory==="unknown");
+      grid.replaceChildren();
+      if(!recognized)return;
+      altezEl("altez-subcategory-count").textContent=categories.length+" gevonden";
+      const all={id:"",label:"Alle "+(ALTEZ_CATEGORIES.find(c=>c.id===altezActiveCategory)?.label||"bouwdelen").toLocaleLowerCase("nl-BE"),elements:altezByCategory.get(altezActiveCategory)||[]};
+      for(const sub of [all,...categories]){
+        const button=document.createElement("button");
+        button.type="button";
+        button.className="altez-sub-choice"+(altezActiveSubcategory===sub.id?" active":"");
+        const title=document.createElement("strong");title.textContent=sub.label;
+        const meta=document.createElement("span");meta.textContent=sub.elements.length+" elementen";
+        button.append(title,meta);
+        button.addEventListener("click",function(){
+          altezActiveSubcategory=sub.id;
+          altezCategoryCache.clear();
+          altezCheckedGroupKeys.clear();
+          altezShowCount=30;
+          altezEl("altez-category-filter").value="";
+          altezRenderSubcategoryTiles();
+          altezUpdateSubcategoryHeader();
+          altezPopulateGroupingSelects();
+          altezRenderGroups();
+        });
+        grid.appendChild(button);
+      }
+    }
+
     const ALTEZ_AUTO_TYPE_KEY = "__altez_automatic_type__";
     function altezGroupingRole(item, key) {
       const name = String(item.name || key.split(" → ").pop() || "").toLocaleLowerCase("nl-BE").replace(/[\s._-]+/g,"");
@@ -4162,8 +4271,9 @@
       return score+coverage*65+(p.unique.size>1?18:0)-(uniqueRatio>.90 && p.filled>6?100:0);
     }
     function altezMakeCategoryIndex(id) {
-      if(altezCategoryCache.has(id))return altezCategoryCache.get(id);
-      const elements=altezByCategory.get(id)||[];
+      const cacheKey=id+"|"+(id===altezActiveCategory?altezActiveSubcategory:"");
+      if(altezCategoryCache.has(cacheKey))return altezCategoryCache.get(cacheKey);
+      const elements=id===altezActiveCategory?altezCategoryScope():(altezByCategory.get(id)||[]);
       const index=new Map();
       elements.forEach(function(element) {
         element.values.forEach(function(item,key) {
@@ -4231,7 +4341,7 @@
       available.sort((a,b)=>b.weight-a.weight||a.label.localeCompare(b.label,"nl"));
       available.unshift(auto);
       const result={elements,index,available,autoTypes,explicitCount,fallbackCount};
-      altezCategoryCache.set(id,result);
+      altezCategoryCache.set(cacheKey,result);
       return result;
     }
     function altezPopulateGroupingSelects() {
@@ -4276,14 +4386,15 @@
     }
     function altezOpenCategory(id) {
       altezActiveCategory=id;
+      altezActiveSubcategory="";
       altezShowCount=30;altezCheckedGroupKeys.clear();
       const c=ALTEZ_CATEGORIES.find(x=>x.id===id);
       const n=(altezByCategory.get(id)||[]).length;
       const data=altezMakeCategoryIndex(id);
+      altezRenderSubcategoryTiles();
       altezEl("altez-category-home").classList.add("hidden");
       altezEl("altez-category-details").classList.remove("hidden");
-      altezEl("altez-category-title").textContent=c.label+" · "+n+" objecten";
-      altezEl("altez-category-select-all").textContent="Selecteer alles ("+n+")";
+      altezUpdateSubcategoryHeader();
       altezEl("altez-unknown-panel").classList.toggle("hidden",id!=="unknown");
       if(id==="unknown")altezRenderUnknownSuggestions();
       altezEl("altez-category-description").textContent=data.explicitCount
@@ -4353,7 +4464,7 @@
         button.addEventListener("click",function(){altezSelectElements(g.elements);});
         row.append(check,info,button);host.appendChild(row);
       }
-      altezEl("altez-category-result-summary").textContent=groups.length+" groepen · "+(altezByCategory.get(altezActiveCategory)||[]).length+" objecten in deze categorie";
+      altezEl("altez-category-result-summary").textContent=groups.length+" groepen · "+altezCategoryScope().length+" objecten in deze keuze";
       const more=altezEl("altez-category-more");
       more.classList.toggle("hidden",groups.length<=altezShowCount);
       more.textContent="Toon meer groepen ("+Math.min(groups.length,altezShowCount+30)+"/"+groups.length+")";
@@ -4372,7 +4483,8 @@
       try{
         await API.viewer.setSelection(selectorFromDetails(objects),"set");
         const name=ALTEZ_CATEGORIES.find(x=>x.id===altezActiveCategory).label;
-        rememberCurrentResult(objects,name+" - bouwdeelgroepering");
+        const sub=altezGetSubcategories(altezActiveCategory).find(x=>x.id===altezActiveSubcategory);
+        rememberCurrentResult(objects,name+(sub?" / "+sub.label:"")+" - bouwdeelgroepering");
         el.textContent=objects.length.toLocaleString("nl-BE")+" objecten geselecteerd. Beschikbaar voor Data Table.";
       }catch(error){
         console.error("Bouwdeelselectie mislukt:",error);
@@ -4403,7 +4515,7 @@
     altezEl("altez-category-filter").addEventListener("input",function(){altezShowCount=30;altezRenderGroupRows();});
     altezEl("altez-category-more").addEventListener("click",function(){altezShowCount+=30;altezRenderGroupRows();});
     altezEl("altez-category-select-all").addEventListener("click",function(){
-      altezSelectElements(altezByCategory.get(altezActiveCategory)||[]);
+      altezSelectElements(altezCategoryScope());
     });
     altezEl("altez-category-select-checked").addEventListener("click",function(){
       const seen=new Set(), selection=[];
@@ -4433,7 +4545,6 @@
       {re:/\b(?:ceiling|plafond|plafonds)\b/i,label:"Mogelijk plafond"},
       {re:/\b(?:curtainwall|vliesgevel|gevelsysteem)\b/i,label:"Mogelijk vliesgevel"},
       {re:/\b(?:furniture|furnishing|meubilair)\b/i,label:"Mogelijk meubilair"},
-      {re:/\b(?:duct|kanaalwerk|ventilatiekanaal|pipe|leidingen|leiding|piping)\b/i,label:"Mogelijk installatie"},
       {re:/\b(?:opening|sparingen|sparing|uitsparing)\b/i,label:"Mogelijk opening of sparing"}
     ];
     function altezInferSignals(element){
