@@ -625,8 +625,8 @@
 
     <div id="altez-category-mode" class="hidden">
       <div id="altez-category-home">
-        <div class="altez-cat-heading"><h3>Herken automatisch de bouwdelen</h3><span class="badge">IFC</span></div>
-        <p class="altez-cat-help">Kies een bouwdeel. De tool groepeert automatisch op bruikbare IFC-eigenschappen. Aantallen komen uit het geladen model.</p>
+        <div class="altez-cat-heading"><h3>Bouwdelen</h3><span class="badge">IFC</span></div>
+        <p class="altez-cat-help">Kies een bouwdeel en zie meteen de verschillende types. Daarna kun je verfijnen op materiaal, dikte of afwerking.</p>
         <div id="altez-category-grid" class="altez-cat-grid"></div>
         <div id="altez-category-summary" class="altez-cat-status"></div>
       </div>
@@ -635,6 +635,7 @@
           <button id="altez-category-back" class="secondary small" type="button">← Bouwdelen</button>
           <strong id="altez-category-title"></strong>
         </div>
+        <button id="altez-category-select-all" type="button" style="margin-bottom:10px">Selecteer alles</button>
         <p id="altez-category-description" class="altez-cat-help"></p>
         <div class="altez-cat-row">
           <div class="altez-cat-field"><label for="altez-category-primary">Groepeer op</label><select id="altez-category-primary"></select></div>
@@ -645,8 +646,7 @@
         <div id="altez-category-result-summary" class="altez-cat-status"></div>
         <div id="altez-category-results" class="altez-cat-results"></div>
         <button id="altez-category-more" class="secondary small hidden" type="button" style="margin-top:8px">Toon meer groepen</button>
-        <div class="altez-cat-actions">
-          <button id="altez-category-select-all" type="button">Selecteer alle in categorie</button>
+        <div class="altez-cat-actions" style="grid-template-columns:1fr">
           <button id="altez-category-select-checked" class="secondary" type="button" disabled>Selecteer aangevinkt</button>
         </div>
         <div id="altez-category-selection-status" class="altez-cat-status"></div>
@@ -4102,76 +4102,126 @@
       });
       altezEl("altez-category-summary").textContent = analyzedElements.length.toLocaleString("nl-BE") + " ingelezen objecten. Indeling op IFC-klasse en, bij generieke objecten, typekenmerken.";
     }
+    const ALTEZ_AUTO_TYPE_KEY = "__altez_automatic_type__";
+    function altezGroupingRole(item, key) {
+      const name = String(item.name || key.split(" → ").pop() || "").toLocaleLowerCase("nl-BE").replace(/[\s._-]+/g,"");
+      const full = String(key).toLocaleLowerCase("nl-BE");
+      // Vakken die geen bouwdeeltype beschrijven worden nooit voorgesteld.
+      if (/layer|lagen|^laag$|workset|verdieping|storey|level|niveau|^class$|ifc.klasse|^guid$|globalid|uuid|runtime|objectid|modelid|entityid|sourceid|^id$|^mark$|^tag$|type.?mark|typemark|^name$|productnaam|productname|description|omschrijving|geometry|geometrie|bounding|coordinate|placement|vertex|mesh|created|modified|timestamp|phase|fase|system|systeem|importplugin|viewerdata|calculatedgeometryvalues/i.test(name)) return "";
+      if (/layer|workset|importplugin|viewer metadata|calculatedgeometryvalues|geometry|geometrie/i.test(full)) return "";
+      if (/^(walltype|wandtype|walltypename|rooftype|daktype|slabtype|floortype|vloertype|columntype|beamtype|membertype|doortype|windowtype|foundationtype|footingtype|constructiontype|objecttype|producttype|elementtype|ifctype|typename|typenaam|familyandtype|familytype|type|typecode|typeid|classificationtype)$/.test(name)) return "type";
+      if (/^(material|materialname|ifcmaterial|materiaal|materiaalnaam|materialtype|materialcategory)$/.test(name)) return "materiaal";
+      if (/^(thickness|nominalthickness|overallthickness|panelthickness|insulationthickness|dikte|wanddikte|paneeldikte|isolatiedikte)$/.test(name)) return "dikte";
+      if (/^(finish|finishing|surfacefinish|afwerking|coating|coatingtype|colour|color|kleur|ral|ralcode)$/.test(name)) return "afwerking";
+      if (/^(reference|referentie|classification|classificatie|classificationcode|classificationsystem)$/.test(name)) return "referentie";
+      return "";
+    }
+    function altezTypePriority(p,category) {
+      const name=String(p.name||"").toLocaleLowerCase("nl-BE").replace(/[\s._-]+/g,"");
+      const family=({wall:"walltype|wandtype",floor:"slabtype|floortype|vloertype",roof:"rooftype|daktype",column:"columntype",beam:"beamtype|membertype",foundation:"foundationtype|footingtype",door:"doortype",window:"windowtype"})[category]||"";
+      let score=0;
+      if(family && new RegExp("^(?:"+family+")$").test(name)) score=360;
+      else if(/^(walltype|wandtype|rooftype|daktype|slabtype|floortype|vloertype|columntype|beamtype|membertype|doortype|windowtype|foundationtype|footingtype)$/.test(name))score=340;
+      else if(/^(typename|typenaam|familyandtype|familytype|constructiontype|elementtype|objecttype|producttype)$/.test(name))score=310;
+      else if(/^(type|ifctype|typecode|typeid|classificationtype)$/.test(name))score=260;
+      const total=Math.max(1,p.totalElements);
+      const coverage=p.filled/total;
+      const uniqueRatio=p.unique.size/Math.max(1,p.filled);
+      return score+coverage*65+(p.unique.size>1?18:0)-(uniqueRatio>.90 && p.filled>6?100:0);
+    }
     function altezMakeCategoryIndex(id) {
-      if (altezCategoryCache.has(id)) return altezCategoryCache.get(id);
-      const elements = altezByCategory.get(id) || [];
-      const index = new Map();
+      if(altezCategoryCache.has(id))return altezCategoryCache.get(id);
+      const elements=altezByCategory.get(id)||[];
+      const index=new Map();
       elements.forEach(function(element) {
-        element.values.forEach(function(item, key) {
-          if (!item) return;
-          const value = String(item.value == null ? "" : item.value).trim();
-          if (!value || value.length > 100 || isSuspiciousValue(value)) return;
-          const name = String(item.name || "");
-          if (/(guid|globalid|uuid|runtime|object id|model id|entity id|source id|created|modified|timestamp|coordinate|placement|bounding|vertex|normal|mesh|geometry|conversion|importplugin)/i.test(key)) return;
-          if (/(^|[\s.])id$/i.test(name)) return;
-          let entry = index.get(key);
-          if (!entry) {
-            entry = {key,label:key,filled:0,unique:new Map(),weight:0};
-            index.set(key,entry);
-          }
-          entry.filled++;
-          const norm = altezNormalize(value,key);
-          let group = entry.unique.get(norm);
-          if (!group) {group={value:value,elements:[]};entry.unique.set(norm,group);}
-          group.elements.push(element);
+        element.values.forEach(function(item,key) {
+          if(!item)return;
+          const role=altezGroupingRole(item,key);
+          if(!role)return;
+          const value=String(item.value==null?"":item.value).trim();
+          if(!value||value.length>110||isSuspiciousValue(value))return;
+          let p=index.get(key);
+          if(!p){p={key,label:key,name:item.name,role,filled:0,totalElements:elements.length,unique:new Map(),weight:0};index.set(key,p);}
+          p.filled++;
+          const norm=altezNormalize(value,key);
+          let g=p.unique.get(norm);
+          if(!g){g={value,elements:[]};p.unique.set(norm,g);}
+          g.elements.push(element);
         });
       });
-      const available = Array.from(index.values()).filter(function(p){
-        return p.unique.size >= 2 && p.filled >= Math.min(2,elements.length) && p.unique.size <= Math.max(80,Math.round(elements.length*.75));
+      const typeFields=Array.from(index.values()).filter(p=>p.role==="type").sort((a,b)=>altezTypePriority(b,id)-altezTypePriority(a,id));
+      // Een type kan in het ene IFC 'Wall Type' en in een ander 'Type Name' heten.
+      // Gebruik per object de beste beschikbare typeparameter uit de ranglijst.
+      const nameCounts=new Map();
+      elements.forEach(function(element){
+        const item=element.values.get("Objectinformatie → Productnaam");
+        if(!item)return;
+        const name=normalizeProductNameForType(String(item.value||"")).trim();
+        if(name && !isSuspiciousValue(name)){
+          const norm=altezNormalize(name,"type");
+          nameCounts.set(norm,(nameCounts.get(norm)||0)+1);
+        }
       });
-      available.forEach(function(p) {
-        const key = p.key.toLowerCase();
-        let weight = 0;
-        if (/wall type|roof type|slab type|producttype|product type|objecttype|object type|type name|typename|\btype\b|family/.test(key)) weight += 125;
-        if (/material|materiaal/.test(key)) weight += 110;
-        if (/thickness|dikte/.test(key)) weight += 100;
-        if (/finish|afwerking|ral|coating|color|colour|kleur/.test(key)) weight += 90;
-        if (/classification|classificatie|reference|referentie/.test(key)) weight += 70;
-        if (/storey|verdieping|level|bouwlaag/.test(key)) weight += 65;
-        if (/productnaam|product name|description|omschrijving/.test(key)) weight += 48;
-        if (/length|lengte|width|breedte|height|hoogte|area|oppervlakte|volume|gewicht|weight/.test(key)) weight -= 30;
-        const coverage = p.filled/Math.max(1,elements.length);
-        const diversity = p.unique.size/p.filled;
-        weight += coverage*45 + Math.min(20,p.unique.size)*.8;
-        if (diversity > .85) weight -= 110;
-        if (p.unique.size <= 15) weight += 10;
-        p.weight = weight;
+      const autoTypes=new Map();
+      const autoUnique=new Map();
+      let explicitCount=0, fallbackCount=0;
+      elements.forEach(function(element) {
+        let type="";
+        for(const p of typeFields){
+          const v=element.values.get(p.key);
+          const raw=v?String(v.value||"").trim():"";
+          if(raw && !isSuspiciousValue(raw)){type=raw;explicitCount++;break;}
+        }
+        if(!type){
+          const p=element.values.get("Objectinformatie → Productnaam");
+          const name=p?normalizeProductNameForType(String(p.value||"")).trim():"";
+          // Unieke elementnamen worden niet ten onrechte voorgesteld als herbruikbaar type.
+          if(name && nameCounts.get(altezNormalize(name,"type"))>=2){type=name;fallbackCount++;}
+        }
+        if(!type)type="(Type niet opgegeven)";
+        autoTypes.set(element.uid,type);
+        const normalized=altezNormalize(type,"type");
+        let group=autoUnique.get(normalized);
+        if(!group){group={value:type,elements:[]};autoUnique.set(normalized,group);}
+        group.elements.push(element);
       });
-      available.sort((a,b)=>b.weight-a.weight || a.label.localeCompare(b.label,"nl"));
-      const result = {elements,index,available};
+      const auto={key:ALTEZ_AUTO_TYPE_KEY,label:"Types (automatisch)",name:"Type",role:"type",filled:elements.length,unique:autoUnique,weight:99999};
+      const roleWeights={type:1000,materiaal:700,dikte:600,afwerking:500,referentie:300};
+      const available=Array.from(index.values()).filter(function(p){
+        if(p.unique.size<2 || p.filled<Math.min(2,elements.length))return false;
+        const uniqueRatio=p.unique.size/Math.max(1,p.filled);
+        if(uniqueRatio>.97 && p.filled>25)return false;
+        return true;
+      });
+      available.forEach(function(p){
+        p.weight=roleWeights[p.role]+p.filled/Math.max(1,elements.length)*80+(p.role==="type"?altezTypePriority(p,id)/20:0);
+      });
+      available.sort((a,b)=>b.weight-a.weight||a.label.localeCompare(b.label,"nl"));
+      available.unshift(auto);
+      const result={elements,index,available,autoTypes,explicitCount,fallbackCount};
       altezCategoryCache.set(id,result);
       return result;
     }
     function altezPopulateGroupingSelects() {
-      const data = altezMakeCategoryIndex(altezActiveCategory);
-      const first = altezEl("altez-category-primary");
-      const second = altezEl("altez-category-secondary");
-      first.replaceChildren();
-      second.replaceChildren();
-      const none = document.createElement("option");
-      none.value="";none.textContent="Geen tweede parameter";
-      second.appendChild(none);
-      data.available.forEach(function(p){
-        [first,second].forEach(function(select){
-          const o=document.createElement("option");o.value=p.key;
-          o.textContent=p.label + " (" + p.unique.size + ")";
-          select.appendChild(o);
-        });
-      });
-      first.disabled = !data.available.length;
-      second.disabled = !data.available.length;
-      if (data.available.length) first.value = data.available[0].key;
+      const data=altezMakeCategoryIndex(altezActiveCategory);
+      const first=altezEl("altez-category-primary");
+      const second=altezEl("altez-category-secondary");
+      first.replaceChildren();second.replaceChildren();
+      const opt=document.createElement("option");
+      opt.value="";opt.textContent="Geen tweede parameter";second.appendChild(opt);
+      for(const p of data.available){
+        const primary=document.createElement("option");
+        primary.value=p.key;primary.textContent=p.label+(p.key===ALTEZ_AUTO_TYPE_KEY?"":" ("+p.unique.size+")");
+        first.appendChild(primary);
+        if(p.key!==ALTEZ_AUTO_TYPE_KEY){
+          const secondary=document.createElement("option");
+          secondary.value=p.key;secondary.textContent=p.label+" ("+p.unique.size+")";
+          second.appendChild(secondary);
+        }
+      }
+      first.value=ALTEZ_AUTO_TYPE_KEY;
       second.value="";
+      first.disabled=false;second.disabled=data.available.length<=1;
       altezRenderSuggestions();
     }
     function altezRenderSuggestions() {
@@ -4179,14 +4229,14 @@
       const current=altezEl("altez-category-primary").value;
       const host=altezEl("altez-category-suggestions");
       host.replaceChildren();
-      data.available.slice(0,7).forEach(function(p){
+      data.available.slice(0,8).forEach(function(p){
         const b=document.createElement("button");
         b.type="button";b.className=p.key===current?"altez-active":"";
-        b.textContent = p.label.split(" → ").pop();
-        b.title = p.label;
+        b.textContent=p.key===ALTEZ_AUTO_TYPE_KEY?"Alle types":p.label.split(" → ").pop();
+        b.title=p.label;
         b.addEventListener("click",function(){
-          altezEl("altez-category-primary").value = p.key;
-          if (altezEl("altez-category-secondary").value === p.key) altezEl("altez-category-secondary").value="";
+          altezEl("altez-category-primary").value=p.key;
+          if(altezEl("altez-category-secondary").value===p.key)altezEl("altez-category-secondary").value="";
           altezOnGroupParametersChanged();
         });
         host.appendChild(b);
@@ -4194,15 +4244,17 @@
     }
     function altezOpenCategory(id) {
       altezActiveCategory=id;
-      altezShowCount=30;
-      altezCheckedGroupKeys.clear();
+      altezShowCount=30;altezCheckedGroupKeys.clear();
       const c=ALTEZ_CATEGORIES.find(x=>x.id===id);
+      const n=(altezByCategory.get(id)||[]).length;
+      const data=altezMakeCategoryIndex(id);
       altezEl("altez-category-home").classList.add("hidden");
       altezEl("altez-category-details").classList.remove("hidden");
-      altezEl("altez-category-title").textContent=c.label+" · "+(altezByCategory.get(id)||[]).length+" objecten";
-      altezEl("altez-category-description").textContent=id==="unknown"
-        ? "Deze objecten hebben geen ondubbelzinnige IFC-indeling. Controleer eerst de klasse en productgegevens."
-        : "Voorgestelde parameters voor "+c.label.toLowerCase()+". Kies er een of combineer twee eigenschappen.";
+      altezEl("altez-category-title").textContent=c.label+" · "+n+" objecten";
+      altezEl("altez-category-select-all").textContent="Selecteer alles ("+n+")";
+      altezEl("altez-category-description").textContent=data.explicitCount
+        ? "Direct de types: "+data.explicitCount+" objecten met een echte typeparameter"+(data.fallbackCount?" · "+data.fallbackCount+" herkend via herhaalde productnamen":"")+". Verfijn via materiaal, dikte of afwerking."
+        : "Geen ingevulde typeparameter gevonden. Herhaalde productnamen worden als alternatief gebruikt; controleer de ontbrekende types.";
       altezEl("altez-category-filter").value="";
       altezEl("altez-category-selection-status").textContent="";
       altezPopulateGroupingSelects();
@@ -4215,27 +4267,29 @@
       altezRenderGroups();
     }
     function altezRenderGroups() {
-      if (!altezActiveCategory)return;
+      if(!altezActiveCategory)return;
       const data=altezMakeCategoryIndex(altezActiveCategory);
       const first=altezEl("altez-category-primary").value;
       let second=altezEl("altez-category-secondary").value;
-      if (second===first) { second="";altezEl("altez-category-secondary").value=""; }
+      if(second===first){second="";altezEl("altez-category-secondary").value="";}
       const groups=new Map();
+      function valueFor(element,key){
+        if(!key)return "";
+        if(key===ALTEZ_AUTO_TYPE_KEY)return data.autoTypes.get(element.uid)||"";
+        const p=element.values.get(key);
+        return p?String(p.value||"").trim():"";
+      }
       for(const element of data.elements){
-        const itemA=first&&element.values.get(first);
-        const rawA=itemA?String(itemA.value||"").trim():"";
-        const itemB=second&&element.values.get(second);
-        const rawB=itemB?String(itemB.value||"").trim():"";
+        const rawA=valueFor(element,first);
+        const rawB=valueFor(element,second);
         const normA=first?altezNormalize(rawA,first):"alles";
         const normB=second?altezNormalize(rawB,second):"";
-        const nameA=rawA||"(Geen waarde)";
-        const nameB=second?(rawB||"(Geen waarde)"):"";
         const groupKey=JSON.stringify([normA,normB]);
         let g=groups.get(groupKey);
-        if(!g){g={key:groupKey,name:nameA,subtitle:nameB,elements:[]};groups.set(groupKey,g);}
+        if(!g){g={key:groupKey,name:rawA||"(Geen waarde)",subtitle:second?(rawB||"(Geen waarde)"):"",elements:[]};groups.set(groupKey,g);}
         g.elements.push(element);
       }
-      altezCurrentGroups=Array.from(groups.values()).sort((a,b)=>b.elements.length-a.elements.length || a.name.localeCompare(b.name,"nl",{numeric:true}));
+      altezCurrentGroups=Array.from(groups.values()).sort((a,b)=>b.elements.length-a.elements.length||a.name.localeCompare(b.name,"nl",{numeric:true}));
       altezRenderGroupRows();
     }
     function altezRenderGroupRows() {
