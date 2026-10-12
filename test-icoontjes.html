@@ -597,6 +597,18 @@
 .altez-sub-choice span{font-size:10px;color:var(--muted)}
 .altez-sub-note{color:var(--muted);font-size:11px;line-height:1.45;margin-top:8px}
 
+
+/* ALTEZ: drie overzichtelijke niveaus en een ingeklapte aanvullende filter */
+.altez-sub-panel {margin:10px 0 13px}
+.altez-level-heading{font-size:12px;color:var(--muted);margin:6px 0 11px}
+.altez-filter-details{margin:11px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#f8fafb}
+.altez-filter-details summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--blue-dark);list-style-position:inside;padding:4px 0}
+.altez-filter-details .altez-cat-row{margin-top:12px}
+.altez-type-heading{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:9px}
+.altez-type-heading button{width:auto}
+.altez-type-heading strong{font-size:12px}
+.altez-model-overview{margin:10px 0 0;padding:9px;background:#f1f6f9;border-radius:7px;font-size:11px;line-height:1.55;color:var(--ink)}
+.altez-model-overview em{font-style:normal;color:#9e5600}
 </style>
 </head>
 <body>
@@ -672,9 +684,9 @@
         <button id="altez-category-select-all" type="button" style="margin-bottom:10px">Selecteer alles</button>
         <p id="altez-category-description" class="altez-cat-help"></p>
         <div id="altez-subcategory-panel" class="altez-sub-panel hidden">
-          <div class="altez-sub-head"><strong>Subcategorieen</strong><span id="altez-subcategory-count"></span></div>
+          <div class="altez-sub-head"><strong>2. Kies subcategorie</strong><span id="altez-subcategory-count"></span></div>
           <div id="altez-subcategory-grid" class="altez-sub-grid"></div>
-          <div class="altez-sub-note">Gevonden op basis van bouwkundige en constructieve IFC-eigenschappen. Onzekere elementen blijven bij Overige. Selecteer alles geldt voor de huidige groep.</div>
+          <div class="altez-sub-note">Kies een subcategorie om alle types te zien. Onzekere elementen blijven onder Overige. De knop Selecteer alles bovenaan selecteert alle objecten in de huidige keuze.</div>
         </div>
         <div id="altez-unknown-panel" class="altez-infer-panel hidden">
           <h3>Wat kunnen deze elementen zijn?</h3>
@@ -683,11 +695,20 @@
           <div id="altez-unknown-suggestions" class="altez-infer-list"></div>
           <div id="altez-unknown-unresolved" class="altez-infer-residual hidden"></div>
         </div>
-        <div class="altez-cat-row">
+        <div id="altez-type-screen" class="hidden">
+          <div class="altez-type-heading">
+            <button id="altez-back-to-subcategories" class="secondary small" type="button">← Subcategorieën</button>
+            <strong id="altez-type-title">3. Types</strong>
+          </div>
+          <div class="altez-level-heading">Klik op Selecteer bij een type, of vink verschillende types aan om ze samen te selecteren.</div>
+          <details id="altez-advanced-filters" class="altez-filter-details">
+            <summary>Meer filters (materiaal, dikte, afwerking, andere types)</summary>
+            <div class="altez-cat-row">
           <div class="altez-cat-field"><label for="altez-category-primary">Groepeer op</label><select id="altez-category-primary"></select></div>
           <div class="altez-cat-field"><label for="altez-category-secondary">Daarna op (optioneel)</label><select id="altez-category-secondary"></select></div>
         </div>
-        <div id="altez-category-suggestions" class="altez-cat-suggestions"></div>
+            <div id="altez-category-suggestions" class="altez-cat-suggestions"></div>
+          </details>
         <input id="altez-category-filter" type="search" placeholder="Zoek in groepen...">
         <div id="altez-category-result-summary" class="altez-cat-status"></div>
         <div id="altez-category-results" class="altez-cat-results"></div>
@@ -695,6 +716,7 @@
         <div class="altez-cat-actions" style="grid-template-columns:1fr">
           <button id="altez-category-select-checked" class="secondary" type="button" disabled>Selecteer aangevinkt</button>
         </div>
+        </div><!-- /altez-type-screen -->
         <div id="altez-category-selection-status" class="altez-cat-status"></div>
       </div>
       <div class="altez-cat-notice">Deze versie selecteert alleen objecten in Trimble. Er wordt geen geometrie aangepast, verborgen of gekleurd. Onzekere IFC-objecten staan bij Te controleren.</div>
@@ -1419,6 +1441,7 @@
       ui.refreshModel.disabled = true;
 
       analyzedElements = [];
+      altezLastAnalysisFailedBatches = 0;
       altezOverrides.clear();
       parameterResults = [];
       excludedParameterCount = 0;
@@ -1480,6 +1503,7 @@
 
         setProgress(92, "Niet-geometrische parameters beoordelen...");
         parameterResults = buildParameterAnalysis(analyzedElements);
+        altezLastAnalysisFailedBatches = failedBatches;
         altezRefreshCategories();
         setProgress(100, "Analyse gereed.");
 
@@ -3994,6 +4018,8 @@
     const altezCategoryCache = new Map();
     const altezSubcategoryCache = new Map();
     let altezActiveSubcategory = "";
+    let altezSubcategoryScreen = "categories";
+    let altezLastAnalysisFailedBatches = 0;
     let altezActiveCategory = "";
     let altezCurrentGroups = [];
     let altezCheckedGroupKeys = new Set();
@@ -4024,36 +4050,38 @@
       });
       return {cls,predefined,type,name,candidates};
     }
+    const ALTEZ_FOUNDATION_TERMS = /paal[\s_-]*kop(?:pen)?|paal[\s_-]*poer(?:en)?|paal[\s_-]*fundering(?:en)?|funderings?[\s_-]*paal(?:en)?|hei[\s_-]*paal(?:en)?|boor[\s_-]*paal(?:en)?|fundatie[\s_-]*paal(?:en)?|funderings?[\s_-]*balk(?:en)?|funderings?[\s_-]*zool(?:en)?|stroken[\s_-]*fundering|pile[\s_-]*(?:head|heads|cap|caps|foundation|footing)|foundation[\s_-]*(?:pile|beam|footing)|(?:strip|pad|isolated)[\s_-]*footing/i;
     function altezRecognize(element) {
-      const e = altezEvidence(element);
-      const cls = e.cls;
-      const context = (e.type + " " + e.name + " " + e.candidates);
-      const subtype = (e.predefined + " " + e.type);
-      if (/ifcroof\b/.test(cls)) return "roof";
-      if (/ifcwall/.test(cls)) return "wall";
-      if (/ifcfooting|ifcpile\b/.test(cls)) return "foundation";
-      if (/ifccolumn/.test(cls)) return "column";
-      if (/ifcbeam/.test(cls)) return "beam";
-      if (/ifcdoor/.test(cls)) return "door";
-      if (/ifcwindow/.test(cls)) return "window";
-      if (/ifcstair|ifcramp/.test(cls)) return "stair";
-      if (/ifcslab/.test(cls)) {
-        return /\broof\b|dak|toit|dach/.test(subtype) ? "roof" : "floor";
+      const e=altezEvidence(element);
+      const cls=e.cls;
+      const context=(e.type+" "+e.name+" "+e.candidates);
+      const subtype=(e.predefined+" "+e.type);
+      // Prioriteit voor funderingen; proxy's, beams, slabs en columns kunnen
+      // bijvoorbeeld 'Paalkop' of 'Funderingsbalk' heten.
+      if(/ifcfooting|ifcpile\b|ifcdeepfoundation/.test(cls))return "foundation";
+      if(ALTEZ_FOUNDATION_TERMS.test(altezSubcategoryEvidence(element)))return "foundation";
+      if(/ifcroof\b/.test(cls))return "roof";
+      if(/ifcwall/.test(cls))return "wall";
+      if(/ifccolumn/.test(cls))return "column";
+      if(/ifcbeam/.test(cls))return "beam";
+      if(/ifcdoor/.test(cls))return "door";
+      if(/ifcwindow/.test(cls))return "window";
+      if(/ifcstair|ifcramp/.test(cls))return "stair";
+      if(/ifcslab/.test(cls))return /\broof\b|dak|toit|dach/.test(subtype)?"roof":"floor";
+      if(/ifccovering/.test(cls)){
+        if(/roofing|roof|dak/.test(subtype+" "+context))return "roof";
+        if(/flooring|floor|vloer/.test(subtype+" "+context))return "floor";
       }
-      if (/ifccovering/.test(cls)) {
-        if (/roofing|roof|dak/.test(subtype + " " + context)) return "roof";
-        if (/flooring|floor|vloer/.test(subtype + " " + context)) return "floor";
+      if(/ifcmember/.test(cls)){
+        if(/gording|purlin|beam|ligger|spant|rafter|brace/.test(context))return "beam";
+        if(/kolom|column|stijl|post/.test(context))return "column";
       }
-      if (/ifcmember/.test(cls)) {
-        if (/gording|purlin|beam|ligger|spant|rafter|brace/.test(context)) return "beam";
-        if (/kolom|column|stijl|post/.test(context)) return "column";
-      }
-      if (/ifcplate|ifcbuildingelementproxy|ifcbuildingelementpart|ifcelementassembly/.test(cls) || !cls) {
-        if (/sandwichwand|gevelpaneel|prefabwand|wall panel|\bwand\b|\bwall\b/.test(context)) return "wall";
-        if (/roof|dakpaneel|dakplaat|dakbedekking|dak/.test(context)) return "roof";
-        if (/vloer|floor slab|floor panel|vloerplaat/.test(context)) return "floor";
-        if (/kolom|column/.test(context)) return "column";
-        if (/ligger|beam|spant|gording/.test(context)) return "beam";
+      if(/ifcplate|ifcbuildingelementproxy|ifcbuildingelementpart|ifcelementassembly/.test(cls)||!cls){
+        if(/sandwichwand|gevelpaneel|prefabwand|wall panel|\bwand\b|\bwall\b/.test(context))return "wall";
+        if(/roof|dakpaneel|dakplaat|dakbedekking|dak/.test(context))return "roof";
+        if(/vloer|floor slab|floor panel|vloerplaat/.test(context))return "floor";
+        if(/kolom|column/.test(context))return "column";
+        if(/ligger|beam|spant|gording/.test(context))return "beam";
       }
       return "unknown";
     }
@@ -4062,6 +4090,7 @@
       altezCategoryCache.clear();
       altezSubcategoryCache.clear();
       altezActiveSubcategory = "";
+      altezSubcategoryScreen = "categories";
       ALTEZ_CATEGORIES.forEach(function(c){altezByCategory.set(c.id, []);});
       analyzedElements.forEach(function(element) {
         const target = altezOverrides.get(element.uid) || altezRecognize(element);
@@ -4071,6 +4100,7 @@
       altezEl("altez-undo-assignments").classList.toggle("hidden",!altezOverrides.size);
       altezActiveCategory = "";
       altezActiveSubcategory = "";
+      altezSubcategoryScreen = "categories";
       altezEl("altez-category-home").classList.remove("hidden");
       altezEl("altez-category-details").classList.add("hidden");
     }
@@ -4093,7 +4123,21 @@
         button.addEventListener("click", function(){altezOpenCategory(c.id);});
         container.appendChild(button);
       });
-      altezEl("altez-category-summary").textContent = analyzedElements.length.toLocaleString("nl-BE") + " ingelezen objecten. Indeling op IFC-klasse en, bij generieke objecten, typekenmerken.";
+      const n=analyzedElements.length;
+      const unknown=(altezByCategory.get("unknown")||[]).length;
+      const recognized=n-unknown;
+      const pct=n?Math.round(recognized/n*100):0;
+      const summary=altezEl("altez-category-summary");
+      summary.classList.add("altez-model-overview");
+      summary.replaceChildren();
+      const totals=document.createElement("span");
+      totals.textContent=n.toLocaleString("nl-BE")+" ingelezen · "+recognized.toLocaleString("nl-BE")+" herkend ("+pct+"%) · "+unknown.toLocaleString("nl-BE")+" te controleren.";
+      summary.appendChild(totals);
+      if(altezLastAnalysisFailedBatches>0){
+        const warning=document.createElement("em");
+        warning.textContent=" Let op: "+altezLastAnalysisFailedBatches+" propertyblokken konden niet worden ingelezen. De telling kan onvolledig zijn.";
+        summary.appendChild(warning);
+      }
     }
 
     /* Alleen bouwkundige en constructieve soorten. Geen extra hoofdtegels of technieken. */
@@ -4133,10 +4177,11 @@
         {id:"timber",label:"Houten liggers",re:/hout|timber|wood|glulam|gelamineerd/i}
       ],
       foundation: [
-        {id:"pile",label:"Funderingspalen",re:/heipaal|funderingspaal|boorpaal|paalfundering|foundation[\s-]*pile|bored[\s-]*pile|ifcpile/i},
-        {id:"footing",label:"Poeren",re:/poer|poeren|pile[\s-]*cap|pad[\s-]*footing|isolated[\s-]*footing/i},
-        {id:"beam",label:"Funderingsbalken",re:/funderingsbalk|foundation[\s-]*beam|grade[\s-]*beam|ground[\s-]*beam/i},
-        {id:"strip",label:"Funderingszolen",re:/funderingszool|strokenfundering|strip[\s-]*footing|strip[\s-]*foundation/i}
+        {id:"pile",label:"Funderingspalen / paalfunderingen",re:/heipaal|hei[\s-]*paal|funderingspaal|funderings[\s-]*palen|boorpaal|paalfundering|paal[\s-]*fundering|foundation[\s-]*pile|bored[\s-]*pile|ifcpile/i},
+        {id:"head",label:"Paalkoppen",re:/paalkop|paal[\s-]*kop|pile[\s-]*head|pilehead/i},
+        {id:"cap",label:"Paalpoeren / poeren",re:/paalpoer|paal[\s-]*poer|poer|poeren|pile[\s-]*cap|pad[\s-]*footing|isolated[\s-]*footing/i},
+        {id:"beam",label:"Funderingsbalken",re:/funderingsbalk|fundering[\s-]*balk|foundation[\s-]*beam|grade[\s-]*beam|ground[\s-]*beam/i},
+        {id:"strip",label:"Funderingszolen",re:/funderingszool|fundering[\s-]*zool|strokenfundering|strip[\s-]*footing|strip[\s-]*foundation/i}
       ],
       door: [
         {id:"industrial",label:"Industriele poorten",re:/sectionaal|sectional|overhead[\s-]*door|industrial[\s-]*door|rolpoort|garagepoort/i},
@@ -4215,32 +4260,52 @@
       const panel=altezEl("altez-subcategory-panel");
       const grid=altezEl("altez-subcategory-grid");
       const categories=altezGetSubcategories(altezActiveCategory);
-      const recognized=categories.some(c=>c.id!=="other");
-      panel.classList.toggle("hidden",!recognized||altezActiveCategory==="unknown");
+      const category=ALTEZ_CATEGORIES.find(c=>c.id===altezActiveCategory);
+      panel.classList.toggle("hidden",altezActiveCategory==="unknown"||altezSubcategoryScreen==="types");
       grid.replaceChildren();
-      if(!recognized)return;
+      if(altezActiveCategory==="unknown")return;
       altezEl("altez-subcategory-count").textContent=categories.length+" gevonden";
-      const all={id:"",label:"Alle "+(ALTEZ_CATEGORIES.find(c=>c.id===altezActiveCategory)?.label||"bouwdelen").toLocaleLowerCase("nl-BE"),elements:altezByCategory.get(altezActiveCategory)||[]};
+      const all={id:"",label:"Alle "+(category?.label||"bouwdelen").toLocaleLowerCase("nl-BE"),elements:altezByCategory.get(altezActiveCategory)||[]};
       for(const sub of [all,...categories]){
         const button=document.createElement("button");
         button.type="button";
-        button.className="altez-sub-choice"+(altezActiveSubcategory===sub.id?" active":"");
+        button.className="altez-sub-choice";
         const title=document.createElement("strong");title.textContent=sub.label;
-        const meta=document.createElement("span");meta.textContent=sub.elements.length+" elementen";
+        const meta=document.createElement("span");meta.textContent=sub.elements.length+" elementen · Bekijk types";
         button.append(title,meta);
-        button.addEventListener("click",function(){
-          altezActiveSubcategory=sub.id;
-          altezCategoryCache.clear();
-          altezCheckedGroupKeys.clear();
-          altezShowCount=30;
-          altezEl("altez-category-filter").value="";
-          altezRenderSubcategoryTiles();
-          altezUpdateSubcategoryHeader();
-          altezPopulateGroupingSelects();
-          altezRenderGroups();
-        });
+        button.addEventListener("click",function(){altezShowTypeScreen(sub.id);});
         grid.appendChild(button);
       }
+    }
+
+    function altezShowSubcategoryScreen(){
+      altezSubcategoryScreen="categories";
+      altezActiveSubcategory="";
+      altezCheckedGroupKeys.clear();
+      altezEl("altez-type-screen").classList.add("hidden");
+      altezEl("altez-advanced-filters").open=false;
+      altezUpdateSubcategoryHeader();
+      altezRenderSubcategoryTiles();
+      altezEl("altez-category-description").textContent="Kies een subcategorie om meteen de beschikbare types en aantallen te bekijken.";
+    }
+    function altezShowTypeScreen(subcategory){
+      altezActiveSubcategory=subcategory;
+      altezSubcategoryScreen="types";
+      altezCategoryCache.clear();
+      altezCheckedGroupKeys.clear();
+      altezShowCount=30;
+      altezEl("altez-category-filter").value="";
+      altezEl("altez-advanced-filters").open=false;
+      altezEl("altez-category-selection-status").textContent="";
+      altezEl("altez-type-screen").classList.remove("hidden");
+      altezRenderSubcategoryTiles();
+      altezUpdateSubcategoryHeader();
+      const data=altezMakeCategoryIndex(altezActiveCategory);
+      const label=altezGetSubcategories(altezActiveCategory).find(c=>c.id===subcategory)?.label||"Alle types";
+      altezEl("altez-type-title").textContent="3. Types · "+label;
+      altezEl("altez-category-description").textContent="Kies direct een type uit de lijst. Voor aanvullende groeperingen kun je 'Meer filters' openen.";
+      altezPopulateGroupingSelects();
+      altezRenderGroups();
     }
 
     const ALTEZ_AUTO_TYPE_KEY = "__altez_automatic_type__";
@@ -4387,23 +4452,30 @@
     function altezOpenCategory(id) {
       altezActiveCategory=id;
       altezActiveSubcategory="";
-      altezShowCount=30;altezCheckedGroupKeys.clear();
-      const c=ALTEZ_CATEGORIES.find(x=>x.id===id);
-      const n=(altezByCategory.get(id)||[]).length;
-      const data=altezMakeCategoryIndex(id);
-      altezRenderSubcategoryTiles();
+      altezSubcategoryScreen="categories";
+      altezShowCount=30;
+      altezCheckedGroupKeys.clear();
       altezEl("altez-category-home").classList.add("hidden");
       altezEl("altez-category-details").classList.remove("hidden");
-      altezUpdateSubcategoryHeader();
       altezEl("altez-unknown-panel").classList.toggle("hidden",id!=="unknown");
-      if(id==="unknown")altezRenderUnknownSuggestions();
-      altezEl("altez-category-description").textContent=data.explicitCount
-        ? "Direct de types: "+data.explicitCount+" objecten met een echte typeparameter"+(data.fallbackCount?" · "+data.fallbackCount+" herkend via herhaalde productnamen":"")+". Verfijn via materiaal, dikte of afwerking."
-        : "Geen ingevulde typeparameter gevonden. Herhaalde productnamen worden als alternatief gebruikt; controleer de ontbrekende types.";
       altezEl("altez-category-filter").value="";
       altezEl("altez-category-selection-status").textContent="";
-      altezPopulateGroupingSelects();
-      altezRenderGroups();
+      altezEl("altez-advanced-filters").open=false;
+      if(id==="unknown"){
+        altezSubcategoryScreen="types";
+        altezEl("altez-type-screen").classList.remove("hidden");
+        altezEl("altez-back-to-subcategories").classList.add("hidden");
+        altezEl("altez-type-title").textContent="3. Beschikbare objecttypes";
+        altezEl("altez-category-description").textContent="Deze elementen zijn niet eenduidig herkend. Bekijk de voorstellen hieronder of selecteer een type.";
+        altezRenderUnknownSuggestions();
+        altezPopulateGroupingSelects();
+        altezRenderGroups();
+      }else{
+        altezEl("altez-back-to-subcategories").classList.remove("hidden");
+        altezShowSubcategoryScreen();
+      }
+      altezRenderSubcategoryTiles();
+      altezUpdateSubcategoryHeader();
     }
     function altezOnGroupParametersChanged() {
       altezCheckedGroupKeys.clear();
@@ -4505,6 +4577,7 @@
     altezEl("altez-category-reopen").addEventListener("click",function(){
       altezOpenIconMode();
     });
+    altezEl("altez-back-to-subcategories").addEventListener("click",altezShowSubcategoryScreen);
     altezEl("altez-category-back").addEventListener("click",function(){
       altezActiveCategory="";
       altezEl("altez-category-home").classList.remove("hidden");
